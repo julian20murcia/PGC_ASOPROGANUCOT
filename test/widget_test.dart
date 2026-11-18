@@ -18,7 +18,9 @@ import 'package:pgc_asoproganucot/models/audit_log_model.dart';
 import 'package:pgc_asoproganucot/models/milk_reception_model.dart';
 import 'package:pgc_asoproganucot/models/producer_model.dart';
 import 'package:pgc_asoproganucot/models/user_model.dart';
+import 'package:pgc_asoproganucot/views/shared/widgets/cow_balloon_3d_widget.dart';
 import 'package:pgc_asoproganucot/views/shared/widgets/dairy_loader.dart';
+import 'package:pgc_asoproganucot/views/shared/widgets/design_system_widgets.dart';
 import 'package:provider/provider.dart';
 
 class _MockFirebaseUserService extends Mock implements FirebaseUserService {}
@@ -207,5 +209,57 @@ void main() {
     expect(find.text('Captura rápida en planta'), findsOneWidget);
     expect(find.text('Litros recibidos hoy'), findsOneWidget);
     expect(find.text('Registrar entrega'), findsOneWidget);
+  });
+
+  testWidgets(
+      'Login móvil muestra cabecera wave moderna sin el modelo 3D y sin desbordamientos',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final _MockFirebaseUserService mockUserService = _MockFirebaseUserService();
+    final _MockFcmService mockFcmService = _MockFcmService();
+    final HiveService memoryHive = HiveService(enablePersistence: false);
+    when(() => mockUserService.currentFirebaseUser).thenReturn(null);
+
+    final AuthController authController = AuthController(
+      userService: mockUserService,
+      hiveService: memoryHive,
+      fcmService: mockFcmService,
+    );
+    await authController.initialize();
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: <ChangeNotifierProvider<dynamic>>[
+          ChangeNotifierProvider<AuthController>.value(value: authController),
+          ChangeNotifierProvider<UserController>(
+            create: (_) => UserController(userService: mockUserService),
+          ),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.lightTheme(),
+          home: const AuthGate(),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.byType(ModernWaveHeader), findsOneWidget);
+    expect(find.byType(CowBalloon3DWidget), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byType(ModernWaveHeader),
+        matching: find.text('ASOPROGANUCOTT'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Recepción láctea y consulta de productores'), findsOneWidget);
+    expect(find.text('Iniciar sesión'), findsOneWidget);
+    expect(find.text('Ingresar al sistema'), findsOneWidget);
   });
 }

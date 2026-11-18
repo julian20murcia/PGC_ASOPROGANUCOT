@@ -528,3 +528,136 @@ class CleanDataTable extends StatelessWidget {
     );
   }
 }
+
+/// Cabecera móvil moderna con fondo en tinta negra `#0E1117` y ondas suaves
+/// escalonadas en verde esmeralda y blanco puro para transicionar al contenido.
+class ModernWaveHeader extends StatelessWidget {
+  const ModernWaveHeader({
+    super.key,
+    required this.height,
+    required this.child,
+    this.bottomSurfaceColor = AppTheme.surface,
+  });
+
+  final double height;
+  final Widget child;
+  final Color bottomSurfaceColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: height,
+      width: double.infinity,
+      child: Stack(
+        fit: StackFit.expand,
+        children: <Widget>[
+          CustomPaint(
+            painter: _ModernWavePainter(
+              bottomSurfaceColor: bottomSurfaceColor,
+            ),
+          ),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _ModernWavePainter extends CustomPainter {
+  const _ModernWavePainter({required this.bottomSurfaceColor});
+
+  final Color bottomSurfaceColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final double w = size.width;
+    final double h = size.height;
+
+    // Fondo principal oscuro
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, w, h),
+      Paint()..color = AppTheme.inkBlack,
+    );
+
+    // Anillos geométricos sutiles arriba a la derecha
+    final Paint ringPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.05)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+    canvas.drawCircle(Offset(w * 0.88, h * 0.16), w * 0.24, ringPaint);
+    canvas.drawCircle(
+      Offset(w * 0.88, h * 0.16),
+      w * 0.38,
+      Paint()
+        ..color = AppTheme.primaryGreen.withValues(alpha: 0.16)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2,
+    );
+    canvas.drawCircle(
+      Offset(w * 0.10, h * 0.58),
+      w * 0.16,
+      Paint()..color = AppTheme.primaryGreen.withValues(alpha: 0.12),
+    );
+
+    // Onda trasera esmeralda
+    final Path backWave = Path()
+      ..moveTo(0, h * 0.72)
+      ..cubicTo(
+        w * 0.26,
+        h * 0.56,
+        w * 0.58,
+        h * 0.90,
+        w,
+        h * 0.68,
+      )
+      ..lineTo(w, h)
+      ..lineTo(0, h)
+      ..close();
+    canvas.drawPath(
+      backWave,
+      Paint()..color = AppTheme.primaryGreen.withValues(alpha: 0.36),
+    );
+
+    // Onda intermedia marfil traslúcida
+    final Path midWave = Path()
+      ..moveTo(0, h * 0.83)
+      ..cubicTo(
+        w * 0.34,
+        h * 0.96,
+        w * 0.64,
+        h * 0.62,
+        w,
+        h * 0.80,
+      )
+      ..lineTo(w, h)
+      ..lineTo(0, h)
+      ..close();
+    canvas.drawPath(
+      midWave,
+      Paint()..color = Colors.white.withValues(alpha: 0.14),
+    );
+
+    // Onda frontal en color sólido de la hoja blanca para empalme perfecto
+    final Path frontWave = Path()
+      ..moveTo(0, h * 0.86)
+      ..cubicTo(
+        w * 0.28,
+        h * 0.72,
+        w * 0.68,
+        h * 1.01,
+        w,
+        h * 0.83,
+      )
+      ..lineTo(w, h + 2)
+      ..lineTo(0, h + 2)
+      ..close();
+    canvas.drawPath(
+      frontWave,
+      Paint()..color = bottomSurfaceColor,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _ModernWavePainter oldDelegate) =>
+      oldDelegate.bottomSurfaceColor != bottomSurfaceColor;
+}

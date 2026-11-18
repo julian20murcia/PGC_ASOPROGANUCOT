@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../../controllers/auth_controller.dart';
@@ -7,7 +8,7 @@ import '../../core/theme/app_theme.dart';
 import '../../models/user_model.dart';
 import '../shared/widgets/design_system_widgets.dart';
 
-/// Portal móvil exclusivo de solo lectura para Productores / Ganaderos (adaptive-ux).
+/// Portal móvil exclusivo de solo lectura para Productores / Ganaderos en campo.
 class ProducerShellView extends StatefulWidget {
   const ProducerShellView({super.key});
 
@@ -22,107 +23,142 @@ class _ProducerShellViewState extends State<ProducerShellView> {
   Widget build(BuildContext context) {
     final AuthController auth = context.watch<AuthController>();
     final UserModel user = auth.currentUser ?? UserModel.bootstrapAdmin();
+    final double topInset = MediaQuery.of(context).padding.top;
 
     return Scaffold(
-      backgroundColor: AppTheme.canvas,
-      appBar: AppBar(
-        backgroundColor: AppTheme.surface,
-        surfaceTintColor: Colors.transparent,
-        shape: const Border(bottom: BorderSide(color: AppTheme.border)),
-        title: Row(
-          children: <Widget>[
-            const AsoproganucotLogo(size: 32, compact: true),
-            const SizedBox(width: 10),
-            Expanded(
+      backgroundColor: AppTheme.surface,
+      body: Column(
+        children: <Widget>[
+          ModernWaveHeader(
+            height: 158 + topInset,
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(20, topInset + 12, 14, 34),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: <Widget>[
-                  const Text(
-                    AppConstants.appName,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.textPrimary,
-                    ),
+                  Row(
+                    children: <Widget>[
+                      const AsoproganucotLogo(
+                        size: 34,
+                        compact: true,
+                        onDark: true,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          AppConstants.appName,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Cerrar sesión',
+                        onPressed: auth.signOut,
+                        icon: const Icon(
+                          Icons.logout_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                    ],
                   ),
-                  Text(
-                    user.nombreCompleto,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppTheme.textSecondary,
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        'Hola, ${user.nombreCompleto}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.sourceSerif4(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'C.C. ${user.documento} · ${AppConstants.roleShortLabel(user.rol)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          color: Color(0xFFA7F3D0),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
-          ],
-        ),
-        actions: <Widget>[
-          IconButton(
-            tooltip: 'Cerrar sesión',
-            onPressed: auth.signOut,
-            icon: const Icon(
-              Icons.logout_rounded,
-              color: AppTheme.dangerText,
+          ),
+          Expanded(
+            child: IndexedStack(
+              index: _tabIndex,
+              children: <Widget>[
+                _ProducerTabCard(
+                  title: 'Resumen de Producción',
+                  subtitle:
+                      'Consulta en tiempo real de tus litros acumulados en la quincena y estimado proyectado.',
+                  icon: Icons.bar_chart_rounded,
+                  user: user,
+                  tagLabel: 'Quincena actual',
+                ),
+                _ProducerTabCard(
+                  title: 'Mis Entregas Diarias',
+                  subtitle:
+                      'Historial cronológico de entregas de mañana y tarde registradas en la planta de Susa.',
+                  icon: Icons.water_drop_outlined,
+                  user: user,
+                  tagLabel: 'Historial de acopio',
+                ),
+                _ProducerTabCard(
+                  title: 'Liquidaciones y Avisos',
+                  subtitle:
+                      'Comprobantes de liquidación quincenal, estado de pago y avisos de la asociación.',
+                  icon: Icons.receipt_long_outlined,
+                  user: user,
+                  tagLabel: 'Pagos y comprobantes',
+                ),
+              ],
             ),
           ),
         ],
       ),
-      body: SafeArea(
-        child: IndexedStack(
-          index: _tabIndex,
-          children: <Widget>[
-            _ProducerTabCard(
-              title: 'Resumen de Producción',
-              subtitle:
-                  'Consulta en tiempo real de tus litros acumulados en la quincena y estimado proyectado.',
-              icon: Icons.bar_chart_rounded,
-              user: user,
-              rfLabel: 'Quincena actual',
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: AppTheme.border)),
+        ),
+        child: NavigationBar(
+          backgroundColor: AppTheme.surface,
+          indicatorColor: AppTheme.inkBlack,
+          selectedIndex: _tabIndex,
+          onDestinationSelected: (int index) =>
+              setState(() => _tabIndex = index),
+          destinations: const <NavigationDestination>[
+            NavigationDestination(
+              icon: Icon(Icons.home_outlined),
+              selectedIcon: Icon(Icons.home_rounded, color: Colors.white),
+              label: 'Resumen',
             ),
-            _ProducerTabCard(
-              title: 'Mis Entregas Diarias',
-              subtitle:
-                  'Historial cronológico de entregas de mañana y tarde registradas en la planta de Susa.',
-              icon: Icons.water_drop_outlined,
-              user: user,
-              rfLabel: 'Historial de acopio',
+            NavigationDestination(
+              icon: Icon(Icons.water_drop_outlined),
+              selectedIcon: Icon(Icons.water_drop_rounded, color: Colors.white),
+              label: 'Mis Entregas',
             ),
-            _ProducerTabCard(
-              title: 'Liquidaciones y Avisos',
-              subtitle:
-                  'Comprobantes de liquidación quincenal, estado de pago y avisos de la asociación.',
-              icon: Icons.receipt_long_outlined,
-              user: user,
-              rfLabel: 'Pagos y comprobantes',
+            NavigationDestination(
+              icon: Icon(Icons.notifications_outlined),
+              selectedIcon:
+                  Icon(Icons.notifications_rounded, color: Colors.white),
+              label: 'Liquidaciones',
             ),
           ],
         ),
-      ),
-      bottomNavigationBar: NavigationBar(
-        backgroundColor: AppTheme.surface,
-        indicatorColor: AppTheme.cowBlack,
-        selectedIndex: _tabIndex,
-        onDestinationSelected: (int index) =>
-            setState(() => _tabIndex = index),
-        destinations: const <NavigationDestination>[
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home_rounded, color: Colors.white),
-            label: 'Resumen',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.water_drop_outlined),
-            selectedIcon: Icon(Icons.water_drop_rounded, color: Colors.white),
-            label: 'Mis Entregas',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.notifications_outlined),
-            selectedIcon: Icon(Icons.notifications_rounded, color: Colors.white),
-            label: 'Liquidaciones',
-          ),
-        ],
       ),
     );
   }
@@ -134,19 +170,19 @@ class _ProducerTabCard extends StatelessWidget {
     required this.subtitle,
     required this.icon,
     required this.user,
-    required this.rfLabel,
+    required this.tagLabel,
   });
 
   final String title;
   final String subtitle;
   final IconData icon;
   final UserModel user;
-  final String rfLabel;
+  final String tagLabel;
 
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(18, 10, 18, 24),
       children: <Widget>[
         Container(
           padding: const EdgeInsets.all(20),
@@ -164,10 +200,17 @@ class _ProducerTabCard extends StatelessWidget {
                     width: 42,
                     height: 42,
                     decoration: BoxDecoration(
-                      color: AppTheme.cowBlack,
+                      color: AppTheme.primaryGreenLight,
                       borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: AppTheme.primaryGreen.withValues(alpha: 0.25),
+                      ),
                     ),
-                    child: Icon(icon, color: Colors.white, size: 22),
+                    child: Icon(
+                      icon,
+                      color: AppTheme.primaryGreen,
+                      size: 22,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -176,10 +219,11 @@ class _ProducerTabCard extends StatelessWidget {
                       children: <Widget>[
                         Text(title, style: AppTheme.subtitleStyle()),
                         Text(
-                          rfLabel,
-                          style: AppTheme.monoStyle(
-                            fontSize: 12,
-                            color: AppTheme.textSecondary,
+                          tagLabel,
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.primaryGreen,
                           ),
                         ),
                       ],
@@ -200,18 +244,11 @@ class _ProducerTabCard extends StatelessWidget {
               const Divider(),
               const SizedBox(height: 12),
               Text(
-                'Sesión verificada: ${user.correo}',
+                'Cuenta activa: ${user.correo}',
                 style: const TextStyle(
                   fontSize: 13.5,
                   fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Documento: ${user.documento} · Rol: ${AppConstants.roleLabel(user.rol)}',
-                style: AppTheme.monoStyle(
-                  fontSize: 12.5,
-                  color: AppTheme.textSecondary,
+                  color: AppTheme.textPrimary,
                 ),
               ),
             ],

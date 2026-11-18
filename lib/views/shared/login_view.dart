@@ -188,7 +188,7 @@ class _LoginViewState extends State<LoginView>
         body: Stack(
           children: <Widget>[
             SafeArea(
-              top: !isDesktop,
+              top: false,
               bottom: !isDesktop,
               child: isDesktop
                   ? _buildDesktopLayout(auth)
@@ -391,93 +391,114 @@ class _LoginViewState extends State<LoginView>
   }
 
   Widget _buildMobileLayout(AuthController auth) {
-    return Column(
-      children: <Widget>[
-        Container(
-          height: 185,
-          width: double.infinity,
-          color: AppTheme.inkBlack,
-          child: Stack(
-            fit: StackFit.expand,
-            children: <Widget>[
-              const MilkFlowBackground(opacity: 0.9),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
-                child: Column(
-                  children: <Widget>[
-                    Row(
-                      children: <Widget>[
-                        const AsoproganucotLogo(
-                          size: 32,
-                          compact: true,
-                          onDark: true,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            AppConstants.appName,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
+    final double topInset = MediaQuery.of(context).padding.top;
+
+    return SingleChildScrollView(
+      child: Column(
+        children: <Widget>[
+          ModernWaveHeader(
+            height: 248 + topInset,
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(24, topInset + 20, 24, 54),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: <Widget>[
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: <Widget>[
+                      const AsoproganucotLogo(
+                        size: 52,
+                        compact: false,
+                        onDark: true,
+                      ),
+                      Flexible(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 11,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.12),
+                            borderRadius:
+                                BorderRadius.circular(AppTheme.radiusPill),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.18),
                             ),
                           ),
-                        ),
-                        const Text(
-                          'Susa',
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            color: Color(0x88FFFFFF),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              Container(
+                                width: 6,
+                                height: 6,
+                                decoration: const BoxDecoration(
+                                  color: AppTheme.primaryGreen,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 7),
+                              const Flexible(
+                                child: Text(
+                                  'Susa · Cundinamarca',
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ],
-                    ),
-                    Expanded(
-                      child: Container(
-                        key: _cowContainerKey,
-                        alignment: Alignment.center,
-                        child: CowBalloon3DWidget(
-                          pointerNormalized: _pointerNormalized,
-                          showContactShadow: false,
-                          scaleFactor: 0.28,
+                      ),
+                    ],
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        AppConstants.appName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 21,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.3,
+                          color: Colors.white,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: Container(
-                  height: 16,
-                  decoration: const BoxDecoration(
-                    color: AppTheme.surface,
-                    borderRadius: BorderRadius.vertical(
-                      top: Radius.circular(18),
-                    ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Recepción láctea y consulta de productores',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.sourceSerif4(
+                          fontSize: 15.5,
+                          fontStyle: FontStyle.italic,
+                          color: const Color(0xFFA7F3D0),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-        Expanded(
-          child: Container(
+          Container(
             width: double.infinity,
             color: AppTheme.surface,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(22, 10, 22, 28),
+            padding: const EdgeInsets.fromLTRB(24, 6, 24, 32),
+            child: Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 420),
                 child: _buildLoginForm(auth, isMobile: true),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -609,10 +630,15 @@ class _LoginViewState extends State<LoginView>
           ),
         ],
         const SizedBox(height: 12),
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: InkWell(
+        SizedBox(
+          width: double.infinity,
+          child: Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 4,
+            children: <Widget>[
+              InkWell(
                 onTap: () => setState(() => _rememberMe = !_rememberMe),
                 borderRadius: BorderRadius.circular(6),
                 child: Padding(
@@ -641,41 +667,38 @@ class _LoginViewState extends State<LoginView>
                         ),
                       ),
                       const SizedBox(width: 8),
-                      const Flexible(
-                        child: Text(
-                          'Recordar acceso',
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: AppTheme.textSecondary,
-                          ),
+                      const Text(
+                        'Recordar acceso',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.textSecondary,
                         ),
                       ),
                     ],
                   ),
                 ),
               ),
-            ),
-            TextButton(
-              onPressed: auth.isLoading ? null : _handleForgotPassword,
-              style: TextButton.styleFrom(
-                foregroundColor: AppTheme.primaryGreen,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 4,
+              TextButton(
+                onPressed: auth.isLoading ? null : _handleForgotPassword,
+                style: TextButton.styleFrom(
+                  foregroundColor: AppTheme.primaryGreen,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 4,
+                  ),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: const Text(
-                '¿Olvidaste tu contraseña?',
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
+                child: const Text(
+                  '¿Olvidaste tu contraseña?',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         if (error != null && error.isNotEmpty) ...<Widget>[
           const SizedBox(height: 14),
