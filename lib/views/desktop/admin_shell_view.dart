@@ -238,7 +238,7 @@ class _AdminShellViewState extends State<AdminShellView> {
                           fit: StackFit.expand,
                           children: <Widget>[
                             ...previousChildren,
-                            if (currentChild != null) currentChild,
+                            ?currentChild,
                           ],
                         );
                       },
@@ -1043,7 +1043,7 @@ class _SidebarIconButtonState extends State<_SidebarIconButton> {
               size: 17,
               color: _hovered
                   ? Colors.white
-                  : Colors.white.withValues(alpha: 0.65),
+                  : Colors.white.withValues(alpha: 0.86),
             ),
           ),
         ),

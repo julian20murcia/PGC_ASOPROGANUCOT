@@ -140,34 +140,37 @@ class _UsersModuleViewState extends State<UsersModuleView> {
     final UserController ctrl = context.watch<UserController>();
     final bool isNarrow = MediaQuery.of(context).size.width < 920;
 
-    return SingleChildScrollView(
-      padding: EdgeInsets.symmetric(
-        horizontal: isNarrow ? 16 : 24,
-        vertical: isNarrow ? 16 : 20,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          _buildEditorialHeader(ctrl, isNarrow),
-          const SizedBox(height: 18),
-          _buildToolbar(ctrl, isNarrow),
-          const SizedBox(height: 12),
-          if (ctrl.isLoading && ctrl.allUsers.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 64),
-              child: Center(
-                child: DairyLoader(
-                  size: DairyLoaderSize.lg,
-                  label: 'Cargando usuarios…',
-                  hint: 'Un momento por favor.',
+    return Align(
+      alignment: Alignment.topLeft,
+      child: SingleChildScrollView(
+        padding: EdgeInsets.symmetric(
+          horizontal: isNarrow ? 16 : 24,
+          vertical: 16,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            _buildEditorialHeader(ctrl, isNarrow),
+            const SizedBox(height: 16),
+            _buildToolbar(ctrl, isNarrow),
+            const SizedBox(height: 14),
+            if (ctrl.isLoading && ctrl.allUsers.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 48),
+                child: Center(
+                  child: DairyLoader(
+                    size: DairyLoaderSize.lg,
+                    label: 'Cargando usuarios…',
+                    hint: 'Un momento por favor.',
+                  ),
                 ),
-              ),
-            )
-          else if (ctrl.filteredUsers.isEmpty)
-            _buildEmptyState(ctrl)
-          else
-            _buildTableSection(ctrl),
-        ],
+              )
+            else if (ctrl.filteredUsers.isEmpty)
+              _buildEmptyState(ctrl)
+            else
+              _buildTableSection(ctrl),
+          ],
+        ),
       ),
     );
   }
@@ -206,45 +209,16 @@ class _UsersModuleViewState extends State<UsersModuleView> {
       ],
     );
 
-    final Widget propertyPills = Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: <Widget>[
-        HeaderPropertyChip(
-          label: 'Total',
-          value: '${ctrl.totalCount}',
-        ),
-        HeaderPropertyChip(
-          label: 'Activos',
-          value: '${ctrl.activeCount}',
-          valueColor: AppTheme.successText,
-          dotColor: AppTheme.success,
-        ),
-        HeaderPropertyChip(
-          label: 'Administradores',
-          value: '${ctrl.adminCount}',
-        ),
-        HeaderPropertyChip(
-          label: 'Operarios',
-          value: '${ctrl.operarioCount}',
-        ),
-        HeaderPropertyChip(
-          label: 'Productores',
-          value: '${ctrl.productorCount}',
-        ),
-      ],
-    );
-
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         if (isNarrow) ...<Widget>[
           titleBlock,
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           actions,
         ] else
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: <Widget>[
               Expanded(child: titleBlock),
               const SizedBox(width: 16),
@@ -252,7 +226,7 @@ class _UsersModuleViewState extends State<UsersModuleView> {
             ],
           ),
         const SizedBox(height: 16),
-        propertyPills,
+        _UserSummaryStrip(ctrl: ctrl, isNarrow: isNarrow),
       ],
     );
   }
@@ -346,74 +320,82 @@ class _UsersModuleViewState extends State<UsersModuleView> {
     );
 
     if (isNarrow) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          searchField,
-          const SizedBox(height: 10),
-          Row(
-            children: <Widget>[
-              Expanded(child: roleDropdown),
-              const SizedBox(width: 10),
-              Expanded(child: statusDropdown),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: <Widget>[
-              Text(
-                countText,
-                style: AppTheme.monoStyle(
-                  fontSize: 12,
-                  color: AppTheme.textMuted,
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppTheme.surfaceMuted,
+          borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+          border: Border.all(color: AppTheme.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            searchField,
+            const SizedBox(height: 10),
+            Row(
+              children: <Widget>[
+                Expanded(child: roleDropdown),
+                const SizedBox(width: 10),
+                Expanded(child: statusDropdown),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: <Widget>[
+                Text(
+                  countText,
+                  style: AppTheme.monoStyle(
+                    fontSize: 12,
+                    color: AppTheme.textMuted,
+                  ),
                 ),
-              ),
-              if (ctrl.hasActiveFilters)
-                TextButton(
-                  onPressed: () {
-                    _searchCtrl.clear();
-                    ctrl.clearFilters();
-                  },
-                  child: const Text('Limpiar filtros'),
-                ),
-            ],
-          ),
-        ],
+                if (ctrl.hasActiveFilters)
+                  TextButton(
+                    onPressed: () {
+                      _searchCtrl.clear();
+                      ctrl.clearFilters();
+                    },
+                    child: const Text('Limpiar filtros'),
+                  ),
+              ],
+            ),
+          ],
+        ),
       );
     }
 
-    return Row(
-      children: <Widget>[
-        Expanded(
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 320),
-              child: searchField,
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceMuted,
+        borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Row(
+        children: <Widget>[
+          Expanded(child: searchField),
+          const SizedBox(width: 10),
+          SizedBox(width: 175, child: roleDropdown),
+          const SizedBox(width: 8),
+          SizedBox(width: 168, child: statusDropdown),
+          const SizedBox(width: 12),
+          Text(
+            countText,
+            style: AppTheme.monoStyle(fontSize: 12, color: AppTheme.textMuted),
+          ),
+          if (ctrl.hasActiveFilters) ...<Widget>[
+            const SizedBox(width: 6),
+            TextButton(
+              onPressed: () {
+                _searchCtrl.clear();
+                ctrl.clearFilters();
+              },
+              child: const Text('Limpiar'),
             ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Text(
-          countText,
-          style: AppTheme.monoStyle(fontSize: 12, color: AppTheme.textMuted),
-        ),
-        const SizedBox(width: 12),
-        SizedBox(width: 168, child: roleDropdown),
-        const SizedBox(width: 8),
-        SizedBox(width: 164, child: statusDropdown),
-        if (ctrl.hasActiveFilters) ...<Widget>[
-          const SizedBox(width: 6),
-          TextButton(
-            onPressed: () {
-              _searchCtrl.clear();
-              ctrl.clearFilters();
-            },
-            child: const Text('Limpiar'),
-          ),
+          ],
         ],
-      ],
+      ),
     );
   }
 
@@ -665,6 +647,154 @@ class _UsersModuleViewState extends State<UsersModuleView> {
           ],
         ),
       ],
+    );
+  }
+}
+
+class _UserSummaryStrip extends StatelessWidget {
+  const _UserSummaryStrip({
+    required this.ctrl,
+    required this.isNarrow,
+  });
+
+  final UserController ctrl;
+  final bool isNarrow;
+
+  @override
+  Widget build(BuildContext context) {
+    final List<Widget> cards = <Widget>[
+      _UserMetricCard(
+        title: 'Total usuarios',
+        value: '${ctrl.totalCount}',
+        subtitle: 'Registrados en plataforma',
+        icon: Icons.people_outline_rounded,
+      ),
+      _UserMetricCard(
+        title: 'Cuentas activas',
+        value: '${ctrl.activeCount}',
+        subtitle: 'Con acceso habilitado',
+        icon: Icons.verified_user_outlined,
+        accentColor: AppTheme.primaryGreen,
+      ),
+      _UserMetricCard(
+        title: 'Personal de planta',
+        value: '${ctrl.adminCount + ctrl.operarioCount}',
+        subtitle: '${ctrl.adminCount} admin · ${ctrl.operarioCount} operarios',
+        icon: Icons.badge_outlined,
+      ),
+      _UserMetricCard(
+        title: 'Productores',
+        value: '${ctrl.productorCount}',
+        subtitle: 'Asociados en campo',
+        icon: Icons.agriculture_outlined,
+      ),
+    ];
+
+    if (isNarrow) {
+      return Column(
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Expanded(child: cards[0]),
+              const SizedBox(width: 10),
+              Expanded(child: cards[1]),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: <Widget>[
+              Expanded(child: cards[2]),
+              const SizedBox(width: 10),
+              Expanded(child: cards[3]),
+            ],
+          ),
+        ],
+      );
+    }
+
+    return Row(
+      children: <Widget>[
+        Expanded(child: cards[0]),
+        const SizedBox(width: 12),
+        Expanded(child: cards[1]),
+        const SizedBox(width: 12),
+        Expanded(child: cards[2]),
+        const SizedBox(width: 12),
+        Expanded(child: cards[3]),
+      ],
+    );
+  }
+}
+
+class _UserMetricCard extends StatelessWidget {
+  const _UserMetricCard({
+    required this.title,
+    required this.value,
+    required this.subtitle,
+    required this.icon,
+    this.accentColor = AppTheme.inkBlack,
+  });
+
+  final String title;
+  final String value;
+  final String subtitle;
+  final IconData icon;
+  final Color accentColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Icon(icon, size: 16, color: accentColor),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: AppTheme.monoStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              color: accentColor == AppTheme.primaryGreen
+                  ? AppTheme.primaryGreen
+                  : AppTheme.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 11.5,
+              color: AppTheme.textMuted,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
