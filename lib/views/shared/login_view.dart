@@ -289,27 +289,27 @@ class _LoginViewState extends State<LoginView>
                           child: Center(
                             child: ConstrainedBox(
                               constraints: const BoxConstraints(
-                                maxWidth: 230,
-                                maxHeight: 185,
+                                maxWidth: 420,
+                                maxHeight: 350,
                               ),
                               child: Stack(
                                 alignment: Alignment.center,
                                 children: <Widget>[
                                   // Halos de escenario sutiles (luz sobre suelo oscuro)
                                   Container(
-                                    width: 154,
-                                    height: 154,
+                                    width: 280,
+                                    height: 280,
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
                                       border: Border.all(
                                         color: Colors.white
-                                            .withValues(alpha: 0.08),
+                                            .withValues(alpha: 0.14),
                                       ),
                                       gradient: RadialGradient(
                                         colors: <Color>[
-                                          Colors.white.withValues(alpha: 0.09),
+                                          Colors.white.withValues(alpha: 0.16),
                                           AppTheme.primaryGreen
-                                              .withValues(alpha: 0.04),
+                                              .withValues(alpha: 0.10),
                                           Colors.transparent,
                                         ],
                                         stops: const <double>[0.0, 0.55, 1.0],
@@ -323,7 +323,7 @@ class _LoginViewState extends State<LoginView>
                                       child: CowBalloon3DWidget(
                                         pointerNormalized: _pointerNormalized,
                                         showContactShadow: false,
-                                        scaleFactor: 0.26,
+                                        scaleFactor: 0.40,
                                       ),
                                     ),
                                   ),

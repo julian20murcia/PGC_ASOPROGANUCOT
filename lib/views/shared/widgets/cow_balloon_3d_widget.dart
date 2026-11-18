@@ -19,7 +19,7 @@ class CowBalloon3DWidget extends StatefulWidget {
     this.pointerNormalized = Offset.zero,
     this.enableTouchDrag = true,
     this.showContactShadow = true,
-    this.scaleFactor = 0.26,
+    this.scaleFactor = 0.40,
   });
 
   /// Posición normalizada del puntero en [-1, 1] desde el centro del área visual.
@@ -502,11 +502,11 @@ class _CowMeshPainter extends CustomPainter {
       final double d1 = math.max(0.0, rnx * l1x + rny * l1y + rnz * l1z);
       final double d2 = math.max(0.0, rnx * l2x + rny * l2y + rnz * l2z);
       final double omz = 1.0 - rnz.abs();
-      final double rim = omz * omz * 0.16;
+      final double rim = omz * omz * 0.24;
 
-      final double shadeR = (0.48 + d1 * 0.62 + d2 * 0.20 + rim).clamp(0.0, 1.15);
-      final double shadeG = (0.48 + d1 * 0.60 + d2 * 0.20 + rim).clamp(0.0, 1.15);
-      final double shadeB = (0.50 + d1 * 0.56 + d2 * 0.24 + rim).clamp(0.0, 1.15);
+      final double shadeR = (0.55 + d1 * 0.62 + d2 * 0.22 + rim).clamp(0.0, 1.18);
+      final double shadeG = (0.55 + d1 * 0.60 + d2 * 0.22 + rim).clamp(0.0, 1.18);
+      final double shadeB = (0.57 + d1 * 0.56 + d2 * 0.26 + rim).clamp(0.0, 1.18);
 
       final int cr = (rgb[i3] * 255.0 * shadeR).round().clamp(0, 255);
       final int cg = (rgb[i3 + 1] * 255.0 * shadeG).round().clamp(0, 255);
