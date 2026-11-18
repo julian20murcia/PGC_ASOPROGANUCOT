@@ -49,6 +49,22 @@ class FirestoreReceptionDataSource implements RemoteReceptionDataSource {
         .toList();
   }
 
+  /// Consulta acotada por `productorId` acorde con el aislamiento de `firestore.rules`.
+  Future<List<MilkReceptionModel>> fetchReceptionsForProducer(
+    String productorId,
+  ) async {
+    final QuerySnapshot<Map<String, dynamic>> snap = await _db
+        .collection(AppConstants.receptionsCollection)
+        .where('productorId', isEqualTo: productorId.trim())
+        .get();
+    return snap.docs
+        .map(
+          (QueryDocumentSnapshot<Map<String, dynamic>> doc) =>
+              MilkReceptionModel.fromMap(doc.data(), documentId: doc.id),
+        )
+        .toList();
+  }
+
   @override
   Future<void> upsertReception(MilkReceptionModel reception) async {
     await _db
@@ -167,6 +183,53 @@ class ReceptionService {
     } catch (_) {
       return (receptions: local, fromCache: true);
     }
+  }
+
+  /// Lista exclusivamente las entregas de un productor (`RF-20`, `RF-21`, `RNF-05`).
+  Future<({List<MilkReceptionModel> receptions, bool fromCache})>
+      listForProducer(String productorId) async {
+    final String cleanId = productorId.trim();
+    if (_remoteDataSource is FirestoreReceptionDataSource) {
+      final List<MilkReceptionModel> localScoped = (await _hiveService
+              .getReceptions())
+          .where((MilkReceptionModel r) => r.productorId == cleanId)
+          .toList();
+      try {
+        final List<MilkReceptionModel> remote =
+            await _remoteDataSource.fetchReceptionsForProducer(cleanId);
+        final Map<String, MilkReceptionModel> merged =
+            <String, MilkReceptionModel>{};
+        for (final MilkReceptionModel item in remote) {
+          if (item.productorId == cleanId) {
+            merged[item.recepcionId] = item.copyWith(
+              isSynced: true,
+              syncStatus: AppConstants.syncSynced,
+            );
+          }
+        }
+        for (final MilkReceptionModel pending in localScoped) {
+          if (!pending.isSynced ||
+              pending.syncStatus != AppConstants.syncSynced) {
+            merged[pending.recepcionId] = pending;
+          }
+        }
+        final List<MilkReceptionModel> combined = merged.values.toList()
+          ..sort(
+            (MilkReceptionModel a, MilkReceptionModel b) =>
+                b.createdAt.compareTo(a.createdAt),
+          );
+        await _hiveService.cacheReceptions(combined);
+        return (receptions: combined, fromCache: false);
+      } catch (_) {
+        return (receptions: localScoped, fromCache: true);
+      }
+    }
+
+    final result = await listReceptions();
+    final List<MilkReceptionModel> scoped = result.receptions
+        .where((MilkReceptionModel r) => r.productorId == cleanId)
+        .toList();
+    return (receptions: scoped, fromCache: result.fromCache);
   }
 
   /// Verifica si ya existe entrega activa para el mismo productor, fecha y jornada (`RF-09`).

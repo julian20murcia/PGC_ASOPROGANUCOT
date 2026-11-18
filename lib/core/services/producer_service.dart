@@ -43,6 +43,20 @@ class FirestoreProducerDataSource implements RemoteProducerDataSource {
         .toList();
   }
 
+  /// Consulta acotada por `uidUsuario` para cumplir reglas estrictas de aislamiento móvil (`RNF-05`).
+  Future<ProducerModel?> fetchProducerByUid(String uid) async {
+    final QuerySnapshot<Map<String, dynamic>> snap = await _db
+        .collection(AppConstants.producersCollection)
+        .where('uidUsuario', isEqualTo: uid.trim())
+        .limit(1)
+        .get();
+    if (snap.docs.isEmpty) {
+      return null;
+    }
+    final QueryDocumentSnapshot<Map<String, dynamic>> doc = snap.docs.first;
+    return ProducerModel.fromMap(doc.data(), documentId: doc.id);
+  }
+
   @override
   Future<void> upsertProducer(ProducerModel producer) async {
     await _db
@@ -171,6 +185,48 @@ class ProducerService {
           await _hiveService.getCachedProducers();
       return (producers: cached, fromCache: true);
     }
+  }
+
+  /// Resuelve el productor vinculado estrictamente al usuario autenticado (`Paso 7.1`, `RF-19`).
+  Future<ProducerModel?> findProducerForUser(UserModel user) async {
+    ProducerModel? matchFromList(List<ProducerModel> items) {
+      for (final ProducerModel p in items) {
+        if (p.uidUsuario != null && p.uidUsuario!.trim() == user.uid.trim()) {
+          return p;
+        }
+      }
+      final String doc = user.documento.trim();
+      if (doc.isNotEmpty) {
+        for (final ProducerModel p in items) {
+          if (p.cedula.trim() == doc &&
+              (p.uidUsuario == null ||
+                  p.uidUsuario!.isEmpty ||
+                  p.uidUsuario!.trim() == user.uid.trim())) {
+            return p;
+          }
+        }
+      }
+      return null;
+    }
+
+    if (_remoteDataSource is FirestoreProducerDataSource) {
+      try {
+        final ProducerModel? remote =
+            await _remoteDataSource.fetchProducerByUid(user.uid);
+        if (remote != null) {
+          await _hiveService.upsertProducer(remote);
+          return remote;
+        }
+      } catch (_) {
+        // Sin red: consultar caché local cifrada.
+      }
+      final List<ProducerModel> cached =
+          await _hiveService.getCachedProducers();
+      return matchFromList(cached);
+    }
+
+    final result = await listProducers();
+    return matchFromList(result.producers);
   }
 
   /// Valida unicidad estricta de `cedula` y `codigoAsociado` en caché local y en la nube.

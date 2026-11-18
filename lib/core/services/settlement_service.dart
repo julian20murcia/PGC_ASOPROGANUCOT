@@ -55,6 +55,22 @@ class FirestoreSettlementDataSource implements RemoteSettlementDataSource {
         .toList();
   }
 
+  /// Consulta acotada por `productorId` cumpliendo aislamiento en portal móvil (`RF-22`).
+  Future<List<SettlementModel>> fetchSettlementsForProducer(
+    String productorId,
+  ) async {
+    final QuerySnapshot<Map<String, dynamic>> snap = await _db
+        .collection(AppConstants.settlementsCollection)
+        .where('productorId', isEqualTo: productorId.trim())
+        .get();
+    return snap.docs
+        .map(
+          (QueryDocumentSnapshot<Map<String, dynamic>> doc) =>
+              SettlementModel.fromMap(doc.data(), documentId: doc.id),
+        )
+        .toList();
+  }
+
   @override
   Future<void> commitQuincenaClose({
     required List<SettlementModel> settlements,
@@ -195,6 +211,36 @@ class SettlementService {
           await _hiveService.getCachedSettlements();
       return (settlements: cached, fromCache: true);
     }
+  }
+
+  /// Lista exclusivamente las liquidaciones de un productor (`RF-22`, `RNF-05`).
+  Future<({List<SettlementModel> settlements, bool fromCache})>
+      listForProducer(String productorId) async {
+    final String cleanId = productorId.trim();
+    if (_remoteDataSource is FirestoreSettlementDataSource) {
+      try {
+        final List<SettlementModel> remote =
+            await _remoteDataSource.fetchSettlementsForProducer(cleanId);
+        remote.sort(
+          (SettlementModel a, SettlementModel b) =>
+              b.fechaLiquidacion.compareTo(a.fechaLiquidacion),
+        );
+        await _hiveService.cacheSettlements(remote);
+        return (settlements: remote, fromCache: false);
+      } catch (_) {
+        final List<SettlementModel> cached =
+            (await _hiveService.getCachedSettlements())
+                .where((SettlementModel s) => s.productorId == cleanId)
+                .toList();
+        return (settlements: cached, fromCache: true);
+      }
+    }
+
+    final result = await listSettlements();
+    final List<SettlementModel> scoped = result.settlements
+        .where((SettlementModel s) => s.productorId == cleanId)
+        .toList();
+    return (settlements: scoped, fromCache: result.fromCache);
   }
 
   /// Construye la previsualización determinista de cierre para un rango dado.

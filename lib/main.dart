@@ -5,13 +5,16 @@ import 'package:provider/provider.dart';
 
 import 'controllers/auth_controller.dart';
 import 'controllers/producer_controller.dart';
+import 'controllers/producer_portal_controller.dart';
 import 'controllers/rate_controller.dart';
 import 'controllers/reception_controller.dart';
 import 'controllers/report_controller.dart';
 import 'controllers/settlement_controller.dart';
 import 'controllers/sync_controller.dart';
 import 'controllers/user_controller.dart';
+import 'core/services/fcm_service.dart';
 import 'core/services/hive_service.dart';
+import 'core/services/notification_service.dart';
 import 'core/services/producer_service.dart';
 import 'core/services/rate_service.dart';
 import 'core/services/reception_service.dart';
@@ -90,6 +93,17 @@ class AsoproganucotApp extends StatelessWidget {
             producerService: ProducerService(hiveService: hiveService),
             rateService: RateService(hiveService: hiveService),
             settlementService: SettlementService(hiveService: hiveService),
+          ),
+        ),
+        ChangeNotifierProvider<ProducerPortalController>(
+          create: (_) => ProducerPortalController(
+            hiveService: hiveService,
+            producerService: ProducerService(hiveService: hiveService),
+            receptionService: ReceptionService(hiveService: hiveService),
+            rateService: RateService(hiveService: hiveService),
+            settlementService: SettlementService(hiveService: hiveService),
+            notificationService: NotificationService(hiveService: hiveService),
+            fcmService: FcmService(),
           ),
         ),
       ],
