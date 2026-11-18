@@ -1,3 +1,4 @@
+import 'package:firebase_core/firebase_core.dart' show FirebaseException;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -949,14 +950,32 @@ class _ProducerFormDialogState extends State<_ProducerFormDialog> {
   }
 
   Future<PrivacyNotice> _loadNotice() async {
-    final notice = await PrivacyNotice.load();
-    _notice = notice;
+    final notice = await context.read<ProducerController>().loadPrivacyNotice();
+    if (mounted) _notice = notice;
     return notice;
   }
 
+  void _retryNotice() {
+    final pendingNotice = _loadNotice();
+    setState(() {
+      _notice = null;
+      _acceptedHabeasData = false;
+      _noticeFuture = pendingNotice;
+    });
+  }
+
+  String _noticeError(Object? error) {
+    if (error is FormatException) return error.message;
+    if (error is FirebaseException &&
+        (error.code == 'permission-denied' || error.code == 'unauthenticated')) {
+      return 'No tienes acceso al aviso institucional. Verifica la sesión y las reglas de Firestore.';
+    }
+    return 'No se pudo consultar el aviso institucional. Verifica la conexión y reintenta.';
+  }
+
   Future<void> _submit() async {
+    if (!_acceptedHabeasData || (!_isEditing && _notice == null)) return;
     if (!(_formKey.currentState?.validate() ?? false)) return;
-    if (!_acceptedHabeasData) return;
 
     final ProducerController ctrl = context.read<ProducerController>();
     final String estado = _isActive ? 'ACTIVO' : 'INACTIVO';
@@ -1106,20 +1125,30 @@ class _ProducerFormDialogState extends State<_ProducerFormDialog> {
                     FutureBuilder<PrivacyNotice>(
                       future: _noticeFuture,
                       builder: (context, snapshot) {
-                        if (snapshot.hasError) {
+                        final notice = snapshot.data;
+                        final loading = snapshot.connectionState != ConnectionState.done;
+                        if (loading || notice == null) {
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('Aviso de privacidad no disponible. Verifica la conexión o solicita la configuración del aviso institucional.'),
-                              TextButton(
-                                onPressed: () => setState(() => _noticeFuture = _loadNotice()),
-                                child: const Text('Reintentar'),
+                            children: <Widget>[
+                              const SizedBox(height: 8),
+                              const Text(
+                                'La asociación utiliza los datos para registrar entregas de leche, liquidar pagos y permitir la consulta del historial. El productor puede consultar, actualizar y rectificar sus datos.',
                               ),
+                              const SizedBox(height: 8),
+                              if (loading) ...<Widget>[
+                                const Text('Cargando el aviso institucional…'),
+                                const LinearProgressIndicator(),
+                              ] else ...<Widget>[
+                                Text(_noticeError(snapshot.error)),
+                                TextButton(
+                                  onPressed: _retryNotice,
+                                  child: const Text('Reintentar'),
+                                ),
+                              ],
                             ],
                           );
                         }
-                        final notice = snapshot.data;
-                        if (notice == null) return const LinearProgressIndicator();
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -1504,8 +1533,11 @@ class _ProducerFormDialogState extends State<_ProducerFormDialog> {
                           : 'Guardar productor',
                       fullWidth: false,
                       isLoading: ctrl.isSaving,
-                      onPressed:
-                          _acceptedHabeasData && !ctrl.isSaving ? _submit : null,
+                      onPressed: _acceptedHabeasData &&
+                              (_isEditing || _notice != null) &&
+                              !ctrl.isSaving
+                          ? _submit
+                          : null,
                     ),
                   ],
                 ),

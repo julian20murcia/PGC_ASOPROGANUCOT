@@ -15,10 +15,14 @@ enum ProducerSortColumn {
 
 /// Controlador MVC para la gestión administrativa de productores y Habeas Data.
 class ProducerController extends ChangeNotifier {
-  ProducerController({ProducerService? producerService})
-      : _service = producerService ?? ProducerService();
+  ProducerController({
+    ProducerService? producerService,
+    Future<PrivacyNotice> Function()? privacyNoticeLoader,
+  })  : _service = producerService ?? ProducerService(),
+        loadPrivacyNotice = privacyNoticeLoader ?? PrivacyNotice.load;
 
   final ProducerService _service;
+  final Future<PrivacyNotice> Function() loadPrivacyNotice;
 
   List<ProducerModel> _producers = <ProducerModel>[];
   bool _isLoading = false;

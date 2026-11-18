@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -25,6 +27,7 @@ import 'package:pgc_asoproganucot/models/app_notification_model.dart';
 import 'package:pgc_asoproganucot/models/audit_log_model.dart';
 import 'package:pgc_asoproganucot/models/milk_rate_model.dart';
 import 'package:pgc_asoproganucot/models/milk_reception_model.dart';
+import 'package:pgc_asoproganucot/models/privacy_notice.dart';
 import 'package:pgc_asoproganucot/models/producer_model.dart';
 import 'package:pgc_asoproganucot/models/settlement_model.dart';
 import 'package:pgc_asoproganucot/models/user_model.dart';
@@ -179,8 +182,18 @@ void main() {
       hiveService: memoryHive,
       remoteDataSource: _FakeRemoteProducerDataSource(),
     );
+    int noticeReads = 0;
+    final retriedNotice = Completer<PrivacyNotice>();
     final ProducerController producerController = ProducerController(
       producerService: producerService,
+      privacyNoticeLoader: () async {
+        if (++noticeReads == 1) {
+          throw const FormatException(
+            'Falta publicar el aviso institucional en configuracion/privacidad.',
+          );
+        }
+        return retriedNotice.future;
+      },
     );
     final ReceptionService receptionService = ReceptionService(
       hiveService: memoryHive,
@@ -291,12 +304,48 @@ void main() {
     // Abrir diálogo de creación y verificar bloqueo sin Habeas Data
     await tester.tap(find.text('Nuevo productor'));
     await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
     expect(
       find.text('Aviso de privacidad'),
       findsOneWidget,
     );
     expect(find.text('Guardar productor'), findsOneWidget);
+    final Finder saveProducer = find.widgetWithText(
+      PrimaryActionButton,
+      'Guardar productor',
+    );
+    expect(tester.widget<PrimaryActionButton>(saveProducer).onPressed, isNull);
+    expect(find.textContaining('registrar entregas de leche'), findsOneWidget);
+    expect(find.textContaining('configuracion/privacidad'), findsOneWidget);
     expect(find.text('Referencia del soporte firmado o electrónico'), findsNothing);
+
+    await tester.tap(find.text('Reintentar'));
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    expect(noticeReads, 2);
+    expect(find.text('Cargando el aviso institucional…'), findsOneWidget);
+    expect(find.text('Reintentar'), findsNothing);
+    expect(tester.widget<PrimaryActionButton>(saveProducer).onPressed, isNull);
+
+    retriedNotice.complete(PrivacyNotice.fromMap(const <String, dynamic>{
+      'version': '1.0 de prueba',
+      'responsable': 'Asociación de prueba',
+      'direccion': 'Sede de prueba',
+      'correo': 'privacidad@example.com',
+      'telefono': '5550000',
+      'politicaUrl': 'https://example.com/politica',
+      'finalidades': 'Registro de entregas y liquidación.',
+      'derechos': 'Consulta y rectificación de datos.',
+    }));
+    await tester.pump();
+    expect(find.text('Versión 1.0 de prueba'), findsOneWidget);
+    expect(find.textContaining('privacidad@example.com'), findsOneWidget);
+    expect(tester.widget<PrimaryActionButton>(saveProducer).onPressed, isNull);
+
+    await tester.tap(find.textContaining('Entregué el aviso y el productor'));
+    await tester.pump();
+    expect(find.text('Referencia del soporte firmado o electrónico'), findsOneWidget);
+    expect(tester.widget<PrimaryActionButton>(saveProducer).onPressed, isNotNull);
 
     // Cerrar diálogo y navegar a Recepción de Leche
     await tester.tap(find.text('Cancelar'));

@@ -37,7 +37,14 @@ class PrivacyNotice {
   static Future<PrivacyNotice> load() async {
     final snapshot = await FirebaseFirestore.instance
         .doc('configuracion/privacidad')
-        .get();
-    return PrivacyNotice.fromMap(snapshot.data() ?? const <String, dynamic>{});
+        .get(const GetOptions(source: Source.server))
+        .timeout(const Duration(seconds: 15));
+    final data = snapshot.data();
+    if (data == null) {
+      throw const FormatException(
+        'Falta publicar el aviso institucional en configuracion/privacidad.',
+      );
+    }
+    return PrivacyNotice.fromMap(data);
   }
 }
