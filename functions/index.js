@@ -66,6 +66,7 @@ exports.onNotificationCreated = onDocumentCreated(
 
     // Comunicado general masivo a todos los productores suscritos.
     if (!destinoProductorId) {
+      if (tipo !== 'COMUNICADO') return null;
       return messaging.send({
         topic: 'asoproganucott_comunicados',
         notification: notificationBlock,

@@ -27,7 +27,10 @@ function value(data) {
   if (typeof data === 'string') return { stringValue: data };
   if (typeof data === 'boolean') return { booleanValue: data };
   if (typeof data === 'number') return { doubleValue: data };
-  if (typeof data.toDate === 'function') return { timestampValue: data.toDate().toISOString() };
+  if (typeof data.toDate === 'function') {
+    const seconds = new Date(data.seconds * 1000).toISOString().slice(0, -4);
+    return { timestampValue: `${seconds}${String(data.nanoseconds).padStart(9, '0')}Z` };
+  }
   if (Array.isArray(data)) return { arrayValue: { values: data.map(value) } };
   return { mapValue: { fields: fields(data) } };
 }
@@ -119,11 +122,18 @@ test('reglas de perfiles, autorización, entregas y cierre con auditoría', asyn
   await expectStatus(read(`auditoria_logs/r-${suffix}`, admin), 200);
   await expectStatus(read(`auditoria_logs/r-${suffix}`, producer), 403);
   await expectStatus(commit([write(receptionPath, { litros: 19 }, [], ['litros'])], admin), 403);
+  const db = getFirestore();
+  const original = (await db.doc(receptionPath).get()).data();
+  const { updatedAt, ...capture } = original;
+  const corrected = audited(receptionPath, { ...capture, litros: 16 },
+    `edit-${suffix}`, admin, 'EDITAR', original, 'Verificación de planta');
+  await expectStatus(commit(corrected, admin), 200);
+  assert.equal((await db.doc(`auditoria_logs/edit-${suffix}`).get()).get('valorAnterior.litros'), 15);
 
   const settlementId = `settlement-${suffix}`;
   const voucher = `COMP-2026-${suffix}`;
   const hash = createHash('sha256').update([
-    settlementId, voucher, producerId, '111111', '2026-11-01', '2026-11-15', 15000, 1, 100000, 1500000, suffix,
+    settlementId, voucher, producerId, '111111', '2026-11-01', '2026-11-15', 16000, 1, 100000, 1600000, suffix,
   ].join('|')).digest('hex');
   const group = { settlement: { liquidacionId: settlementId, productorId: producerId,
     periodoInicio: '2026-11-01', periodoFin: '2026-11-15', numeroComprobante: voucher,
@@ -134,8 +144,17 @@ test('reglas de perfiles, autorización, entregas y cierre con auditoría', asyn
   assert.equal((await closeMilkSettlements.run({ auth: { uid: staff }, data: { groups: [group] } })).completed, 0);
   assert.deepEqual(await closeMilkSettlements.run({ auth: { uid: admin }, data: { groups: [group] } }), { completed: 1 });
   assert.deepEqual(await closeMilkSettlements.run({ auth: { uid: admin }, data: { groups: [group] } }), { completed: 1 });
-  const db = getFirestore();
   assert.equal((await db.doc(receptionPath).get()).get('liquidacionId'), settlementId);
-  assert.equal((await db.doc(`auditoria_logs/cierre_${settlementId}_${suffix}`).get()).get('valorAnterior.litros'), 15);
-  assert.equal((await db.doc(`liquidaciones/${settlementId}`).get()).get('valorTotalPagar'), 15000);
+  assert.equal((await db.doc(`auditoria_logs/cierre_${settlementId}_${suffix}`).get()).get('valorAnterior.litros'), 16);
+  await expectStatus(commit(corrected, admin), 403);
+  const settlementPath = `liquidaciones/${settlementId}`;
+  const issued = (await db.doc(settlementPath).get()).data();
+  assert.equal(issued.valorTotalPagar, 16000);
+  const { updatedAt: issueTime, ...issuedVersion } = issued;
+  const payment = { ...issuedVersion, estadoPago: 'PAGADA', fechaPago: '2026-11-18T00:00:00.000Z', observacionPago: 'Pago de prueba' };
+  const pay = audited(settlementPath, payment, `pay-${suffix}`, admin, 'EDITAR', issued, 'Pago de prueba');
+  await expectStatus(commit([pay[0]], admin), 403);
+  await expectStatus(commit(pay, admin), 200);
+  await expectStatus(read(settlementPath, producer), 200);
+  await expectStatus(read(settlementPath, other), 403);
 });

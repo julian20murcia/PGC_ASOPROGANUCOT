@@ -36,9 +36,14 @@ service cloud.firestore {
 
     function validAudit(collection, id, action, before) {
       let next = request.resource.data;
+      return next.get('auditLogId', null) is string &&
+        next.get('updatedAt', null) == request.time && next.get('updatedByUid', null) == request.auth.uid &&
+        matchesAudit(next, collection, id, action, before);
+    }
+
+    function matchesAudit(next, collection, id, action, before) {
       let log = audit(next.auditLogId);
-      return next.updatedAt == request.time && next.updatedByUid == request.auth.uid &&
-        log.logId == next.auditLogId &&
+      return log != null && log.logId == next.auditLogId &&
         log.entidadAfectada == collection && log.registroId == id &&
         log.accion == action && log.usuarioUid == request.auth.uid &&
         log.timestamp == request.time && log.valorAnterior == before &&
@@ -127,6 +132,7 @@ service cloud.firestore {
         let changed = next.diff(resource.data).affectedKeys();
         return resource.data.get('liquidacionId', null) == null &&
           resource.data.get('anulado', false) == false &&
+          next.get('auditLogId', null) is string && next.get('updatedAt', null) == request.time &&
           audit(next.auditLogId).motivo is string && audit(next.auditLogId).motivo.size() >= 5 &&
           ((changed.hasOnly(['litros', 'auditLogId', 'updatedAt', 'updatedByUid']) &&
             changed.hasAny(['litros']) && validLiters() &&
@@ -168,7 +174,7 @@ service cloud.firestore {
       }
 
       allow read: if isStaff() || belongsToProducer() ||
-        (isProducer() && resource.data.destinoProductorId == null);
+        (isProducer() && resource.data.destinoProductorId == null && resource.data.tipo == 'COMUNICADO');
       allow create: if isStaff() || (
         request.resource.data.tipo == 'RECTIFICACION' && request.resource.data.leida == false &&
         ownsProducer(request.resource.data.destinoProductorId)
