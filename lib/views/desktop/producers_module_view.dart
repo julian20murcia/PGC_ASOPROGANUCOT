@@ -981,65 +981,75 @@ class _ProducerFormDialogState extends State<_ProducerFormDialog> {
     return Dialog(
       insetPadding: const EdgeInsets.all(20),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 590),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: SingleChildScrollView(
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Row(
+        constraints: BoxConstraints(
+          maxWidth: 590,
+          maxHeight: MediaQuery.of(context).size.height * 0.9,
+        ),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 20, 24, 14),
+                child: Row(
+                  children: <Widget>[
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: AppTheme.inkBlack,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        _isEditing
+                            ? Icons.edit_outlined
+                            : Icons.agriculture_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            _isEditing
+                                ? 'Editar productor'
+                                : 'Nuevo productor',
+                            style: AppTheme.subtitleStyle(),
+                          ),
+                          Text(
+                            _isEditing
+                                ? 'Actualiza los datos del ganadero asociado y su estado.'
+                                : 'Registra al ganadero asociado en el padrón oficial de Susa.',
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: ctrl.isSaving
+                          ? null
+                          : () => Navigator.of(context).pop(false),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
-                      Container(
-                        width: 38,
-                        height: 38,
-                        decoration: BoxDecoration(
-                          color: AppTheme.inkBlack,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Icon(
-                          _isEditing
-                              ? Icons.edit_outlined
-                              : Icons.agriculture_rounded,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Text(
-                              _isEditing
-                                  ? 'Editar productor'
-                                  : 'Nuevo productor',
-                              style: AppTheme.subtitleStyle(),
-                            ),
-                            Text(
-                              _isEditing
-                                  ? 'Actualiza los datos del ganadero asociado y su estado.'
-                                  : 'Registra al ganadero asociado en el padrón oficial de Susa.',
-                              style: const TextStyle(
-                                fontSize: 12.5,
-                                color: AppTheme.textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: ctrl.isSaving
-                            ? null
-                            : () => Navigator.of(context).pop(false),
-                        icon: const Icon(Icons.close_rounded),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
                   if (ctrl.errorMessage != null) ...<Widget>[
                     Container(
                       width: double.infinity,
@@ -1485,31 +1495,38 @@ class _ProducerFormDialogState extends State<_ProducerFormDialog> {
                       ),
                     ),
                   ],
-                  const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: <Widget>[
-                      OutlinedButton(
-                        onPressed: ctrl.isSaving
-                            ? null
-                            : () => Navigator.of(context).pop(false),
-                        child: const Text('Cancelar'),
-                      ),
-                      const SizedBox(width: 10),
-                      PrimaryActionButton(
-                        label: _isEditing
-                            ? 'Guardar cambios'
-                            : 'Guardar productor',
-                        fullWidth: false,
-                        isLoading: ctrl.isSaving,
-                        onPressed:
-                            _acceptedHabeasData && !ctrl.isSaving ? _submit : null,
-                      ),
                     ],
                   ),
-                ],
+                ),
               ),
-            ),
+              Container(
+                padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
+                decoration: const BoxDecoration(
+                  border: Border(top: BorderSide(color: AppTheme.border)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: <Widget>[
+                    OutlinedButton(
+                      onPressed: ctrl.isSaving
+                          ? null
+                          : () => Navigator.of(context).pop(false),
+                      child: const Text('Cancelar'),
+                    ),
+                    const SizedBox(width: 10),
+                    PrimaryActionButton(
+                      label: _isEditing
+                          ? 'Guardar cambios'
+                          : 'Guardar productor',
+                      fullWidth: false,
+                      isLoading: ctrl.isSaving,
+                      onPressed:
+                          _acceptedHabeasData && !ctrl.isSaving ? _submit : null,
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),
