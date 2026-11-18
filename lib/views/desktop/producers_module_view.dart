@@ -4,9 +4,11 @@ import 'package:provider/provider.dart';
 import '../../controllers/auth_controller.dart';
 import '../../controllers/producer_controller.dart';
 import '../../core/theme/app_theme.dart';
+import '../../models/privacy_notice.dart';
 import '../../models/producer_model.dart';
 import '../shared/widgets/dairy_loader.dart';
 import '../shared/widgets/design_system_widgets.dart';
+import '../shared/widgets/privacy_notice_view.dart';
 
 /// Módulo administrativo de Productores y Autorización de Datos Personales (Ley 1581 de 2012).
 class ProducersModuleView extends StatefulWidget {
@@ -896,6 +898,10 @@ class _ProducerFormDialogState extends State<_ProducerFormDialog> {
   late final TextEditingController _mobileEmailCtrl;
   late final TextEditingController _mobilePasswordCtrl;
 
+  final TextEditingController _authorizationCtrl = TextEditingController();
+  late Future<PrivacyNotice> _noticeFuture;
+  PrivacyNotice? _notice;
+
   late bool _isActive;
   late bool _acceptedHabeasData;
   bool _createMobileAccount = false;
@@ -922,6 +928,7 @@ class _ProducerFormDialogState extends State<_ProducerFormDialog> {
     _mobileEmailCtrl = TextEditingController();
     _mobilePasswordCtrl = TextEditingController();
 
+    if (!_isEditing) _noticeFuture = _loadNotice();
     _isActive = p?.isActivo ?? true;
     _acceptedHabeasData = p?.aceptoHabeasData ?? false;
   }
@@ -937,7 +944,14 @@ class _ProducerFormDialogState extends State<_ProducerFormDialog> {
     _veredaCtrl.dispose();
     _mobileEmailCtrl.dispose();
     _mobilePasswordCtrl.dispose();
+    _authorizationCtrl.dispose();
     super.dispose();
+  }
+
+  Future<PrivacyNotice> _loadNotice() async {
+    final notice = await PrivacyNotice.load();
+    _notice = notice;
+    return notice;
   }
 
   Future<void> _submit() async {
@@ -977,6 +991,8 @@ class _ProducerFormDialogState extends State<_ProducerFormDialog> {
         estado: estado,
         aceptoHabeasData: _acceptedHabeasData,
         actorUid: widget.actorUid,
+        privacyNotice: _notice,
+        authorizationReference: _authorizationCtrl.text,
         createMobileAccount: _createMobileAccount,
         mobileEmail: _mobileEmailCtrl.text,
         mobilePassword: _mobilePasswordCtrl.text,
@@ -1085,6 +1101,58 @@ class _ProducerFormDialogState extends State<_ProducerFormDialog> {
                     ),
                     const SizedBox(height: 14),
                   ],
+                  if (!_isEditing)
+                    FutureBuilder<PrivacyNotice>(
+                      future: _noticeFuture,
+                      builder: (context, snapshot) {
+                        if (snapshot.hasError) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Aviso de privacidad no disponible. Verifica la conexión o solicita la configuración del aviso institucional.'),
+                              TextButton(
+                                onPressed: () => setState(() => _noticeFuture = _loadNotice()),
+                                child: const Text('Reintentar'),
+                              ),
+                            ],
+                          );
+                        }
+                        final notice = snapshot.data;
+                        if (notice == null) return const LinearProgressIndicator();
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            PrivacyNoticeView(notice: notice),
+                            CheckboxListTile(
+                              contentPadding: EdgeInsets.zero,
+                              value: _acceptedHabeasData,
+                              onChanged: ctrl.isSaving ? null : (value) {
+                                setState(() => _acceptedHabeasData = value == true);
+                              },
+                              title: const Text('Entregué el aviso y el productor autorizó previamente el tratamiento de sus datos.'),
+                            ),
+                            if (_acceptedHabeasData)
+                              TextFormField(
+                                controller: _authorizationCtrl,
+                                maxLength: 120,
+                                decoration: const InputDecoration(
+                                  labelText: 'Referencia del soporte firmado o electrónico',
+                                ),
+                                validator: (value) => (value ?? '').trim().isEmpty
+                                    ? 'Ingresa la referencia del soporte consultable.'
+                                    : null,
+                              ),
+                          ],
+                        );
+                      },
+                    ),
+                  if (_isEditing) ...[
+                    Text(widget.existingProducer!.soporteAutorizacion == null
+                        ? 'Autorización histórica. Verifica el soporte en el archivo de la asociación.'
+                        : 'Soporte de autorización: ${widget.existingProducer!.soporteAutorizacion}'),
+                    const SizedBox(height: 12),
+                  ],
+                  if (_isEditing || _acceptedHabeasData) ...[
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
@@ -1408,106 +1476,6 @@ class _ProducerFormDialogState extends State<_ProducerFormDialog> {
                       ),
                     ),
                   const SizedBox(height: 14),
-                  // Aviso de privacidad y consentimiento obligatorio Ley 1581 de 2012
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: _acceptedHabeasData
-                          ? AppTheme.primaryGreenLight.withValues(alpha: 0.55)
-                          : AppTheme.warningBg,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: _acceptedHabeasData
-                            ? AppTheme.primaryGreen.withValues(alpha: 0.35)
-                            : AppTheme.warning.withValues(alpha: 0.45),
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Row(
-                          children: <Widget>[
-                            Icon(
-                              Icons.privacy_tip_outlined,
-                              size: 17,
-                              color: _acceptedHabeasData
-                                  ? AppTheme.primaryGreen
-                                  : AppTheme.warningText,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Aviso de Privacidad y Tratamiento de Datos (Ley 1581 de 2012)',
-                                style: TextStyle(
-                                  fontSize: 12.5,
-                                  fontWeight: FontWeight.w700,
-                                  color: _acceptedHabeasData
-                                      ? AppTheme.successText
-                                      : AppTheme.warningText,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        const Text(
-                          'ASOPROGANUCOTT utilizará estos datos exclusivamente para el registro de entregas de leche cruda, liquidaciones quincenales, comprobantes de pago y comunicaciones operativas. El titular puede solicitar actualización o rectificación en cualquier momento.',
-                          style: TextStyle(
-                            fontSize: 12,
-                            height: 1.4,
-                            color: AppTheme.textSecondary,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        InkWell(
-                          onTap: ctrl.isSaving
-                              ? null
-                              : () => setState(
-                                    () => _acceptedHabeasData =
-                                        !_acceptedHabeasData,
-                                  ),
-                          borderRadius: BorderRadius.circular(6),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: <Widget>[
-                              Checkbox(
-                                value: _acceptedHabeasData,
-                                activeColor: AppTheme.primaryGreen,
-                                materialTapTargetSize:
-                                    MaterialTapTargetSize.shrinkWrap,
-                                onChanged: ctrl.isSaving
-                                    ? null
-                                    : (bool? v) => setState(
-                                          () => _acceptedHabeasData = v ?? false,
-                                        ),
-                              ),
-                              const SizedBox(width: 6),
-                              const Expanded(
-                                child: Text(
-                                  'Confirmo que el productor autoriza el tratamiento de sus datos personales.',
-                                  style: TextStyle(
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppTheme.textPrimary,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (!_acceptedHabeasData) ...<Widget>[
-                    const SizedBox(height: 6),
-                    const Text(
-                      'Debes marcar la autorización de datos personales para habilitar el guardado.',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        color: AppTheme.warningText,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
                   ],
                     ],
                   ),
