@@ -441,7 +441,7 @@ class FirebaseUserService {
         'valorAnterior': valorAnterior,
         'valorNuevo': valorNuevo,
         'usuarioUid': usuarioUid,
-        'timestamp': DateTime.now().toUtc().toIso8601String(),
+        'timestamp': FieldValue.serverTimestamp(),
       });
     } catch (_) {
       // Si hay error temporal en auditoría, no revertir la operación principal ya creada.

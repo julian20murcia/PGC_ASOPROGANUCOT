@@ -60,7 +60,7 @@ class FirestoreRateDataSource implements RemoteRateDataSource {
       await _db
           .collection(AppConstants.auditLogsCollection)
           .doc(log.logId)
-          .set(log.toMap());
+          .set(<String, dynamic>{...log.toMap(), 'timestamp': FieldValue.serverTimestamp()});
     } catch (_) {
       // La auditoría remota no debe revertir operaciones ya confirmadas localmente.
     }

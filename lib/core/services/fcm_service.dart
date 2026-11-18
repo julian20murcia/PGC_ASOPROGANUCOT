@@ -32,7 +32,9 @@ class FcmService {
     try {
       final FirebaseMessaging messaging = FirebaseMessaging.instance;
       await messaging.requestPermission();
-      return await messaging.getToken().timeout(const Duration(seconds: 4));
+      final token = messaging.onRegistered.first.timeout(const Duration(seconds: 4));
+      await messaging.register();
+      return await token;
     } catch (_) {
       return null;
     }

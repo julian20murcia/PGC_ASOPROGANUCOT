@@ -63,22 +63,27 @@ class HiveService {
       _deliveriesBox = await Hive.openBox<dynamic>(
         AppConstants.deliveriesBox,
         encryptionCipher: cipher,
+        crashRecovery: false,
       );
       _producersBox = await Hive.openBox<dynamic>(
         AppConstants.producersBox,
         encryptionCipher: cipher,
+        crashRecovery: false,
       );
       _ratesBox = await Hive.openBox<dynamic>(
         AppConstants.ratesBox,
         encryptionCipher: cipher,
+        crashRecovery: false,
       );
       _settlementsBox = await Hive.openBox<dynamic>(
         AppConstants.settlementsBox,
         encryptionCipher: cipher,
+        crashRecovery: false,
       );
       _notificationsBox = await Hive.openBox<dynamic>(
         AppConstants.notificationsBox,
         encryptionCipher: cipher,
+        crashRecovery: false,
       );
     }
     _initialized = true;

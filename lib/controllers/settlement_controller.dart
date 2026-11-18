@@ -209,6 +209,9 @@ class SettlementController extends ChangeNotifier {
           'Cierre quincenal completado: ${created.length} comprobante(s) emitido(s).';
       return true;
     } on SettlementServiceException catch (e) {
+      _settlements = (await _settlementService.listSettlements()).settlements;
+      _receptions = (await _receptionService.listReceptions()).receptions;
+      _rebuildPreview();
       _errorMessage = e.message;
       return false;
     } catch (_) {

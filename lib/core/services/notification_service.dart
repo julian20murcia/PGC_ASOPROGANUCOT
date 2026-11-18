@@ -101,10 +101,19 @@ class FirestoreNotificationDataSource implements RemoteNotificationDataSource {
       await _db
           .collection(AppConstants.auditLogsCollection)
           .doc(log.logId)
-          .set(log.toMap());
+          .set(<String, dynamic>{...log.toMap(), 'timestamp': FieldValue.serverTimestamp()});
     } catch (_) {
       // No revertir una operación confirmada por fallo temporal en bitácora.
     }
+  }
+
+  Future<void> saveRectification(AppNotificationModel notification, AuditLogModel log) async {
+    final batch = _db.batch();
+    batch.set(_db.collection(AppConstants.notificationsCollection).doc(notification.notificacionId),
+      notification.toMap());
+    batch.set(_db.collection(AppConstants.auditLogsCollection).doc(log.logId),
+      <String, dynamic>{...log.toMap(), 'timestamp': FieldValue.serverTimestamp()});
+    await batch.commit();
   }
 }
 
@@ -356,15 +365,20 @@ class NotificationService {
       timestamp: nowUtc,
     );
 
-    await _hiveService.upsertNotification(requestNotification);
     try {
-      await _remoteDataSource.upsertNotification(requestNotification);
-      await _remoteDataSource.appendAuditLog(log);
+      final source = _remoteDataSource;
+      if (source is FirestoreNotificationDataSource) {
+        await source.saveRectification(requestNotification, log);
+      } else {
+        await source.upsertNotification(requestNotification);
+        await source.appendAuditLog(log);
+      }
     } catch (_) {
       throw NotificationServiceException(
         'No se pudo enviar la solicitud al servidor. Verifica tu conexión e intenta de nuevo.',
       );
     }
+    await _hiveService.upsertNotification(requestNotification);
     return requestNotification;
   }
 

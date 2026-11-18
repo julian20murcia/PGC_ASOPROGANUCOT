@@ -747,13 +747,10 @@ class _ReportsModuleViewState extends State<ReportsModuleView> {
                 ),
                 ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 160),
-                  child: Text(
-                    log.registroId,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTheme.monoStyle(
-                      fontSize: 11.5,
-                      color: AppTheme.textSecondary,
-                    ),
+                  child: TextButton(
+                    onPressed: () => _showRecordHistory(ctrl, log.registroId),
+                    child: Text(log.registroId, overflow: TextOverflow.ellipsis,
+                        style: AppTheme.monoStyle(fontSize: 11.5)),
                   ),
                 ),
                 ConstrainedBox(
@@ -782,18 +779,62 @@ class _ReportsModuleViewState extends State<ReportsModuleView> {
       decoration: InputDecoration(
         hintText: 'Buscar por acción, referencia o motivo…',
         prefixIcon: const Icon(Icons.search_rounded, size: 18),
-        suffixIcon: _auditSearchCtrl.text.isNotEmpty
-            ? IconButton(
-                onPressed: () {
-                  _auditSearchCtrl.clear();
-                  ctrl.setAuditSearchQuery('');
-                },
-                icon: const Icon(Icons.close_rounded, size: 17),
-              )
-            : null,
+        suffixIcon: IconButton(
+          tooltip: 'Consultar historial por ID exacto',
+          onPressed: _auditSearchCtrl.text.trim().isEmpty ? null : () {
+            _showRecordHistory(ctrl, _auditSearchCtrl.text.trim());
+          },
+          icon: const Icon(Icons.history_rounded, size: 19),
+        ),
       ),
     );
   }
+
+  Future<void> _showRecordHistory(ReportController ctrl, String id) {
+    final history = ctrl.loadRecordHistory(id);
+    return showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Historial del registro'),
+        content: SizedBox(
+          width: 620,
+          child: FutureBuilder<List<AuditLogModel>>(
+            future: history,
+            builder: (context, snapshot) {
+              if (snapshot.hasError) return const Text('No se pudo consultar la bitácora.');
+              final logs = snapshot.data;
+              if (logs == null) return const LinearProgressIndicator();
+              if (logs.isEmpty) return const Text('El ID indicado no tiene eventos registrados.');
+              return SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SelectableText(id),
+                    for (final log in logs)
+                      ExpansionTile(
+                        title: Text('${log.accion} · ${AppFormatters.formatDateTime(log.timestamp)}'),
+                        subtitle: SelectableText('Usuario ${log.usuarioUid}${log.motivo == null ? '' : '\n${log.motivo}'}'),
+                        expandedCrossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (log.valorAnterior != null)
+                            SelectableText('Versión anterior\n${_formatAuditVersion(log.valorAnterior!)}'),
+                          if (log.valorNuevo != null)
+                            SelectableText('Versión registrada\n${_formatAuditVersion(log.valorNuevo!)}'),
+                        ],
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar'))],
+      ),
+    );
+  }
+
+  String _formatAuditVersion(Map<String, dynamic> version) =>
+      version.entries.map((entry) => '${entry.key} · ${entry.value}').join('\n');
 
   Widget _buildAuditEntityChips(ReportController ctrl) {
     final List<({String value, String label})> filters =

@@ -191,6 +191,8 @@ class ReportController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<List<AuditLogModel>> loadRecordHistory(String id) => _reportService.listRecordHistory(id);
+
   void setExporting(bool value) {
     _isExporting = value;
     notifyListeners();

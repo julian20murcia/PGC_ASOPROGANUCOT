@@ -60,6 +60,13 @@ class FirestoreAuditDataSource implements RemoteAuditDataSource {
 
   FirebaseFirestore get _db => firestore ?? FirebaseFirestore.instance;
 
+  Future<List<AuditLogModel>> fetchRecordHistory(String id) async {
+    final snapshot = await _db.collection(AppConstants.auditLogsCollection)
+        .where('registroId', isEqualTo: id).get();
+    return snapshot.docs.map((doc) => AuditLogModel.fromMap(doc.data(), documentId: doc.id)).toList()
+      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+  }
+
   @override
   Future<List<AuditLogModel>> fetchAuditLogs({int limit = 250}) async {
     final QuerySnapshot<Map<String, dynamic>> snap = await _db
@@ -84,6 +91,12 @@ class ReportService {
             remoteAuditDataSource ?? FirestoreAuditDataSource();
 
   final RemoteAuditDataSource _remoteAuditDataSource;
+
+  Future<List<AuditLogModel>> listRecordHistory(String id) async {
+    final source = _remoteAuditDataSource;
+    if (source is FirestoreAuditDataSource) return source.fetchRecordHistory(id);
+    return (await listAuditLogs()).where((log) => log.registroId == id).toList();
+  }
 
   Future<List<AuditLogModel>> listAuditLogs({int limit = 250}) async {
     try {
