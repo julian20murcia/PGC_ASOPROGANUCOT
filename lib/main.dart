@@ -1,146 +1,95 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import 'controllers/auth_controller.dart';
+import 'controllers/user_controller.dart';
+import 'core/services/hive_service.dart';
+import 'core/theme/app_theme.dart';
 import 'firebase_options.dart';
+import 'models/user_model.dart';
+import 'views/desktop/admin_shell_view.dart';
+import 'views/mobile/producer_shell_view.dart';
+import 'views/shared/login_view.dart';
+import 'views/shared/widgets/design_system_widgets.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  runApp(const AsoproganucotApp());
+  final HiveService hiveService = HiveService();
+  await hiveService.init();
+
+  runApp(AsoproganucotApp(hiveService: hiveService));
 }
 
 class AsoproganucotApp extends StatelessWidget {
-  const AsoproganucotApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'ASOPROGANUCOT',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorSchemeSeed: const Color(0xFF1B5E20),
-        useMaterial3: true,
-      ),
-      home: const FirebaseStatusScreen(),
-    );
-  }
-}
-
-class FirebaseStatusScreen extends StatelessWidget {
-  const FirebaseStatusScreen({super.key});
-
-  bool get _isMessagingSupported =>
-      kIsWeb ||
-      defaultTargetPlatform == TargetPlatform.android ||
-      defaultTargetPlatform == TargetPlatform.iOS ||
-      defaultTargetPlatform == TargetPlatform.macOS;
-
-  @override
-  Widget build(BuildContext context) {
-    final FirebaseApp app = Firebase.app();
-    final FirebaseAuth auth = FirebaseAuth.instance;
-    final FirebaseFirestore firestore = FirebaseFirestore.instance;
-    final String messagingStatus = _isMessagingSupported
-        ? 'Conectado (${FirebaseMessaging.instance.app.name})'
-        : 'Configurado (disponible en Android, iOS, macOS y Web)';
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('ASOPROGANUCOT'),
-      ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 520),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Row(
-                      children: <Widget>[
-                        Icon(
-                          Icons.cloud_done_outlined,
-                          color: Theme.of(context).colorScheme.primary,
-                          size: 28,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Conexión Firebase activa',
-                            style: Theme.of(context).textTheme.titleLarge,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    _InfoRow(label: 'Project ID', value: app.options.projectId),
-                    _InfoRow(label: 'App ID', value: app.options.appId),
-                    const Divider(height: 24),
-                    _InfoRow(
-                      label: 'Firebase Core',
-                      value: 'Inicializado (${app.name})',
-                    ),
-                    _InfoRow(
-                      label: 'Firebase Auth',
-                      value: 'Listo (${auth.app.name})',
-                    ),
-                    _InfoRow(
-                      label: 'Cloud Firestore',
-                      value: 'Listo (${firestore.app.name})',
-                    ),
-                    _InfoRow(
-                      label: 'Cloud Messaging',
-                      value: messagingStatus,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  const _InfoRow({
-    required this.label,
-    required this.value,
+  const AsoproganucotApp({
+    super.key,
+    required this.hiveService,
   });
 
-  final String label;
-  final String value;
+  final HiveService hiveService;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          SizedBox(
-            width: 130,
-            child: Text(
-              '$label:',
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ),
-          Expanded(
-            child: SelectableText(value),
-          ),
-        ],
+    return MultiProvider(
+      providers: <ChangeNotifierProvider<dynamic>>[
+        ChangeNotifierProvider<AuthController>(
+          create: (_) => AuthController(hiveService: hiveService)..initialize(),
+        ),
+        ChangeNotifierProvider<UserController>(
+          create: (_) => UserController(),
+        ),
+      ],
+      child: MaterialApp(
+        title: 'ASOPROGANUCOT',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.lightTheme(),
+        home: const AuthGate(),
       ),
     );
+  }
+}
+
+/// Enrutador principal por estado de autenticación y rol RBAC (RF-02).
+class AuthGate extends StatelessWidget {
+  const AuthGate({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final AuthController auth = context.watch<AuthController>();
+
+    if (auth.isInitializing) {
+      return const Scaffold(
+        backgroundColor: AppTheme.canvas,
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              AsoproganucotLogo(size: 110),
+              SizedBox(height: 16),
+              SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2.2),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final UserModel? user = auth.currentUser;
+    if (user == null) {
+      return const LoginView();
+    }
+
+    if (user.canAccessDesktopAdmin) {
+      return const AdminShellView();
+    }
+
+    return const ProducerShellView();
   }
 }
