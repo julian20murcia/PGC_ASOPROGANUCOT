@@ -449,6 +449,36 @@ class HiveService {
     return rates.isEmpty ? null : rates.first;
   }
 
+  /// Asigna el `liquidacionId` de cierre quincenal a entregas aún no liquidadas.
+  /// Verifica primero todas las entregas para mantener atomicidad e inmutabilidad (`RNF-06`).
+  Future<void> assignSettlementToReceptions({
+    required List<String> recepcionIds,
+    required String liquidacionId,
+  }) async {
+    await init();
+    final List<MilkReceptionModel> pendingToMark = <MilkReceptionModel>[];
+    for (final String id in recepcionIds) {
+      final MilkReceptionModel? existing = await getReceptionById(id);
+      if (existing == null) continue;
+      if (existing.isLiquidada) {
+        throw StateError(
+          'La entrega ${existing.recepcionId} ya pertenece a la liquidación ${existing.liquidacionId}.',
+        );
+      }
+      pendingToMark.add(existing.copyWith(liquidacionId: liquidacionId));
+    }
+
+    for (final MilkReceptionModel updated in pendingToMark) {
+      await _upsertItem<MilkReceptionModel>(
+        box: _deliveriesBox,
+        memoryMap: _memoryDeliveries,
+        item: updated,
+        keyOf: (MilkReceptionModel r) => r.recepcionId,
+        toMap: (MilkReceptionModel r) => r.toMap(),
+      );
+    }
+  }
+
   // ---- Liquidaciones (settlements_box) ----
 
   Future<void> cacheSettlements(List<SettlementModel> settlements) =>
@@ -459,6 +489,26 @@ class HiveService {
         keyOf: (SettlementModel s) => s.liquidacionId,
         toMap: (SettlementModel s) => s.toMap(),
       );
+
+  Future<void> upsertSettlement(SettlementModel settlement) =>
+      _upsertItem<SettlementModel>(
+        box: _settlementsBox,
+        memoryMap: _memorySettlements,
+        item: settlement,
+        keyOf: (SettlementModel s) => s.liquidacionId,
+        toMap: (SettlementModel s) => s.toMap(),
+      );
+
+  Future<SettlementModel?> getSettlementById(String liquidacionId) async {
+    await init();
+    final dynamic raw = _settlementsBox != null
+        ? _settlementsBox!.get(liquidacionId)
+        : _memorySettlements[liquidacionId];
+    if (raw is Map<dynamic, dynamic>) {
+      return SettlementModel.fromMap(Map<String, dynamic>.from(raw));
+    }
+    return null;
+  }
 
   Future<List<SettlementModel>> getCachedSettlements() async {
     final List<SettlementModel> items = await _readCollection<SettlementModel>(
@@ -480,6 +530,15 @@ class HiveService {
         box: _notificationsBox,
         memoryMap: _memoryNotifications,
         items: notifications,
+        keyOf: (AppNotificationModel n) => n.notificacionId,
+        toMap: (AppNotificationModel n) => n.toMap(),
+      );
+
+  Future<void> upsertNotification(AppNotificationModel notification) =>
+      _upsertItem<AppNotificationModel>(
+        box: _notificationsBox,
+        memoryMap: _memoryNotifications,
+        item: notification,
         keyOf: (AppNotificationModel n) => n.notificacionId,
         toMap: (AppNotificationModel n) => n.toMap(),
       );

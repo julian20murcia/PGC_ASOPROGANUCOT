@@ -1,4 +1,45 @@
 {
-  "indexes": [],
+  "indexes": [
+    {
+      "collectionGroup": "recepciones_leche",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "productorId", "order": "ASCENDING" },
+        { "fieldPath": "fechaEntrega", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "recepciones_leche",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "liquidacionId", "order": "ASCENDING" },
+        { "fieldPath": "fechaEntrega", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "liquidaciones",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "productorId", "order": "ASCENDING" },
+        { "fieldPath": "fechaLiquidacion", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "liquidaciones",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "estadoPago", "order": "ASCENDING" },
+        { "fieldPath": "fechaLiquidacion", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "notificaciones",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "destinoProductorId", "order": "ASCENDING" },
+        { "fieldPath": "fechaEnvio", "order": "DESCENDING" }
+      ]
+    }
+  ],
   "fieldOverrides": []
 }

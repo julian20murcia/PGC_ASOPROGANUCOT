@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_theme.dart';
@@ -529,35 +530,50 @@ class CleanDataTable extends StatelessWidget {
   }
 }
 
-/// Cabecera móvil moderna con fondo en tinta negra `#0E1117` y ondas suaves
-/// escalonadas en verde esmeralda y blanco puro para transicionar al contenido.
+/// Cabecera móvil moderna con fondo en tinta negra `#0E1117`, barra de estado clara
+/// y una franja de ondas contenida exclusivamente en los últimos `30px` inferiores
+/// para nunca tapar ni cruzar el contenido del encabezado.
 class ModernWaveHeader extends StatelessWidget {
   const ModernWaveHeader({
     super.key,
     required this.height,
     required this.child,
     this.bottomSurfaceColor = AppTheme.surface,
+    this.padding = const EdgeInsets.only(bottom: 42),
   });
 
   final double height;
   final Widget child;
   final Color bottomSurfaceColor;
+  final EdgeInsetsGeometry padding;
+
+  static const SystemUiOverlayStyle _lightStatusOverlay = SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.light,
+    statusBarBrightness: Brightness.dark,
+  );
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: height,
-      width: double.infinity,
-      child: Stack(
-        fit: StackFit.expand,
-        children: <Widget>[
-          CustomPaint(
-            painter: _ModernWavePainter(
-              bottomSurfaceColor: bottomSurfaceColor,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: _lightStatusOverlay,
+      child: SizedBox(
+        height: height,
+        width: double.infinity,
+        child: Stack(
+          fit: StackFit.expand,
+          children: <Widget>[
+            CustomPaint(
+              painter: _ModernWavePainter(
+                bottomSurfaceColor: bottomSurfaceColor,
+              ),
             ),
-          ),
-          child,
-        ],
+            Padding(
+              padding: padding,
+              child: child,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -573,86 +589,89 @@ class _ModernWavePainter extends CustomPainter {
     final double w = size.width;
     final double h = size.height;
 
-    // Fondo principal oscuro
+    // Fondo principal oscuro totalmente despejado en la zona de contenido
     canvas.drawRect(
       Rect.fromLTWH(0, 0, w, h),
       Paint()..color = AppTheme.inkBlack,
     );
 
-    // Anillos geométricos sutiles arriba a la derecha
-    final Paint ringPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.05)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2;
-    canvas.drawCircle(Offset(w * 0.88, h * 0.16), w * 0.24, ringPaint);
+    // Anillos geométricos muy sutiles arriba a la derecha (nunca tapan el texto)
     canvas.drawCircle(
-      Offset(w * 0.88, h * 0.16),
-      w * 0.38,
+      Offset(w * 0.90, h * 0.14),
+      w * 0.22,
       Paint()
-        ..color = AppTheme.primaryGreen.withValues(alpha: 0.16)
+        ..color = Colors.white.withValues(alpha: 0.04)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.2,
+        ..strokeWidth = 1.0,
     );
     canvas.drawCircle(
-      Offset(w * 0.10, h * 0.58),
-      w * 0.16,
-      Paint()..color = AppTheme.primaryGreen.withValues(alpha: 0.12),
+      Offset(w * 0.90, h * 0.14),
+      w * 0.34,
+      Paint()
+        ..color = AppTheme.primaryGreen.withValues(alpha: 0.06)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0,
     );
 
-    // Onda trasera esmeralda
-    final Path backWave = Path()
-      ..moveTo(0, h * 0.72)
-      ..cubicTo(
-        w * 0.26,
-        h * 0.56,
-        w * 0.58,
-        h * 0.90,
-        w,
-        h * 0.68,
-      )
-      ..lineTo(w, h)
-      ..lineTo(0, h)
-      ..close();
-    canvas.drawPath(
-      backWave,
-      Paint()..color = AppTheme.primaryGreen.withValues(alpha: 0.36),
-    );
+    // Franja de ondas estrictamente confinada a [h - 30, h]
+    final double waveBase = (h - 30).clamp(0.0, h);
+    final double waveSpan = h - waveBase;
+    double wy(double fraction) => waveBase + (waveSpan * fraction);
 
-    // Onda intermedia marfil traslúcida
-    final Path midWave = Path()
-      ..moveTo(0, h * 0.83)
-      ..cubicTo(
-        w * 0.34,
-        h * 0.96,
-        w * 0.64,
-        h * 0.62,
-        w,
-        h * 0.80,
-      )
-      ..lineTo(w, h)
-      ..lineTo(0, h)
-      ..close();
-    canvas.drawPath(
-      midWave,
-      Paint()..color = Colors.white.withValues(alpha: 0.14),
-    );
-
-    // Onda frontal en color sólido de la hoja blanca para empalme perfecto
-    final Path frontWave = Path()
-      ..moveTo(0, h * 0.86)
+    // Onda trasera en tono esmeralda marca
+    final Path emeraldWave = Path()
+      ..moveTo(0, wy(0.26))
       ..cubicTo(
         w * 0.28,
-        h * 0.72,
-        w * 0.68,
-        h * 1.01,
+        wy(0.0),
+        w * 0.64,
+        wy(0.80),
         w,
-        h * 0.83,
+        wy(0.20),
       )
-      ..lineTo(w, h + 2)
-      ..lineTo(0, h + 2)
+      ..lineTo(w, h)
+      ..lineTo(0, h)
       ..close();
     canvas.drawPath(
-      frontWave,
+      emeraldWave,
+      Paint()..color = AppTheme.primaryGreen.withValues(alpha: 0.88),
+    );
+
+    // Onda intermedia cruzada sutil en esmeralda translúcido
+    final Path softEmeraldWave = Path()
+      ..moveTo(0, wy(0.40))
+      ..cubicTo(
+        w * 0.34,
+        wy(0.92),
+        w * 0.68,
+        wy(0.04),
+        w,
+        wy(0.42),
+      )
+      ..lineTo(w, h)
+      ..lineTo(0, h)
+      ..close();
+    canvas.drawPath(
+      softEmeraldWave,
+      Paint()..color = AppTheme.primaryGreen.withValues(alpha: 0.38),
+    );
+
+    // Corte frontal limpio en el color de la superficie inferior para empalme perfecto
+    final Path surfaceWave = Path()
+      ..moveTo(0, wy(0.56))
+      ..cubicTo(
+        w * 0.30,
+        wy(0.16),
+        w * 0.66,
+        wy(0.96),
+        w,
+        wy(0.50),
+      )
+      ..lineTo(w, h + 1)
+      ..lineTo(0, h + 1)
+      ..close();
+    canvas.drawPath(
+      surfaceWave,
       Paint()..color = bottomSurfaceColor,
     );
   }

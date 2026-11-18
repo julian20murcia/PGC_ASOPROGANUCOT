@@ -4,19 +4,26 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:pgc_asoproganucot/controllers/auth_controller.dart';
 import 'package:pgc_asoproganucot/controllers/producer_controller.dart';
+import 'package:pgc_asoproganucot/controllers/rate_controller.dart';
 import 'package:pgc_asoproganucot/controllers/reception_controller.dart';
+import 'package:pgc_asoproganucot/controllers/settlement_controller.dart';
 import 'package:pgc_asoproganucot/controllers/user_controller.dart';
 import 'package:pgc_asoproganucot/core/constants/app_constants.dart';
 import 'package:pgc_asoproganucot/core/services/fcm_service.dart';
 import 'package:pgc_asoproganucot/core/services/firebase_user_service.dart';
 import 'package:pgc_asoproganucot/core/services/hive_service.dart';
 import 'package:pgc_asoproganucot/core/services/producer_service.dart';
+import 'package:pgc_asoproganucot/core/services/rate_service.dart';
 import 'package:pgc_asoproganucot/core/services/reception_service.dart';
+import 'package:pgc_asoproganucot/core/services/settlement_service.dart';
 import 'package:pgc_asoproganucot/core/theme/app_theme.dart';
 import 'package:pgc_asoproganucot/main.dart';
+import 'package:pgc_asoproganucot/models/app_notification_model.dart';
 import 'package:pgc_asoproganucot/models/audit_log_model.dart';
+import 'package:pgc_asoproganucot/models/milk_rate_model.dart';
 import 'package:pgc_asoproganucot/models/milk_reception_model.dart';
 import 'package:pgc_asoproganucot/models/producer_model.dart';
+import 'package:pgc_asoproganucot/models/settlement_model.dart';
 import 'package:pgc_asoproganucot/models/user_model.dart';
 import 'package:pgc_asoproganucot/views/shared/widgets/cow_balloon_3d_widget.dart';
 import 'package:pgc_asoproganucot/views/shared/widgets/dairy_loader.dart';
@@ -59,6 +66,49 @@ class _FakeRemoteReceptionDataSource implements RemoteReceptionDataSource {
 
   @override
   Future<void> appendAuditLog(AuditLogModel log) async {}
+}
+
+class _FakeRemoteRateDataSource implements RemoteRateDataSource {
+  final List<MilkRateModel> _rates = <MilkRateModel>[];
+
+  @override
+  Future<List<MilkRateModel>> fetchRates() async => List<MilkRateModel>.from(_rates);
+
+  @override
+  Future<void> saveRatesBatch(List<MilkRateModel> rates) async {
+    for (final MilkRateModel r in rates) {
+      _rates.removeWhere((MilkRateModel item) => item.tarifaId == r.tarifaId);
+      _rates.add(r);
+    }
+  }
+
+  @override
+  Future<void> appendAuditLog(AuditLogModel log) async {}
+}
+
+class _FakeRemoteSettlementDataSource implements RemoteSettlementDataSource {
+  final List<SettlementModel> _items = <SettlementModel>[];
+
+  @override
+  Future<List<SettlementModel>> fetchSettlements() async =>
+      List<SettlementModel>.from(_items);
+
+  @override
+  Future<void> commitQuincenaClose({
+    required List<SettlementModel> settlements,
+    required Map<String, List<String>> receptionIdsBySettlement,
+    required List<AppNotificationModel> notifications,
+    required AuditLogModel auditLog,
+  }) async {
+    _items.addAll(settlements);
+  }
+
+  @override
+  Future<void> markSettlementAsPaid({
+    required SettlementModel updatedSettlement,
+    required AppNotificationModel notification,
+    required AuditLogModel auditLog,
+  }) async {}
 }
 
 void main() {
@@ -123,13 +173,30 @@ void main() {
     final ProducerController producerController = ProducerController(
       producerService: producerService,
     );
+    final ReceptionService receptionService = ReceptionService(
+      hiveService: memoryHive,
+      remoteDataSource: _FakeRemoteReceptionDataSource(),
+    );
     final ReceptionController receptionController = ReceptionController(
       hiveService: memoryHive,
       producerService: producerService,
-      receptionService: ReceptionService(
+      receptionService: receptionService,
+    );
+    final RateService rateService = RateService(
+      hiveService: memoryHive,
+      remoteDataSource: _FakeRemoteRateDataSource(),
+    );
+    final RateController rateController = RateController(
+      rateService: rateService,
+    );
+    final SettlementController settlementController = SettlementController(
+      settlementService: SettlementService(
         hiveService: memoryHive,
-        remoteDataSource: _FakeRemoteReceptionDataSource(),
+        remoteDataSource: _FakeRemoteSettlementDataSource(),
       ),
+      receptionService: receptionService,
+      producerService: producerService,
+      rateService: rateService,
     );
 
     await tester.pumpWidget(
@@ -142,6 +209,10 @@ void main() {
           ),
           ChangeNotifierProvider<ReceptionController>.value(
             value: receptionController,
+          ),
+          ChangeNotifierProvider<RateController>.value(value: rateController),
+          ChangeNotifierProvider<SettlementController>.value(
+            value: settlementController,
           ),
         ],
         child: MaterialApp(
@@ -209,6 +280,19 @@ void main() {
     expect(find.text('Captura rápida en planta'), findsOneWidget);
     expect(find.text('Litros recibidos hoy'), findsOneWidget);
     expect(find.text('Registrar entrega'), findsOneWidget);
+
+    // Navegar a Tarifas por Litro y Liquidaciones
+    await tester.tap(find.text('Tarifas por Litro').first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Nueva tarifa vigente'), findsOneWidget);
+    expect(find.text('Tarifa vigente actual'), findsOneWidget);
+
+    await tester.tap(find.text('Liquidaciones').first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Liquidaciones Quincenales'), findsOneWidget);
+    expect(find.text('Ejecutar cierre quincenal'), findsOneWidget);
   });
 
   testWidgets(

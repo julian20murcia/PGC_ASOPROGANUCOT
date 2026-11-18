@@ -30,71 +30,75 @@ class _ProducerShellViewState extends State<ProducerShellView> {
       body: Column(
         children: <Widget>[
           ModernWaveHeader(
-            height: 158 + topInset,
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(20, topInset + 12, 14, 34),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: <Widget>[
-                  Row(
-                    children: <Widget>[
-                      const AsoproganucotLogo(
-                        size: 34,
-                        compact: true,
-                        onDark: true,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          AppConstants.appName,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        tooltip: 'Cerrar sesión',
-                        onPressed: auth.signOut,
-                        icon: const Icon(
-                          Icons.logout_rounded,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(
-                        'Hola, ${user.nombreCompleto}',
-                        maxLines: 1,
+            height: 178 + topInset,
+            padding: EdgeInsets.fromLTRB(20, topInset + 14, 20, 42),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: <Widget>[
+                Row(
+                  children: <Widget>[
+                    const AsoproganucotLogo(
+                      size: 34,
+                      compact: true,
+                      onDark: true,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        AppConstants.appName,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.sourceSerif4(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w600,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
                           color: Colors.white,
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'C.C. ${user.documento} · ${AppConstants.roleShortLabel(user.rol)}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 12.5,
-                          color: Color(0xFFA7F3D0),
-                          fontWeight: FontWeight.w500,
-                        ),
+                    ),
+                    IconButton(
+                      tooltip: 'Cerrar sesión',
+                      onPressed: auth.signOut,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints.tightFor(
+                        width: 36,
+                        height: 36,
                       ),
-                    ],
-                  ),
-                ],
-              ),
+                      icon: const Icon(
+                        Icons.logout_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                  ],
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Text(
+                      'Hola, ${user.nombreCompleto}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.sourceSerif4(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'C.C. ${user.documento} · ${AppConstants.roleShortLabel(user.rol)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        color: Color(0xFFA7F3D0),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
           Expanded(

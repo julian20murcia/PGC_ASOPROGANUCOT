@@ -56,10 +56,16 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // 3. Colección tarifas_leche (RF-12 - histórica, no se elimina)
+    // 3. Colección tarifas_leche (RF-12 - histórica, precio inmutable)
     match /tarifas_leche/{tarifaId} {
       allow read: if isAuthenticated();
-      allow create, update: if isAdmin();
+      allow create: if isAdmin() &&
+        request.resource.data.precioPorLitro is number &&
+        request.resource.data.precioPorLitro > 0;
+      allow update: if isAdmin() &&
+        request.resource.data.precioPorLitro == resource.data.precioPorLitro &&
+        request.resource.data.fechaInicioVigencia == resource.data.fechaInicioVigencia &&
+        request.resource.data.registradoPorUid == resource.data.registradoPorUid;
       allow delete: if false;
     }
 
@@ -75,15 +81,35 @@ service cloud.firestore {
         request.resource.data.liquidacionId == null
       ) || (
         isAdmin() &&
-        resource.data.liquidacionId == null
+        resource.data.liquidacionId == null &&
+        (
+          request.resource.data.liquidacionId == null ||
+          (
+            request.resource.data.litros == resource.data.litros &&
+            request.resource.data.productorId == resource.data.productorId &&
+            request.resource.data.fechaEntrega == resource.data.fechaEntrega &&
+            request.resource.data.anulado == resource.data.anulado
+          )
+        )
       );
       allow delete: if false;
     }
 
-    // 5. Colección liquidaciones (RF-13, RF-14, RF-15, RF-22)
+    // 5. Colección liquidaciones (RF-13, RF-14, RF-15, RF-22 - montos inmutables tras emisión)
     match /liquidaciones/{liquidacionId} {
       allow read: if isStaff() || isAuthenticated();
-      allow create, update: if isAdmin();
+      allow create: if isAdmin() &&
+        request.resource.data.totalLitros is number &&
+        request.resource.data.totalLitros > 0 &&
+        request.resource.data.precioLitroAplicado is number &&
+        request.resource.data.precioLitroAplicado > 0 &&
+        request.resource.data.valorTotalPagar is number &&
+        request.resource.data.valorTotalPagar >= 0;
+      allow update: if isAdmin() &&
+        resource.data.estadoPago == 'PENDIENTE' &&
+        request.resource.data.estadoPago == 'PAGADA' &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['estadoPago', 'fechaPago', 'observacionPago']);
       allow delete: if false;
     }
 

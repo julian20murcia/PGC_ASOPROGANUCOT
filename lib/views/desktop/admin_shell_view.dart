@@ -12,7 +12,9 @@ import '../../models/user_model.dart';
 import '../shared/widgets/dairy_loader.dart';
 import '../shared/widgets/design_system_widgets.dart';
 import 'producers_module_view.dart';
+import 'rates_module_view.dart';
 import 'reception_module_view.dart';
+import 'settlements_module_view.dart';
 import 'users_module_view.dart';
 
 enum AdminSection {
@@ -655,6 +657,12 @@ class _AdminShellViewState extends State<AdminShellView> {
     }
     if (_activeSection == AdminSection.recepcion) {
       return const ReceptionModuleView();
+    }
+    if (_activeSection == AdminSection.tarifas) {
+      return const RatesModuleView();
+    }
+    if (_activeSection == AdminSection.liquidaciones) {
+      return const SettlementsModuleView();
     }
 
     final _NavItemMeta meta = _metaFor(_activeSection);
