@@ -7,6 +7,7 @@ import '../../models/milk_reception_model.dart';
 import '../../models/producer_model.dart';
 import '../../models/user_model.dart';
 import '../constants/app_constants.dart';
+import 'firestore_audit.dart';
 import 'hive_service.dart';
 import 'sync_service.dart';
 
@@ -67,33 +68,46 @@ class FirestoreReceptionDataSource implements RemoteReceptionDataSource {
 
   @override
   Future<void> upsertReception(MilkReceptionModel reception) async {
-    await _db
-        .collection(AppConstants.receptionsCollection)
-        .doc(reception.recepcionId)
-        .set(reception.toMap(), SetOptions(merge: true));
+    await FirestoreReceptionGateway(firestore: _db)
+        .uploadReceptionsBatch(<MilkReceptionModel>[reception]);
   }
 
   @override
-  Future<void> appendAuditLog(AuditLogModel log) async {
-    try {
-      await _db
-          .collection(AppConstants.auditLogsCollection)
-          .doc(log.logId)
-          .set(log.toMap());
-    } catch (_) {
-      // No revertir el registro local ante falla temporal en bitácora.
-    }
-  }
+  Future<void> appendAuditLog(AuditLogModel log) => throw UnsupportedError(
+    'La bitácora de entregas se guarda en la misma transacción.',
+  );
 
-  Future<void> upsertNotification(AppNotificationModel notification) async {
-    try {
-      await _db
-          .collection(AppConstants.notificationsCollection)
-          .doc(notification.notificacionId)
-          .set(notification.toMap(), SetOptions(merge: true));
-    } catch (_) {
-      // No bloquear la recepción ante falla temporal en notificaciones push.
-    }
+  Future<MilkReceptionModel> correctReception(
+    MilkReceptionModel expected,
+    Map<String, dynamic> changes,
+    AuditLogModel event,
+  ) async {
+    final record = _db.collection(AppConstants.receptionsCollection)
+        .doc(expected.recepcionId);
+    return _db.runTransaction((Transaction transaction) async {
+      final before = (await transaction.get(record)).data();
+      if (before == null || before['auditLogId'] != expected.auditLogId ||
+          before['litros'] != expected.litros || before['liquidacionId'] != null ||
+          before['anulado'] == true) {
+        throw ReceptionServiceException(
+          'La entrega cambió desde que la consultaste. Actualiza la lista y vuelve a intentarlo.',
+        );
+      }
+      writeAuditedVersion(
+        db: _db,
+        transaction: transaction,
+        record: record,
+        before: before,
+        after: <String, dynamic>{...before, ...changes},
+        event: event,
+      );
+      return MilkReceptionModel.fromMap(<String, dynamic>{
+        ...before,
+        ...changes,
+        'updatedByUid': event.usuarioUid,
+        'auditLogId': event.logId,
+      }, documentId: record.id);
+    });
   }
 }
 
@@ -117,7 +131,9 @@ class ReceptionService {
       syncService ??
       SyncService(
         hiveService: _hiveService,
-        remoteGateway: _DelegatingReceptionGateway(_remoteDataSource),
+        remoteGateway: _remoteDataSource is FirestoreReceptionDataSource
+            ? FirestoreReceptionGateway(firestore: _remoteDataSource.firestore)
+            : _DelegatingReceptionGateway(_remoteDataSource),
       );
 
   static String defaultShiftForTime(DateTime now) =>
@@ -272,7 +288,7 @@ class ReceptionService {
         'El productor "${producer.nombreCompleto}" está inactivo y no puede registrar entregas.',
       );
     }
-    if (litros.isNaN || litros.isInfinite || litros <= 0) {
+    if (!litros.isFinite || litros < 0.005) {
       throw ReceptionServiceException(
         'La cantidad de litros debe ser mayor a cero.',
       );
@@ -337,7 +353,7 @@ class ReceptionService {
     );
     await _hiveService.upsertNotification(deliveryNotification);
 
-    if (saved.isSynced) {
+    if (saved.isSynced && _remoteDataSource is! FirestoreReceptionDataSource) {
       await _remoteDataSource.appendAuditLog(
         AuditLogModel(
           logId: _uuid.v4(),
@@ -349,9 +365,6 @@ class ReceptionService {
           timestamp: DateTime.now().toUtc(),
         ),
       );
-      if (_remoteDataSource is FirestoreReceptionDataSource) {
-        await _remoteDataSource.upsertNotification(deliveryNotification);
-      }
     }
 
     return saved;
@@ -364,10 +377,13 @@ class ReceptionService {
     required String motivo,
     required UserModel actor,
   }) async {
-    if (nuevosLitros.isNaN || nuevosLitros.isInfinite || nuevosLitros <= 0) {
+    if (!nuevosLitros.isFinite || nuevosLitros < 0.005 || nuevosLitros > 5000) {
       throw ReceptionServiceException(
-        'Los litros corregidos deben ser mayores a cero.',
+        'Los litros corregidos deben estar entre 0,01 y 5.000 L.',
       );
+    }
+    if (double.parse(nuevosLitros.toStringAsFixed(2)) == existing.litros) {
+      throw ReceptionServiceException('Ingresa una cantidad distinta a la registrada.');
     }
     return _applyAdminCorrection(
       existing: existing,
@@ -440,6 +456,27 @@ class ReceptionService {
       throw ReceptionServiceException(
         'Debes indicar el motivo de la corrección (mínimo 5 caracteres).',
       );
+    }
+
+    if (_remoteDataSource is FirestoreReceptionDataSource) {
+      if (!existing.isSynced) {
+        throw ReceptionServiceException('Sincroniza la entrega antes de corregirla o anularla.');
+      }
+      final MilkReceptionModel saved = await _remoteDataSource.correctReception(
+        existing,
+        valorNuevo,
+        AuditLogModel(
+          logId: _uuid.v4(),
+          entidadAfectada: AppConstants.receptionsCollection,
+          registroId: existing.recepcionId,
+          accion: accion,
+          motivo: cleanReason,
+          usuarioUid: actor.uid,
+          timestamp: DateTime.now().toUtc(),
+        ),
+      );
+      await _hiveService.saveReception(saved);
+      return saved;
     }
 
     MilkReceptionModel toSave = updated.copyWith(

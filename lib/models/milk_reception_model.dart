@@ -19,6 +19,9 @@ class MilkReceptionModel {
     this.anulado = false,
     this.motivoAnulacion,
     required this.createdAt,
+    this.auditLogId,
+    this.updatedAt,
+    this.updatedByUid,
   });
 
   final String recepcionId; // UUID v4 idempotente
@@ -36,6 +39,9 @@ class MilkReceptionModel {
   final bool anulado;
   final String? motivoAnulacion;
   final DateTime createdAt;
+  final String? auditLogId;
+  final DateTime? updatedAt;
+  final String? updatedByUid;
 
   bool get isLiquidada =>
       liquidacionId != null && liquidacionId!.trim().isNotEmpty;
@@ -78,6 +84,9 @@ class MilkReceptionModel {
       motivoAnulacion:
           (motivoRaw == null || motivoRaw.isEmpty) ? null : motivoRaw,
       createdAt: parseUtcDate(map['createdAt']),
+      auditLogId: map['auditLogId'] as String?,
+      updatedAt: parseNullableUtcDate(map['updatedAt']),
+      updatedByUid: map['updatedByUid'] as String?,
     );
   }
 
@@ -98,6 +107,9 @@ class MilkReceptionModel {
       'anulado': anulado,
       'motivoAnulacion': motivoAnulacion,
       'createdAt': createdAt.toUtc().toIso8601String(),
+      if (auditLogId != null) 'auditLogId': auditLogId,
+      if (updatedAt != null) 'updatedAt': updatedAt!.toIso8601String(),
+      if (updatedByUid != null) 'updatedByUid': updatedByUid,
     };
   }
 
@@ -118,6 +130,7 @@ class MilkReceptionModel {
     bool? anulado,
     String? motivoAnulacion,
     DateTime? createdAt,
+    String? auditLogId,
   }) {
     return MilkReceptionModel(
       recepcionId: recepcionId ?? this.recepcionId,
@@ -136,6 +149,9 @@ class MilkReceptionModel {
       anulado: anulado ?? this.anulado,
       motivoAnulacion: motivoAnulacion ?? this.motivoAnulacion,
       createdAt: createdAt ?? this.createdAt,
+      auditLogId: auditLogId ?? this.auditLogId,
+      updatedAt: updatedAt,
+      updatedByUid: updatedByUid,
     );
   }
 }

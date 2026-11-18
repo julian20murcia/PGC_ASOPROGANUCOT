@@ -347,7 +347,7 @@ class HiveService {
     return pending;
   }
 
-  Future<void> markReceptionsAsSynced(List<String> recepcionIds) async {
+  Future<void> markReceptionsAsSynced(List<String> recepcionIds, {bool audited = false}) async {
     await init();
     for (final String id in recepcionIds) {
       final MilkReceptionModel? existing = await getReceptionById(id);
@@ -357,6 +357,7 @@ class HiveService {
       final MilkReceptionModel updated = existing.copyWith(
         isSynced: true,
         syncStatus: AppConstants.syncSynced,
+        auditLogId: audited ? 'recepcion_$id' : null,
       );
       await _upsertItem<MilkReceptionModel>(
         box: _deliveriesBox,
