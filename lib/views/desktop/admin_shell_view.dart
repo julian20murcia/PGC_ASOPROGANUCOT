@@ -11,6 +11,7 @@ import '../../core/theme/app_theme.dart';
 import '../../models/user_model.dart';
 import '../shared/widgets/dairy_loader.dart';
 import '../shared/widgets/design_system_widgets.dart';
+import 'producers_module_view.dart';
 import 'users_module_view.dart';
 
 enum AdminSection {
@@ -647,6 +648,9 @@ class _AdminShellViewState extends State<AdminShellView> {
   Widget _buildActiveSectionBody(UserModel user) {
     if (_activeSection == AdminSection.usuarios) {
       return const UsersModuleView();
+    }
+    if (_activeSection == AdminSection.productores) {
+      return const ProducersModuleView();
     }
 
     final _NavItemMeta meta = _metaFor(_activeSection);

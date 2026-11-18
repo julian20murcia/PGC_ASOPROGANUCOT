@@ -3,13 +3,17 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:pgc_asoproganucot/controllers/auth_controller.dart';
+import 'package:pgc_asoproganucot/controllers/producer_controller.dart';
 import 'package:pgc_asoproganucot/controllers/user_controller.dart';
 import 'package:pgc_asoproganucot/core/constants/app_constants.dart';
 import 'package:pgc_asoproganucot/core/services/fcm_service.dart';
 import 'package:pgc_asoproganucot/core/services/firebase_user_service.dart';
 import 'package:pgc_asoproganucot/core/services/hive_service.dart';
+import 'package:pgc_asoproganucot/core/services/producer_service.dart';
 import 'package:pgc_asoproganucot/core/theme/app_theme.dart';
 import 'package:pgc_asoproganucot/main.dart';
+import 'package:pgc_asoproganucot/models/audit_log_model.dart';
+import 'package:pgc_asoproganucot/models/producer_model.dart';
 import 'package:pgc_asoproganucot/models/user_model.dart';
 import 'package:pgc_asoproganucot/views/shared/widgets/dairy_loader.dart';
 import 'package:provider/provider.dart';
@@ -18,13 +22,30 @@ class _MockFirebaseUserService extends Mock implements FirebaseUserService {}
 
 class _MockFcmService extends Mock implements FcmService {}
 
+class _FakeRemoteProducerDataSource implements RemoteProducerDataSource {
+  final List<ProducerModel> _items = <ProducerModel>[];
+
+  @override
+  Future<List<ProducerModel>> fetchProducers() async =>
+      List<ProducerModel>.from(_items);
+
+  @override
+  Future<void> upsertProducer(ProducerModel producer) async {
+    _items.removeWhere((ProducerModel p) => p.productorId == producer.productorId);
+    _items.add(producer);
+  }
+
+  @override
+  Future<void> appendAuditLog(AuditLogModel log) async {}
+}
+
 void main() {
   setUpAll(() {
     GoogleFonts.config.allowRuntimeFetching = false;
   });
 
   testWidgets(
-      'Login valida credenciales, muestra flujo lácteo/DairyLoader y abre AdminShellView con sidebar negro',
+      'Login valida credenciales, abre AdminShellView y permite navegar al módulo de Productores con Habeas Data',
       (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1366, 860);
     tester.view.devicePixelRatio = 1.0;
@@ -73,12 +94,21 @@ void main() {
     final UserController userController = UserController(
       userService: mockUserService,
     );
+    final ProducerController producerController = ProducerController(
+      producerService: ProducerService(
+        hiveService: memoryHive,
+        remoteDataSource: _FakeRemoteProducerDataSource(),
+      ),
+    );
 
     await tester.pumpWidget(
       MultiProvider(
         providers: <ChangeNotifierProvider<dynamic>>[
           ChangeNotifierProvider<AuthController>.value(value: authController),
           ChangeNotifierProvider<UserController>.value(value: userController),
+          ChangeNotifierProvider<ProducerController>.value(
+            value: producerController,
+          ),
         ],
         child: MaterialApp(
           theme: AppTheme.lightTheme(),
@@ -115,5 +145,21 @@ void main() {
     expect(find.text('Operación en planta'), findsOneWidget);
     expect(find.text('Nuevo usuario'), findsOneWidget);
     expect(find.text('Bradley Ballen'), findsAtLeastNWidgets(1));
+
+    // Navegar al módulo de Productores
+    await tester.tap(find.text('Productores').first);
+    await tester.pump(const Duration(milliseconds: 350));
+
+    expect(find.text('Nuevo productor'), findsOneWidget);
+    expect(find.text('Productores activos'), findsOneWidget);
+
+    // Abrir diálogo de creación y verificar bloqueo sin Habeas Data
+    await tester.tap(find.text('Nuevo productor'));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(
+      find.text('Aviso de Privacidad y Tratamiento de Datos (Ley 1581 de 2012)'),
+      findsOneWidget,
+    );
+    expect(find.text('Guardar productor'), findsOneWidget);
   });
 }

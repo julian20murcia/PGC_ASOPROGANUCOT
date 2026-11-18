@@ -365,8 +365,11 @@ class PrimaryActionButton extends StatelessWidget {
         style: ElevatedButton.styleFrom(
           backgroundColor: AppTheme.inkBlack,
           foregroundColor: Colors.white,
-          disabledBackgroundColor: AppTheme.inkBlack.withValues(alpha: 0.72),
-          disabledForegroundColor: Colors.white,
+          disabledBackgroundColor: isLoading
+              ? AppTheme.inkBlack.withValues(alpha: 0.72)
+              : AppTheme.border,
+          disabledForegroundColor:
+              isLoading ? Colors.white : AppTheme.textMuted,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 16),
           shape: RoundedRectangleBorder(

@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'controllers/auth_controller.dart';
+import 'controllers/producer_controller.dart';
 import 'controllers/sync_controller.dart';
 import 'controllers/user_controller.dart';
 import 'core/services/hive_service.dart';
+import 'core/services/producer_service.dart';
 import 'core/theme/app_theme.dart';
 import 'firebase_options.dart';
 import 'models/user_model.dart';
@@ -45,6 +47,11 @@ class AsoproganucotApp extends StatelessWidget {
         ),
         ChangeNotifierProvider<SyncController>(
           create: (_) => SyncController(hiveService: hiveService)..initialize(),
+        ),
+        ChangeNotifierProvider<ProducerController>(
+          create: (_) => ProducerController(
+            producerService: ProducerService(hiveService: hiveService),
+          ),
         ),
       ],
       child: MaterialApp(
