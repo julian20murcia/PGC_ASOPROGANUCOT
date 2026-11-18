@@ -34,6 +34,13 @@ service cloud.firestore {
       return isAdmin() || isOperario();
     }
 
+    function isProducerOwner(productorId) {
+      return isAuthenticated() &&
+        productorId is string &&
+        exists(/databases/$(database)/documents/productores/$(productorId)) &&
+        get(/databases/$(database)/documents/productores/$(productorId)).data.uidUsuario == request.auth.uid;
+    }
+
     // 1. Colección usuarios (RF-01, RF-02, RF-03, RNF-07)
     // Lectura permitida para resolver documento/cédula a correo en el login;
     // escrituras restringidas al Administrador o al propio usuario autenticado (ej. fcmTokens/ultimoAcceso).
@@ -71,7 +78,13 @@ service cloud.firestore {
 
     // 4. Colección recepciones_leche (RF-08 a RF-11, Ley 527/1999 inmutabilidad post-liquidación)
     match /recepciones_leche/{recepcionId} {
-      allow read: if isStaff() || isAuthenticated();
+      allow read: if isStaff() || (
+        isAuthenticated() && (
+          resource.data.productorId == request.auth.uid ||
+          resource.data.uidUsuario == request.auth.uid ||
+          isProducerOwner(resource.data.productorId)
+        )
+      );
       allow create: if isStaff() &&
         request.resource.data.litros is number &&
         request.resource.data.litros > 0;
@@ -97,7 +110,13 @@ service cloud.firestore {
 
     // 5. Colección liquidaciones (RF-13, RF-14, RF-15, RF-22 - montos inmutables tras emisión)
     match /liquidaciones/{liquidacionId} {
-      allow read: if isStaff() || isAuthenticated();
+      allow read: if isStaff() || (
+        isAuthenticated() && (
+          resource.data.productorId == request.auth.uid ||
+          resource.data.uidUsuario == request.auth.uid ||
+          isProducerOwner(resource.data.productorId)
+        )
+      );
       allow create: if isAdmin() &&
         request.resource.data.totalLitros is number &&
         request.resource.data.totalLitros > 0 &&
@@ -115,9 +134,21 @@ service cloud.firestore {
 
     // 6. Colección notificaciones (RF-23, RF-24)
     match /notificaciones/{notificacionId} {
-      allow read: if isAuthenticated();
-      allow create: if isStaff();
-      allow update: if isAuthenticated();
+      allow read: if isStaff() || (
+        isAuthenticated() && (
+          resource.data.destinoProductorId == null ||
+          resource.data.destinoProductorId == '' ||
+          resource.data.destinoProductorId == request.auth.uid ||
+          isProducerOwner(resource.data.destinoProductorId)
+        )
+      );
+      allow create: if isStaff() || (
+        isAuthenticated() && request.resource.data.tipo == 'RECTIFICACION'
+      );
+      allow update: if isStaff() || (
+        isAuthenticated() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['leida'])
+      );
       allow delete: if isAdmin();
     }
 

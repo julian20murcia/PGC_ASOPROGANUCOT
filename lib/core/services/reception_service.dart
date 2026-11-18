@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../models/app_notification_model.dart';
 import '../../models/audit_log_model.dart';
 import '../../models/milk_reception_model.dart';
 import '../../models/producer_model.dart';
@@ -65,6 +66,17 @@ class FirestoreReceptionDataSource implements RemoteReceptionDataSource {
           .set(log.toMap());
     } catch (_) {
       // No revertir el registro local ante falla temporal en bitácora.
+    }
+  }
+
+  Future<void> upsertNotification(AppNotificationModel notification) async {
+    try {
+      await _db
+          .collection(AppConstants.notificationsCollection)
+          .doc(notification.notificacionId)
+          .set(notification.toMap(), SetOptions(merge: true));
+    } catch (_) {
+      // No bloquear la recepción ante falla temporal en notificaciones push.
     }
   }
 }
@@ -248,6 +260,20 @@ class ReceptionService {
       tryImmediateSync: isOnline,
     );
 
+    final String shiftLabel =
+        cleanShift == AppConstants.shiftAfternoon ? 'Tarde' : 'Mañana';
+    final AppNotificationModel deliveryNotification = AppNotificationModel(
+      notificacionId: 'notif_entrega_${saved.recepcionId}',
+      titulo: 'Entrega registrada ($shiftLabel)',
+      mensaje:
+          'Se registraron ${saved.litros.toStringAsFixed(1)} L de leche cruda el $fechaEntrega a las $horaEntrega.',
+      tipo: 'ENTREGA',
+      destinoProductorId: producer.productorId,
+      fechaEnvio: nowLocal.toUtc(),
+      leida: false,
+    );
+    await _hiveService.upsertNotification(deliveryNotification);
+
     if (saved.isSynced) {
       await _remoteDataSource.appendAuditLog(
         AuditLogModel(
@@ -260,6 +286,9 @@ class ReceptionService {
           timestamp: DateTime.now().toUtc(),
         ),
       );
+      if (_remoteDataSource is FirestoreReceptionDataSource) {
+        await _remoteDataSource.upsertNotification(deliveryNotification);
+      }
     }
 
     return saved;
