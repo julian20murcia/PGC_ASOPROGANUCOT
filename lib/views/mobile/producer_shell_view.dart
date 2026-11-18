@@ -14,6 +14,7 @@ import '../../models/privacy_notice.dart';
 import '../../models/producer_model.dart';
 import '../../models/settlement_model.dart';
 import '../../models/user_model.dart';
+import '../shared/widgets/app_select.dart';
 import '../shared/widgets/dairy_loader.dart';
 import '../shared/widgets/design_system_widgets.dart';
 import '../shared/widgets/privacy_notice_view.dart';
@@ -2015,20 +2016,18 @@ class _ProducerProfileSheetState extends State<_ProducerProfileSheet> {
                         ),
                       ),
                       const SizedBox(height: 10),
-                      DropdownButtonFormField<String>(
-                        initialValue: _selectedField,
-                        items: _fields
+                      AppSelect<String>(
+                        value: _selectedField,
+                        labelText: 'Dato a corregir',
+                        prefixIcon: Icons.edit_note_rounded,
+                        options: _fields
                             .map(
-                              (String f) => DropdownMenuItem<String>(
-                                value: f,
-                                child: Text(f),
-                              ),
+                              (String f) =>
+                                  AppSelectOption<String>(value: f, label: f),
                             )
                             .toList(),
-                        onChanged: (String? value) {
-                          if (value != null) {
-                            setState(() => _selectedField = value);
-                          }
+                        onChanged: (String value) {
+                          setState(() => _selectedField = value);
                         },
                       ),
                       const SizedBox(height: 10),

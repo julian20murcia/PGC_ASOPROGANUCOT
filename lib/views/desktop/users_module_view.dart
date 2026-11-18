@@ -7,6 +7,7 @@ import '../../controllers/user_controller.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/user_model.dart';
+import '../shared/widgets/app_select.dart';
 import '../shared/widgets/dairy_loader.dart';
 import '../shared/widgets/design_system_widgets.dart';
 
@@ -261,61 +262,52 @@ class _UsersModuleViewState extends State<UsersModuleView> {
 
     final Widget roleDropdown = SizedBox(
       height: 36,
-      child: DropdownButtonFormField<String>(
-        initialValue: ctrl.roleFilter,
-        isExpanded: true,
-        decoration: const InputDecoration(
-          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        ),
-        items: const <DropdownMenuItem<String>>[
-          DropdownMenuItem<String>(
-            value: 'ALL',
-            child: Text('Todos los roles', overflow: TextOverflow.ellipsis),
-          ),
-          DropdownMenuItem<String>(
+      child: AppSelect<String>(
+        dense: true,
+        value: ctrl.roleFilter,
+        prefixIcon: Icons.badge_outlined,
+        options: const <AppSelectOption<String>>[
+          AppSelectOption<String>(value: 'ALL', label: 'Todos los roles'),
+          AppSelectOption<String>(
             value: AppConstants.roleAdmin,
-            child: Text('Administrador', overflow: TextOverflow.ellipsis),
+            label: 'Administrador',
+            icon: Icons.admin_panel_settings_outlined,
           ),
-          DropdownMenuItem<String>(
+          AppSelectOption<String>(
             value: AppConstants.roleOperario,
-            child: Text('Operario', overflow: TextOverflow.ellipsis),
+            label: 'Operario',
+            icon: Icons.engineering_outlined,
           ),
-          DropdownMenuItem<String>(
+          AppSelectOption<String>(
             value: AppConstants.roleProductor,
-            child: Text('Productor', overflow: TextOverflow.ellipsis),
+            label: 'Productor',
+            icon: Icons.agriculture_outlined,
           ),
         ],
-        onChanged: (String? value) {
-          if (value != null) ctrl.setRoleFilter(value);
-        },
+        onChanged: ctrl.setRoleFilter,
       ),
     );
 
     final Widget statusDropdown = SizedBox(
       height: 36,
-      child: DropdownButtonFormField<String>(
-        initialValue: ctrl.statusFilter,
-        isExpanded: true,
-        decoration: const InputDecoration(
-          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        ),
-        items: const <DropdownMenuItem<String>>[
-          DropdownMenuItem<String>(
-            value: 'ALL',
-            child: Text('Todos los estados', overflow: TextOverflow.ellipsis),
-          ),
-          DropdownMenuItem<String>(
+      child: AppSelect<String>(
+        dense: true,
+        value: ctrl.statusFilter,
+        prefixIcon: Icons.toggle_on_outlined,
+        options: const <AppSelectOption<String>>[
+          AppSelectOption<String>(value: 'ALL', label: 'Todos los estados'),
+          AppSelectOption<String>(
             value: 'ACTIVE',
-            child: Text('Activos', overflow: TextOverflow.ellipsis),
+            label: 'Activos',
+            icon: Icons.check_circle_outline_rounded,
           ),
-          DropdownMenuItem<String>(
+          AppSelectOption<String>(
             value: 'INACTIVE',
-            child: Text('Suspendidos', overflow: TextOverflow.ellipsis),
+            label: 'Suspendidos',
+            icon: Icons.pause_circle_outline_rounded,
           ),
         ],
-        onChanged: (String? value) {
-          if (value != null) ctrl.setStatusFilter(value);
-        },
+        onChanged: ctrl.setStatusFilter,
       ),
     );
 
@@ -609,23 +601,23 @@ class _UsersModuleViewState extends State<UsersModuleView> {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            DropdownButton<int>(
-              value: ctrl.itemsPerPage,
-              underline: const SizedBox.shrink(),
-              items: const <int>[7, 15, 30]
-                  .map(
-                    (int size) => DropdownMenuItem<int>(
-                      value: size,
-                      child: Text(
-                        '$size por página',
-                        style: const TextStyle(fontSize: 13),
+            SizedBox(
+              width: 150,
+              height: 34,
+              child: AppSelect<int>(
+                dense: true,
+                value: ctrl.itemsPerPage,
+                menuMinWidth: 150,
+                options: const <int>[7, 15, 30]
+                    .map(
+                      (int size) => AppSelectOption<int>(
+                        value: size,
+                        label: '$size por página',
                       ),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (int? val) {
-                if (val != null) ctrl.setItemsPerPage(val);
-              },
+                    )
+                    .toList(),
+                onChanged: ctrl.setItemsPerPage,
+              ),
             ),
             const SizedBox(width: 8),
             IconButton(

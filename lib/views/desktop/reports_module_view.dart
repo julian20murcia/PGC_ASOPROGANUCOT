@@ -11,6 +11,7 @@ import '../../models/audit_log_model.dart';
 import '../../models/milk_reception_model.dart';
 import '../../models/producer_model.dart';
 import '../../models/settlement_model.dart';
+import '../shared/widgets/app_select.dart';
 import '../shared/widgets/dairy_loader.dart';
 import '../shared/widgets/design_system_widgets.dart';
 
@@ -264,25 +265,24 @@ class _ReportsModuleViewState extends State<ReportsModuleView> {
   }
 
   Widget _buildFilterPanel(ReportController ctrl, bool isNarrow) {
-    final Widget producerDropdown = DropdownButtonFormField<String?>(
-      initialValue: ctrl.selectedProducerId,
-      isExpanded: true,
-      decoration: const InputDecoration(
-        labelText: 'Filtrar por ganadero (reporte individual)',
-        prefixIcon: Icon(Icons.person_search_outlined, size: 18),
-      ),
-      items: <DropdownMenuItem<String?>>[
-        const DropdownMenuItem<String?>(
+    final Widget producerDropdown = AppSelect<String?>(
+      value: ctrl.selectedProducerId,
+      labelText: 'Filtrar por ganadero (reporte individual)',
+      prefixIcon: Icons.person_search_outlined,
+      searchable: true,
+      searchHint: 'Buscar por nombre, código o cédula…',
+      menuMaxHeight: 360,
+      options: <AppSelectOption<String?>>[
+        const AppSelectOption<String?>(
           value: null,
-          child: Text('Todos los productores (consolidado)'),
+          label: 'Todos los productores (consolidado)',
+          icon: Icons.groups_2_outlined,
         ),
         ...ctrl.producers.map(
-          (ProducerModel p) => DropdownMenuItem<String?>(
+          (ProducerModel p) => AppSelectOption<String?>(
             value: p.productorId,
-            child: Text(
-              '${p.codigoAsociado} · ${p.nombreCompleto} (C.C. ${p.cedula})',
-              overflow: TextOverflow.ellipsis,
-            ),
+            label: '${p.codigoAsociado} · ${p.nombreCompleto}',
+            description: 'C.C. ${p.cedula}',
           ),
         ),
       ],

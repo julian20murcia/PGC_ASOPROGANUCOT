@@ -10,6 +10,7 @@ import '../../core/theme/app_theme.dart';
 import '../../models/milk_reception_model.dart';
 import '../../models/producer_model.dart';
 import '../../models/user_model.dart';
+import '../shared/widgets/app_select.dart';
 import '../shared/widgets/dairy_loader.dart';
 import '../shared/widgets/design_system_widgets.dart';
 
@@ -612,57 +613,47 @@ class _ReceptionModuleViewState extends State<ReceptionModuleView> {
 
     final Widget shiftDropdown = SizedBox(
       height: 36,
-      child: DropdownButtonFormField<String>(
-        initialValue: ctrl.shiftFilter,
-        isExpanded: true,
-        decoration: const InputDecoration(
-          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        ),
-        items: const <DropdownMenuItem<String>>[
-          DropdownMenuItem<String>(
-            value: 'ALL',
-            child: Text('Todas las jornadas', overflow: TextOverflow.ellipsis),
-          ),
-          DropdownMenuItem<String>(
+      child: AppSelect<String>(
+        dense: true,
+        value: ctrl.shiftFilter,
+        prefixIcon: Icons.schedule_rounded,
+        options: const <AppSelectOption<String>>[
+          AppSelectOption<String>(value: 'ALL', label: 'Todas las jornadas'),
+          AppSelectOption<String>(
             value: AppConstants.shiftMorning,
-            child: Text('Mañana', overflow: TextOverflow.ellipsis),
+            label: 'Mañana',
+            icon: Icons.wb_sunny_outlined,
           ),
-          DropdownMenuItem<String>(
+          AppSelectOption<String>(
             value: AppConstants.shiftAfternoon,
-            child: Text('Tarde', overflow: TextOverflow.ellipsis),
+            label: 'Tarde',
+            icon: Icons.wb_twilight_rounded,
           ),
         ],
-        onChanged: (String? val) {
-          if (val != null) ctrl.setShiftFilter(val);
-        },
+        onChanged: ctrl.setShiftFilter,
       ),
     );
 
     final Widget statusDropdown = SizedBox(
       height: 36,
-      child: DropdownButtonFormField<String>(
-        initialValue: ctrl.statusFilter,
-        isExpanded: true,
-        decoration: const InputDecoration(
-          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        ),
-        items: const <DropdownMenuItem<String>>[
-          DropdownMenuItem<String>(
+      child: AppSelect<String>(
+        dense: true,
+        value: ctrl.statusFilter,
+        prefixIcon: Icons.filter_list_rounded,
+        options: const <AppSelectOption<String>>[
+          AppSelectOption<String>(
             value: 'ACTIVE',
-            child: Text('Solo activas', overflow: TextOverflow.ellipsis),
+            label: 'Solo activas',
+            icon: Icons.check_circle_outline_rounded,
           ),
-          DropdownMenuItem<String>(
+          AppSelectOption<String>(
             value: 'ANNULLED',
-            child: Text('Anuladas', overflow: TextOverflow.ellipsis),
+            label: 'Anuladas',
+            icon: Icons.block_rounded,
           ),
-          DropdownMenuItem<String>(
-            value: 'ALL',
-            child: Text('Todas', overflow: TextOverflow.ellipsis),
-          ),
+          AppSelectOption<String>(value: 'ALL', label: 'Todas'),
         ],
-        onChanged: (String? val) {
-          if (val != null) ctrl.setStatusFilter(val);
-        },
+        onChanged: ctrl.setStatusFilter,
       ),
     );
 

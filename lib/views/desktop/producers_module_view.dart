@@ -7,6 +7,7 @@ import '../../controllers/producer_controller.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/privacy_notice.dart';
 import '../../models/producer_model.dart';
+import '../shared/widgets/app_select.dart';
 import '../shared/widgets/dairy_loader.dart';
 import '../shared/widgets/design_system_widgets.dart';
 import '../shared/widgets/privacy_notice_view.dart';
@@ -224,60 +225,47 @@ class _ProducersModuleViewState extends State<ProducersModuleView> {
       ),
     );
 
-    final List<DropdownMenuItem<String>> veredaItems =
-        <DropdownMenuItem<String>>[
-      const DropdownMenuItem<String>(
-        value: 'ALL',
-        child: Text('Todas las veredas', overflow: TextOverflow.ellipsis),
-      ),
-      ...ctrl.availableVeredas.map(
-        (String vereda) => DropdownMenuItem<String>(
-          value: vereda,
-          child: Text(vereda, overflow: TextOverflow.ellipsis),
-        ),
-      ),
-    ];
-
     final Widget veredaDropdown = SizedBox(
       height: 36,
-      child: DropdownButtonFormField<String>(
-        initialValue: ctrl.veredaFilter,
-        isExpanded: true,
-        decoration: const InputDecoration(
-          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        ),
-        items: veredaItems,
-        onChanged: (String? value) {
-          if (value != null) ctrl.setVeredaFilter(value);
-        },
+      child: AppSelect<String>(
+        dense: true,
+        value: ctrl.veredaFilter,
+        prefixIcon: Icons.place_outlined,
+        searchHint: 'Buscar vereda…',
+        options: <AppSelectOption<String>>[
+          const AppSelectOption<String>(
+            value: 'ALL',
+            label: 'Todas las veredas',
+          ),
+          ...ctrl.availableVeredas.map(
+            (String vereda) =>
+                AppSelectOption<String>(value: vereda, label: vereda),
+          ),
+        ],
+        onChanged: ctrl.setVeredaFilter,
       ),
     );
 
     final Widget statusDropdown = SizedBox(
       height: 36,
-      child: DropdownButtonFormField<String>(
-        initialValue: ctrl.statusFilter,
-        isExpanded: true,
-        decoration: const InputDecoration(
-          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        ),
-        items: const <DropdownMenuItem<String>>[
-          DropdownMenuItem<String>(
-            value: 'ALL',
-            child: Text('Todos los estados', overflow: TextOverflow.ellipsis),
-          ),
-          DropdownMenuItem<String>(
+      child: AppSelect<String>(
+        dense: true,
+        value: ctrl.statusFilter,
+        prefixIcon: Icons.toggle_on_outlined,
+        options: const <AppSelectOption<String>>[
+          AppSelectOption<String>(value: 'ALL', label: 'Todos los estados'),
+          AppSelectOption<String>(
             value: 'ACTIVO',
-            child: Text('Activos', overflow: TextOverflow.ellipsis),
+            label: 'Activos',
+            icon: Icons.check_circle_outline_rounded,
           ),
-          DropdownMenuItem<String>(
+          AppSelectOption<String>(
             value: 'INACTIVO',
-            child: Text('Inactivos', overflow: TextOverflow.ellipsis),
+            label: 'Inactivos',
+            icon: Icons.pause_circle_outline_rounded,
           ),
         ],
-        onChanged: (String? value) {
-          if (value != null) ctrl.setStatusFilter(value);
-        },
+        onChanged: ctrl.setStatusFilter,
       ),
     );
 
@@ -583,23 +571,23 @@ class _ProducersModuleViewState extends State<ProducersModuleView> {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            DropdownButton<int>(
-              value: ctrl.itemsPerPage,
-              underline: const SizedBox.shrink(),
-              items: const <int>[10, 20, 40]
-                  .map(
-                    (int size) => DropdownMenuItem<int>(
-                      value: size,
-                      child: Text(
-                        '$size por página',
-                        style: const TextStyle(fontSize: 13),
+            SizedBox(
+              width: 150,
+              height: 34,
+              child: AppSelect<int>(
+                dense: true,
+                value: ctrl.itemsPerPage,
+                menuMinWidth: 150,
+                options: const <int>[10, 20, 40]
+                    .map(
+                      (int size) => AppSelectOption<int>(
+                        value: size,
+                        label: '$size por página',
                       ),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (int? val) {
-                if (val != null) ctrl.setItemsPerPage(val);
-              },
+                    )
+                    .toList(),
+                onChanged: ctrl.setItemsPerPage,
+              ),
             ),
             const SizedBox(width: 8),
             IconButton(

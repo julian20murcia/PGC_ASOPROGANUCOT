@@ -14,6 +14,7 @@ import '../../core/utils/formatters.dart';
 import '../../models/app_notification_model.dart';
 import '../../models/producer_model.dart';
 import '../../models/user_model.dart';
+import '../shared/widgets/app_select.dart';
 import '../shared/widgets/dairy_loader.dart';
 import '../shared/widgets/design_system_widgets.dart';
 import 'dashboard_module_view.dart';
@@ -1400,28 +1401,25 @@ class _BroadcastDialogState extends State<_BroadcastDialog> {
                     ],
                   ),
                   const SizedBox(height: 14),
-                  DropdownButtonFormField<String?>(
-                    initialValue: _selectedProducerId,
-                    decoration: const InputDecoration(
-                      labelText: 'Destinatario',
-                    ),
-                    items: <DropdownMenuItem<String?>>[
-                      const DropdownMenuItem<String?>(
+                  AppSelect<String?>(
+                    value: _selectedProducerId,
+                    labelText: 'Destinatario',
+                    prefixIcon: Icons.campaign_outlined,
+                    searchable: true,
+                    searchHint: 'Buscar productor…',
+                    options: <AppSelectOption<String?>>[
+                      const AppSelectOption<String?>(
                         value: null,
-                        child: Text(
-                          'Todos los productores (Comunicado general)',
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                        label: 'Todos los productores (Comunicado general)',
+                        icon: Icons.groups_2_outlined,
                       ),
                       ...widget.producers
                           .where((ProducerModel p) => p.isActivo)
                           .map(
-                            (ProducerModel p) => DropdownMenuItem<String?>(
+                            (ProducerModel p) => AppSelectOption<String?>(
                               value: p.productorId,
-                              child: Text(
-                                '${p.codigoAsociado} · ${p.nombreCompleto}',
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                              label: p.nombreCompleto,
+                              description: 'Código ${p.codigoAsociado}',
                             ),
                           ),
                     ],
