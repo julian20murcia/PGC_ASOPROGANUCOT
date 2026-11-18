@@ -8,16 +8,25 @@ environment:
 
 dependencies:
   cloud_firestore: ^7.2.0
+  connectivity_plus: ^7.3.2
   firebase_auth: ^7.1.0
   firebase_core: ^5.2.0
   firebase_messaging: ^17.1.0
   flutter:
     sdk: flutter
+  google_fonts: ^8.2.1
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  intl: ^0.20.3
+  provider: ^6.1.5+1
+  uuid: ^4.6.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  image: ^4.13.1
+  mocktail: ^1.0.5
 
 flutter:
   uses-material-design: true

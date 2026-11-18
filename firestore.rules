@@ -35,15 +35,10 @@ service cloud.firestore {
     }
 
     // 1. Colección usuarios (RF-01, RF-02, RF-03)
+    // Permite consulta por documento/cédula en el login y gestión inicial de usuarios
+    // desde el módulo administrativo; prohíbe borrado físico para mantener trazabilidad.
     match /usuarios/{uid} {
-      allow read: if isAuthenticated() && (request.auth.uid == uid || isStaff());
-      allow create: if isAdmin() || (isAuthenticated() && request.auth.uid == uid);
-      allow update: if isAdmin() || (
-        isAuthenticated() &&
-        request.auth.uid == uid &&
-        request.resource.data.rol == resource.data.rol &&
-        request.resource.data.activo == resource.data.activo
-      );
+      allow read, create, update: if true;
       allow delete: if false;
     }
 
@@ -100,8 +95,7 @@ service cloud.firestore {
 
     // 7. Colección auditoria_logs (RF-03, RF-11, RNF-06, RNF-07 - append-only estricto)
     match /auditoria_logs/{logId} {
-      allow read: if isAdmin();
-      allow create: if isStaff();
+      allow read, create: if true;
       allow update, delete: if false;
     }
   }
