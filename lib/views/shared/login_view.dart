@@ -766,13 +766,11 @@ class _StaggeredLine extends StatelessWidget {
     required this.animation,
     required this.text,
     required this.color,
-    this.italic = false,
   });
 
   final Animation<double> animation;
   final String text;
   final Color color;
-  final bool italic;
 
   @override
   Widget build(BuildContext context) {
@@ -797,7 +795,6 @@ class _StaggeredLine extends StatelessWidget {
           height: 1.22,
           letterSpacing: -0.5,
           fontWeight: FontWeight.w700,
-          fontStyle: italic ? FontStyle.italic : FontStyle.normal,
           color: color,
         ),
       ),
