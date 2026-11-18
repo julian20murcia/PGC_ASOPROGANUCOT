@@ -1,0 +1,42 @@
+name: ASOPROGANUCOTT Flutter CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - develop
+      - 'iteracion-**'
+      - 'feature/**'
+  pull_request:
+    branches:
+      - main
+      - master
+      - develop
+
+jobs:
+  analyze_and_test:
+    name: Análisis Estático y Suite XP
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Clonar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Flutter (stable)
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Verificar versión de Flutter y Dart
+        run: flutter --version
+
+      - name: Instalar dependencias (flutter pub get)
+        run: flutter pub get
+
+      - name: Ejecutar análisis estático (0 issues requeridos)
+        run: flutter analyze
+
+      - name: Ejecutar pruebas unitarias, E2E y de widgets (XP)
+        run: flutter test --reporter expanded
