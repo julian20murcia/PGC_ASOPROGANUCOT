@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../models/milk_rate_model.dart';
 import '../../models/user_model.dart';
-import '../services/rate_service.dart';
+import '../core/services/rate_service.dart';
 
 /// Controlador MVC para administración de tarifa histórica por litro (`RF-12`).
 class RateController extends ChangeNotifier {

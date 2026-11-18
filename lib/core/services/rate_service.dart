@@ -200,9 +200,9 @@ class RateService {
     await _remoteDataSource.appendAuditLog(
       AuditLogModel(
         logId: _uuid.v4(),
-        modulo: 'TARIFAS',
-        accion: 'ACTUALIZAR_TARIFA_LITRO',
-        referenciaId: created.tarifaId,
+        entidadAfectada: AppConstants.ratesCollection,
+        registroId: created.tarifaId,
+        accion: 'CREAR',
         valorAnterior: previousActive == null
             ? null
             : <String, dynamic>{
@@ -213,11 +213,11 @@ class RateService {
           'tarifaId': created.tarifaId,
           'precioPorLitro': created.precioPorLitro,
           'fechaInicioVigencia': AppFormatters.formatDate(startUtc),
+          'actorNombre': actor.nombreCompleto,
         },
         motivo: trimmedObs,
         usuarioUid: actor.uid,
-        usuarioNombre: actor.nombreCompleto,
-        fechaEvento: DateTime.now().toUtc(),
+        timestamp: DateTime.now().toUtc(),
       ),
     );
 

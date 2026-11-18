@@ -5,11 +5,11 @@ import '../../models/milk_reception_model.dart';
 import '../../models/producer_model.dart';
 import '../../models/settlement_model.dart';
 import '../../models/user_model.dart';
-import '../services/producer_service.dart';
-import '../services/rate_service.dart';
-import '../services/reception_service.dart';
-import '../services/settlement_calculator.dart';
-import '../services/settlement_service.dart';
+import '../core/services/producer_service.dart';
+import '../core/services/rate_service.dart';
+import '../core/services/reception_service.dart';
+import '../core/services/settlement_calculator.dart';
+import '../core/services/settlement_service.dart';
 
 /// Controlador MVC para cálculo, cierre quincenal, comprobantes y pagos (`RF-13` a `RF-15`).
 class SettlementController extends ChangeNotifier {

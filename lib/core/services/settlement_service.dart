@@ -338,20 +338,20 @@ class SettlementService {
 
     final AuditLogModel auditLog = AuditLogModel(
       logId: _uuid.v4(),
-      modulo: 'LIQUIDACIONES',
-      accion: 'CIERRE_QUINCENAL',
-      referenciaId: '${period.startDate}_${period.endDate}',
+      entidadAfectada: AppConstants.settlementsCollection,
+      registroId: '${period.startDate}_${period.endDate}',
+      accion: 'LIQUIDAR',
       valorNuevo: <String, dynamic>{
         'quincenaLabel': period.label,
         'cantidadComprobantes': createdSettlements.length,
         'totalLitros': preview.totalLiters,
         'tarifaAplicada': preview.precioPorLitro,
         'valorTotal': preview.totalAmountToPay,
+        'actorNombre': actor.nombreCompleto,
       },
       motivo: 'Cierre quincenal ${period.label}',
       usuarioUid: actor.uid,
-      usuarioNombre: actor.nombreCompleto,
-      fechaEvento: nowUtc,
+      timestamp: nowUtc,
     );
 
     try {
@@ -432,9 +432,9 @@ class SettlementService {
 
     final AuditLogModel auditLog = AuditLogModel(
       logId: _uuid.v4(),
-      modulo: 'LIQUIDACIONES',
-      accion: 'CONFIRMAR_PAGO',
-      referenciaId: settlement.liquidacionId,
+      entidadAfectada: AppConstants.settlementsCollection,
+      registroId: settlement.liquidacionId,
+      accion: 'EDITAR',
       valorAnterior: <String, dynamic>{
         'estadoPago': settlement.estadoPago,
         'numeroComprobante': settlement.numeroComprobante,
@@ -443,11 +443,11 @@ class SettlementService {
         'estadoPago': 'PAGADA',
         'fechaPago': paymentUtc.toIso8601String(),
         'observacionPago': obs,
+        'actorNombre': actor.nombreCompleto,
       },
       motivo: obs,
       usuarioUid: actor.uid,
-      usuarioNombre: actor.nombreCompleto,
-      fechaEvento: paymentUtc,
+      timestamp: paymentUtc,
     );
 
     try {
