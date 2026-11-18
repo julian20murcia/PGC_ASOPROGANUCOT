@@ -751,9 +751,11 @@ class _SidebarGroupHeader extends StatelessWidget {
       child: Row(
         children: <Widget>[
           Flexible(
-            flex: 0,
+            flex: 8,
+            fit: FlexFit.loose,
             child: Text(
               title,
+              maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.sourceSerif4(
                 fontSize: 11.5,
@@ -764,6 +766,7 @@ class _SidebarGroupHeader extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Expanded(
+            flex: 1,
             child: Container(
               height: 1,
               color: Colors.white.withValues(alpha: 0.11),
