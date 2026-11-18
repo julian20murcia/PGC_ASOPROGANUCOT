@@ -749,6 +749,9 @@ class _MetricBox extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: accentColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(7),
+                  border: Border.all(
+                    color: accentColor.withValues(alpha: 0.24),
+                  ),
                 ),
                 child: Icon(icon, size: 16, color: accentColor),
               ),
