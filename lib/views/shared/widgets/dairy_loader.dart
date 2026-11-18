@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_constants.dart';
@@ -388,13 +389,13 @@ class MilkFlowBackground extends StatelessWidget {
   }
 }
 
-/// Telón de transición institucional de ASOPROGANUCOT con flujo lácteo y
-/// disolución radial al completar el acceso o carga inicial.
+/// Telón de carga inicial e inicio de sesión de ASOPROGANUCOTT con gradiente
+/// del escudo oficial, ondas suaves pradera/cielo y disolución radial.
 class AsoproganucotCurtain extends StatelessWidget {
   const AsoproganucotCurtain({
     super.key,
     this.statusText = 'Preparando entorno…',
-    this.eyebrow = 'ASOPROGANUCOT · SUSA',
+    this.eyebrow = 'ASOPROGANUCOTT · SUSA',
     this.revealProgress = 0.0,
     this.onSkip,
   });
@@ -409,77 +410,137 @@ class AsoproganucotCurtain extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Widget body = Container(
-      color: AppTheme.inkBlack,
-      child: Stack(
-        fit: StackFit.expand,
-        children: <Widget>[
-          const MilkFlowBackground(opacity: 0.9),
-          Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 28),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    Text(
-                      eyebrow,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 10.5,
-                        letterSpacing: 2.2,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0x99FFFFFF),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    const DairyLoader(
-                      size: DairyLoaderSize.md,
-                      label: null,
-                      color: Colors.white,
-                    ),
-                    const SizedBox(height: 18),
-                    Text(
-                      AppConstants.appName,
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.sourceSerif4(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: -0.4,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      statusText,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 13.5,
-                        color: Color(0xB8FFFFFF),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    const _IndeterminateHairlineBar(),
-                    if (onSkip != null) ...<Widget>[
-                      const SizedBox(height: 18),
-                      TextButton(
-                        onPressed: onSkip,
-                        style: TextButton.styleFrom(
-                          foregroundColor: const Color(0x99FFFFFF),
+    final Widget body = AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+      ),
+      child: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: <Color>[
+              Color(0xFF072617),
+              Color(0xFF0C3B24),
+              Color(0xFF145E32),
+            ],
+          ),
+        ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: <Widget>[
+            const CustomPaint(painter: _SplashWaveBackdropPainter()),
+            SafeArea(
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 28,
+                    vertical: 24,
+                  ),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 420),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        // Escudo oficial circular sobre halo luminoso sutil
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: RadialGradient(
+                              colors: <Color>[
+                                Colors.white.withValues(alpha: 0.16),
+                                const Color(0xFF22C55E).withValues(alpha: 0.08),
+                                Colors.transparent,
+                              ],
+                              stops: const <double>[0.0, 0.58, 1.0],
+                            ),
+                          ),
+                          child: Image.asset(
+                            AppConstants.darkLogoAssetPath,
+                            width: 108,
+                            height: 108,
+                            fit: BoxFit.contain,
+                            filterQuality: FilterQuality.high,
+                            errorBuilder: (_, _, _) => const SizedBox(
+                              width: 108,
+                              height: 108,
+                            ),
+                          ),
                         ),
-                        child: const Text(
-                          'Continuar ahora',
-                          style: TextStyle(fontSize: 12),
+                        const SizedBox(height: 14),
+                        Text(
+                          eyebrow,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            letterSpacing: 2.0,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFFA7F3D0),
+                          ),
                         ),
-                      ),
-                    ],
-                  ],
+                        const SizedBox(height: 8),
+                        Text(
+                          AppConstants.appName,
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 27,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.4,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Asociación de Productores Lácteos · Susa, Cundinamarca',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFFD1FAE5),
+                          ),
+                        ),
+                        const SizedBox(height: 22),
+                        const DairyLoader(
+                          size: DairyLoaderSize.md,
+                          label: null,
+                          color: Colors.white,
+                        ),
+                        const SizedBox(height: 14),
+                        Text(
+                          statusText,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 13.5,
+                            color: Color(0xE0FFFFFF),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        const _IndeterminateHairlineBar(),
+                        if (onSkip != null) ...<Widget>[
+                          const SizedBox(height: 16),
+                          TextButton(
+                            onPressed: onSkip,
+                            style: TextButton.styleFrom(
+                              foregroundColor: const Color(0xB3FFFFFF),
+                            ),
+                            child: const Text(
+                              'Continuar ahora',
+                              style: TextStyle(fontSize: 12.5),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
 
@@ -487,7 +548,8 @@ class AsoproganucotCurtain extends StatelessWidget {
       return body;
     }
 
-    final double p = Curves.easeInOutCubic.transform(revealProgress.clamp(0.0, 1.0));
+    final double p =
+        Curves.easeInOutCubic.transform(revealProgress.clamp(0.0, 1.0));
     final double r = (-0.25 + 1.55 * p).clamp(0.0, 2.0);
     final double inner = math.max(0.0, r - 0.14);
 
@@ -512,6 +574,77 @@ class AsoproganucotCurtain extends StatelessWidget {
       ),
     );
   }
+}
+
+class _SplashWaveBackdropPainter extends CustomPainter {
+  const _SplashWaveBackdropPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final double w = size.width;
+    final double h = size.height;
+
+    // Onda superior sutil en azul cielo andino del escudo
+    final Path topWave = Path()
+      ..moveTo(0, 0)
+      ..lineTo(w, 0)
+      ..lineTo(w, h * 0.16)
+      ..cubicTo(
+        w * 0.68,
+        h * 0.24,
+        w * 0.30,
+        h * 0.07,
+        0,
+        h * 0.20,
+      )
+      ..close();
+    canvas.drawPath(
+      topWave,
+      Paint()..color = const Color(0xFF0284C7).withValues(alpha: 0.14),
+    );
+
+    // Colina inferior trasera verde pradera
+    final Path backHill = Path()
+      ..moveTo(0, h * 0.80)
+      ..cubicTo(
+        w * 0.32,
+        h * 0.72,
+        w * 0.66,
+        h * 0.88,
+        w,
+        h * 0.76,
+      )
+      ..lineTo(w, h)
+      ..lineTo(0, h)
+      ..close();
+    canvas.drawPath(
+      backHill,
+      Paint()..color = const Color(0xFF22C55E).withValues(alpha: 0.13),
+    );
+
+    // Onda inferior frontal más suave
+    final Path frontHill = Path()
+      ..moveTo(0, h * 0.89)
+      ..cubicTo(
+        w * 0.36,
+        h * 0.96,
+        w * 0.70,
+        h * 0.81,
+        w,
+        h * 0.88,
+      )
+      ..lineTo(w, h)
+      ..lineTo(0, h)
+      ..close();
+    canvas.drawPath(
+      frontHill,
+      Paint()..color = const Color(0xFF22C55E).withValues(alpha: 0.18),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _SplashWaveBackdropPainter oldDelegate) =>
+      false;
 }
 
 class _IndeterminateHairlineBar extends StatefulWidget {
@@ -544,12 +677,12 @@ class _IndeterminateHairlineBarState extends State<_IndeterminateHairlineBar>
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 180,
-      height: 2,
+      width: 196,
+      height: 3,
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(2),
+        color: Colors.white.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(3),
       ),
       child: AnimatedBuilder(
         animation: _controller,
@@ -559,11 +692,16 @@ class _IndeterminateHairlineBarState extends State<_IndeterminateHairlineBar>
           return Align(
             alignment: Alignment(alignX.clamp(-1.0, 1.0), 0),
             child: Container(
-              width: 68,
-              height: 2,
+              width: 72,
+              height: 3,
               decoration: BoxDecoration(
-                color: AppTheme.primaryGreen,
-                borderRadius: BorderRadius.circular(2),
+                gradient: const LinearGradient(
+                  colors: <Color>[
+                    Color(0xFF22C55E),
+                    Color(0xFFF59E0B),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(3),
               ),
             ),
           );
