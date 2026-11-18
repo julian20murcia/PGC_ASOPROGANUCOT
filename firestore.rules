@@ -156,8 +156,8 @@ service cloud.firestore {
     match /liquidaciones/{liquidacionId} {
       allow read: if isStaff() || ownsProducer(resource.data.productorId);
       // La emisión y el bloqueo de entregas se ejecutan en la función de cierre.
-      allow update: if isAdmin() &&
-        resource.data.estadoPago == 'PENDIENTE' &&
+      allow update: if isAdmin() && resource != null &&
+        resource.data.get('estadoPago', null) == 'PENDIENTE' &&
         request.resource.data.estadoPago == 'PAGADA' &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'estadoPago', 'fechaPago', 'observacionPago', 'auditLogId', 'updatedAt', 'updatedByUid'

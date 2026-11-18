@@ -45,12 +45,11 @@ El **Administrador Central** cuenta con los 7 módulos del panel izquierdo más 
 ### 3.1 Productores y Habeas Data (Ley 1581 de 2012)
 1. Ingresa a **Productores** y presiona **Nuevo productor**.
 2. Entrega al productor el aviso de privacidad vigente y obtén su autorización previa. Confirma ambas acciones en el formulario e ingresa la referencia del soporte firmado o electrónico que conserva la asociación. Luego completa los datos del productor.
-3. Marca la casilla obligatoria de **Autorización Habeas Data Ley 1581 de 2012** (sin ella el guardado permanece bloqueado).
-4. Opcionalmente marca **Crear / vincular acceso móvil** para generar en ese mismo paso el usuario con rol `PRODUCTOR`.
-5. Puedes editar datos o cambiar el estado entre `ACTIVO` e `INACTIVO` sin perder el historial de entregas.
+3. Opcionalmente marca **Crear / vincular acceso móvil** para generar en ese mismo paso el usuario con rol `PRODUCTOR`.
+4. Puedes editar datos o cambiar el estado entre `ACTIVO` e `INACTIVO` sin perder el historial de entregas.
 
 ### 3.2 Corrección o Anulación Auditada de Entregas
-1. En **Recepción de Leche**, ubica la fila mientras la entrega **no pertenezca a una liquidación cerrada**.
+1. Con la aplicación en línea, ubica una entrega sincronizada y pendiente de liquidación en **Recepción de Leche**.
 2. Usa **Corregir litros** o **Anular** escribiendo obligatoriamente el motivo de auditoría (mínimo 5 caracteres). El cambio queda trazado en la bitácora `auditoria_logs`.
 3. Una vez la entrega está liquidada, el candado normativo (**Ley 527 de 1999**) bloquea toda modificación.
 
