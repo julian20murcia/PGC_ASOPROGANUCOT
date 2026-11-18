@@ -639,6 +639,7 @@ class _ProducerSummaryStrip extends StatelessWidget {
         value: '${ctrl.totalCount}',
         subtitle: 'Registrados en el padrón',
         icon: Icons.agriculture_outlined,
+        accentColor: AppTheme.skyBlue,
       ),
       _MetricBox(
         title: 'Productores activos',
@@ -652,12 +653,14 @@ class _ProducerSummaryStrip extends StatelessWidget {
         value: '${ctrl.linkedMobileCount}',
         subtitle: 'Consulta en teléfono',
         icon: Icons.smartphone_outlined,
+        accentColor: AppTheme.warmGold,
       ),
       _MetricBox(
         title: 'Veredas registradas',
         value: '${ctrl.veredasCount}',
         subtitle: 'Zona lechera de Susa',
         icon: Icons.place_outlined,
+        accentColor: AppTheme.indigoAccent,
       ),
     ];
 
@@ -719,7 +722,7 @@ class _MetricBox extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.surface,
         borderRadius: BorderRadius.circular(AppTheme.radiusCard),
-        border: Border.all(color: AppTheme.border),
+        border: Border.all(color: accentColor.withValues(alpha: 0.24)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -740,7 +743,15 @@ class _MetricBox extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 6),
-              Icon(icon, size: 16, color: accentColor),
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: accentColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(7),
+                ),
+                child: Icon(icon, size: 16, color: accentColor),
+              ),
             ],
           ),
           const SizedBox(height: 6),

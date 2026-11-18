@@ -923,19 +923,21 @@ class _ReceptionSummaryStrip extends StatelessWidget {
         subtitle:
             'Mañana ${ctrl.todayMorningLiters.toStringAsFixed(1)} L · Tarde ${ctrl.todayAfternoonLiters.toStringAsFixed(1)} L',
         icon: Icons.water_drop_outlined,
-        accentColor: AppTheme.primaryGreen,
+        accentColor: AppTheme.skyBlue,
       ),
       _MetricTile(
         title: 'Entregas de hoy',
         value: '${ctrl.todayDeliveriesCount}',
         subtitle: 'Registros activos del día',
         icon: Icons.fact_check_outlined,
+        accentColor: AppTheme.primaryGreen,
       ),
       _MetricTile(
         title: 'Acumulado quincenal',
         value: '${ctrl.quincenaTotalLiters.toStringAsFixed(1)} L',
         subtitle: ctrl.currentQuincenaLabel,
         icon: Icons.calendar_today_outlined,
+        accentColor: AppTheme.warmGold,
       ),
       _MetricTile(
         title: 'Estado de envío',
@@ -947,7 +949,7 @@ class _ReceptionSummaryStrip extends StatelessWidget {
             : 'Pendiente por subir al reconectar',
         icon: Icons.cloud_done_outlined,
         accentColor: ctrl.pendingSyncCount == 0
-            ? AppTheme.primaryGreen
+            ? AppTheme.tealAccent
             : AppTheme.warningText,
       ),
     ];
@@ -1010,7 +1012,7 @@ class _MetricTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.surface,
         borderRadius: BorderRadius.circular(AppTheme.radiusCard),
-        border: Border.all(color: AppTheme.border),
+        border: Border.all(color: accentColor.withValues(alpha: 0.24)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1031,7 +1033,15 @@ class _MetricTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 6),
-              Icon(icon, size: 16, color: accentColor),
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: accentColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(7),
+                ),
+                child: Icon(icon, size: 16, color: accentColor),
+              ),
             ],
           ),
           const SizedBox(height: 6),

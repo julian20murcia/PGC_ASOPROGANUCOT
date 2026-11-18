@@ -37,6 +37,8 @@ class _NavItemMeta {
     required this.group,
     required this.adminOnly,
     required this.description,
+    required this.accentColor,
+    required this.darkIconColor,
     this.isFooterGroup = false,
   });
 
@@ -46,6 +48,8 @@ class _NavItemMeta {
   final String group;
   final bool adminOnly;
   final String description;
+  final Color accentColor;
+  final Color darkIconColor;
   final bool isFooterGroup;
 }
 
@@ -72,6 +76,8 @@ class _AdminShellViewState extends State<AdminShellView> {
       icon: Icons.home_outlined,
       group: 'Principal',
       adminOnly: false,
+      accentColor: AppTheme.primaryGreen,
+      darkIconColor: Color(0xFF4ADE80),
       description:
           'Resumen diario de litros acopiados por jornada (mañana y tarde) y acumulado de la quincena actual.',
     ),
@@ -81,6 +87,8 @@ class _AdminShellViewState extends State<AdminShellView> {
       icon: Icons.water_drop_outlined,
       group: 'Operación en planta',
       adminOnly: false,
+      accentColor: AppTheme.skyBlue,
+      darkIconColor: Color(0xFF38BDF8),
       description:
           'Registro ágil en planta por productor y jornada (Mañana / Tarde) con guardado seguro y verificación de duplicados.',
     ),
@@ -90,6 +98,8 @@ class _AdminShellViewState extends State<AdminShellView> {
       icon: Icons.agriculture_outlined,
       group: 'Operación en planta',
       adminOnly: false,
+      accentColor: AppTheme.primaryGreen,
+      darkIconColor: Color(0xFF34D399),
       description:
           'Padrón general de ganaderos asociados en Susa, código interno, datos de contacto y autorización de datos.',
     ),
@@ -99,6 +109,8 @@ class _AdminShellViewState extends State<AdminShellView> {
       icon: Icons.receipt_long_outlined,
       group: 'Finanzas y control',
       adminOnly: true,
+      accentColor: AppTheme.warmGold,
+      darkIconColor: Color(0xFFFBBF24),
       description:
           'Cálculo quincenal automático, comprobantes descargables en PDF, control de pagos y avisos a productores.',
     ),
@@ -108,6 +120,8 @@ class _AdminShellViewState extends State<AdminShellView> {
       icon: Icons.payments_outlined,
       group: 'Finanzas y control',
       adminOnly: true,
+      accentColor: AppTheme.tealAccent,
+      darkIconColor: Color(0xFF2DD4BF),
       description:
           'Configuración del valor vigente por litro de leche cruda e historial de ajustes por período.',
     ),
@@ -117,6 +131,8 @@ class _AdminShellViewState extends State<AdminShellView> {
       icon: Icons.assessment_outlined,
       group: 'Finanzas y control',
       adminOnly: true,
+      accentColor: AppTheme.indigoAccent,
+      darkIconColor: Color(0xFF818CF8),
       description:
           'Estadísticas consolidadas por productor y por período exportables para archivo contable y control interno.',
     ),
@@ -126,6 +142,8 @@ class _AdminShellViewState extends State<AdminShellView> {
       icon: Icons.manage_accounts_outlined,
       group: 'Administración',
       adminOnly: true,
+      accentColor: AppTheme.skyBlue,
+      darkIconColor: Color(0xFF60A5FA),
       description:
           'Administración de cuentas de acceso y perfiles del personal administrativo, operarios de planta y productores.',
       isFooterGroup: false,
@@ -592,6 +610,16 @@ class _AdminShellViewState extends State<AdminShellView> {
                     ),
                   ),
                 ],
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: meta.accentColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(7),
+                  ),
+                  child: Icon(meta.icon, size: 16, color: meta.accentColor),
+                ),
+                const SizedBox(width: 9),
                 Flexible(
                   child: Text(
                     meta.label,
@@ -626,13 +654,24 @@ class _AdminShellViewState extends State<AdminShellView> {
                     margin: const EdgeInsets.symmetric(horizontal: 12),
                     color: AppTheme.border,
                   ),
-                  const Text(
-                    'Susa, Cundinamarca',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppTheme.textSecondary,
-                      fontWeight: FontWeight.w500,
-                    ),
+                  const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Icon(
+                        Icons.place_rounded,
+                        size: 14,
+                        color: AppTheme.primaryGreen,
+                      ),
+                      SizedBox(width: 4),
+                      Text(
+                        'Susa, Cundinamarca',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.textSecondary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
                   Container(
                     width: 1,
@@ -853,10 +892,8 @@ class _OtepNavTabState extends State<_OtepNavTab> {
             ? Colors.white
             : const Color(0xFFF8FAFC);
     final Color iconColor = selected
-        ? AppTheme.primaryGreen
-        : _hovered
-            ? Colors.white
-            : Colors.white.withValues(alpha: 0.88);
+        ? widget.item.accentColor
+        : widget.item.darkIconColor;
     final Color bg = selected
         ? AppTheme.canvas
         : _hovered
@@ -898,7 +935,17 @@ class _OtepNavTabState extends State<_OtepNavTab> {
                     ? MainAxisAlignment.start
                     : MainAxisAlignment.center,
                 children: <Widget>[
-                  Icon(widget.item.icon, size: 17, color: iconColor),
+                  Container(
+                    width: 26,
+                    height: 26,
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? widget.item.accentColor.withValues(alpha: 0.14)
+                          : widget.item.darkIconColor.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Icon(widget.item.icon, size: 16, color: iconColor),
+                  ),
                   if (widget.expanded) ...<Widget>[
                     const SizedBox(width: 9),
                     Expanded(
@@ -1020,10 +1067,14 @@ class _UserInitialCircle extends StatelessWidget {
       width: 30,
       height: 30,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
+        gradient: const LinearGradient(
+          colors: <Color>[AppTheme.primaryGreen, AppTheme.skyBlue],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         shape: BoxShape.circle,
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.24),
+          color: Colors.white.withValues(alpha: 0.30),
         ),
       ),
       alignment: Alignment.center,

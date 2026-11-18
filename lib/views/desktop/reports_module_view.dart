@@ -373,7 +373,7 @@ class _ReportsModuleViewState extends State<ReportsModuleView> {
         value: AppFormatters.formatLiters(ctrl.averageDailyPerProducer),
         subtitle: 'Media por productor y día entregado',
         icon: Icons.analytics_outlined,
-        accentColor: AppTheme.inkBlack,
+        accentColor: AppTheme.skyBlue,
       ),
       AppKpiCard(
         title: 'Productores incluidos',
@@ -382,7 +382,7 @@ class _ReportsModuleViewState extends State<ReportsModuleView> {
             ? 'Padrón con entregas en el período'
             : 'Filtro individual activo',
         icon: Icons.people_outline,
-        accentColor: AppTheme.inkBlack,
+        accentColor: AppTheme.warmGold,
       ),
       AppKpiCard(
         title: 'Valor total liquidado / est.',
@@ -391,7 +391,7 @@ class _ReportsModuleViewState extends State<ReportsModuleView> {
             ? 'Tarifa base ${AppFormatters.formatCurrency(ctrl.effectivePricePerLiter)}/L'
             : 'Según comprobantes cerrados',
         icon: Icons.payments_outlined,
-        accentColor: AppTheme.primaryGreen,
+        accentColor: AppTheme.indigoAccent,
       ),
     ];
 

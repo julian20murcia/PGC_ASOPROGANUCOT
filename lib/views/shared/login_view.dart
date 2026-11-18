@@ -474,18 +474,37 @@ class _LoginViewState extends State<LoginView>
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
-        if (!isMobile) ...<Widget>[
-          const Text(
-            'ACCESO AL SISTEMA',
-            style: TextStyle(
-              fontSize: 11,
-              letterSpacing: 1.5,
-              fontWeight: FontWeight.w700,
-              color: AppTheme.primaryGreen,
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: AppTheme.primaryGreenLight,
+            borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+            border: Border.all(
+              color: AppTheme.primaryGreen.withValues(alpha: 0.28),
             ),
           ),
-          const SizedBox(height: 6),
-        ],
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(
+                Icons.verified_user_rounded,
+                size: 14,
+                color: AppTheme.primaryGreen,
+              ),
+              SizedBox(width: 6),
+              Text(
+                'ACCESO AL SISTEMA',
+                style: TextStyle(
+                  fontSize: 10.5,
+                  letterSpacing: 1.3,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.primaryGreen,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
         Text(
           'Iniciar sesión',
           style: AppTheme.serifStyle(
@@ -521,7 +540,7 @@ class _LoginViewState extends State<LoginView>
             prefixIcon: Icon(
               Icons.person_outline_rounded,
               size: 18,
-              color: AppTheme.textMuted,
+              color: AppTheme.primaryGreen,
             ),
           ),
         ),
@@ -544,7 +563,7 @@ class _LoginViewState extends State<LoginView>
             prefixIcon: const Icon(
               Icons.lock_outline_rounded,
               size: 18,
-              color: AppTheme.textMuted,
+              color: AppTheme.skyBlue,
             ),
             suffixIcon: IconButton(
               tooltip: _obscurePassword
@@ -558,7 +577,7 @@ class _LoginViewState extends State<LoginView>
                     ? Icons.visibility_outlined
                     : Icons.visibility_off_outlined,
                 size: 18,
-                color: AppTheme.textSecondary,
+                color: AppTheme.primaryGreen,
               ),
             ),
           ),
@@ -619,7 +638,7 @@ class _LoginViewState extends State<LoginView>
                         height: 18,
                         child: Checkbox(
                           value: _rememberMe,
-                          activeColor: AppTheme.inkBlack,
+                          activeColor: AppTheme.primaryGreen,
                           materialTapTargetSize:
                               MaterialTapTargetSize.shrinkWrap,
                           side: const BorderSide(
@@ -737,15 +756,23 @@ class _LoginViewState extends State<LoginView>
         const SizedBox(height: 16),
         const Divider(height: 1),
         const SizedBox(height: 12),
-        const Row(
+        Row(
           children: <Widget>[
-            Icon(
-              Icons.verified_user_outlined,
-              size: 15,
-              color: AppTheme.textMuted,
+            Container(
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                color: AppTheme.primaryGreenLight,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Icon(
+                Icons.verified_user_rounded,
+                size: 14,
+                color: AppTheme.primaryGreen,
+              ),
             ),
-            SizedBox(width: 7),
-            Expanded(
+            const SizedBox(width: 8),
+            const Expanded(
               child: Text(
                 'Asociación de Productores y Ganaderos · Susa, Cundinamarca.',
                 style: TextStyle(

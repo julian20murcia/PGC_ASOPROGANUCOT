@@ -193,7 +193,7 @@ class _RatesModuleViewState extends State<RatesModuleView> {
             : '${diff >= 0 ? '+' : ''}${AppFormatters.formatCurrency(diff)}',
         subtitle: variationLabel,
         icon: Icons.trending_up_rounded,
-        accentColor: AppTheme.inkBlack,
+        accentColor: AppTheme.skyBlue,
       ),
       AppKpiCard(
         title: 'Vigencias registradas',
@@ -202,7 +202,7 @@ class _RatesModuleViewState extends State<RatesModuleView> {
             ? 'Mostrando respaldo local'
             : 'Historial íntegro conservado',
         icon: Icons.history_rounded,
-        accentColor: AppTheme.inkBlack,
+        accentColor: AppTheme.warmGold,
       ),
       AppKpiCard(
         title: 'Referencia 1.000 L',
@@ -211,7 +211,7 @@ class _RatesModuleViewState extends State<RatesModuleView> {
             : '—',
         subtitle: 'Estimado bruto por cada mil litros',
         icon: Icons.calculate_outlined,
-        accentColor: AppTheme.primaryGreen,
+        accentColor: AppTheme.indigoAccent,
       ),
     ];
 

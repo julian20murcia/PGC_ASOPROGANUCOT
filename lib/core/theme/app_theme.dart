@@ -30,6 +30,10 @@ class AppTheme {
   static const Color skyBlueLight = Color(0xFFE0F2FE);
   static const Color warmGold = Color(0xFFD97706);
   static const Color warmGoldLight = Color(0xFFFEF3C7);
+  static const Color tealAccent = Color(0xFF0D9488);
+  static const Color tealLight = Color(0xFFCCFBF1);
+  static const Color indigoAccent = Color(0xFF4F46E5);
+  static const Color indigoLight = Color(0xFFE0E7FF);
 
   // Tipografía de alto contraste sobre fondos claros
   static const Color textPrimary = Color(0xFF0B2619);
@@ -125,9 +129,9 @@ class AppTheme {
       textTheme: baseTextTheme,
       primaryTextTheme: baseTextTheme,
       colorScheme: const ColorScheme.light(
-        primary: inkBlack,
+        primary: primaryGreen,
         onPrimary: Colors.white,
-        secondary: primaryGreen,
+        secondary: skyBlue,
         onSecondary: Colors.white,
         surface: surface,
         onSurface: textPrimary,
@@ -153,6 +157,8 @@ class AppTheme {
         filled: true,
         fillColor: surface,
         isDense: true,
+        prefixIconColor: primaryGreen,
+        suffixIconColor: textSecondary,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 12,
           vertical: 11,
@@ -172,7 +178,7 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radiusControl),
-          borderSide: const BorderSide(color: inkBlack, width: 1.4),
+          borderSide: const BorderSide(color: primaryGreen, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radiusControl),
@@ -185,7 +191,7 @@ class AppTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: inkBlack,
+          backgroundColor: primaryGreen,
           foregroundColor: Colors.white,
           elevation: 0,
           minimumSize: const Size(0, 38),

@@ -267,7 +267,7 @@ class _SettlementsModuleViewState extends State<SettlementsModuleView> {
             ? 'Vigente desde ${AppFormatters.formatDate(rate.fechaInicioVigencia)}'
             : 'Configura una tarifa primero',
         icon: Icons.payments_outlined,
-        accentColor: AppTheme.inkBlack,
+        accentColor: AppTheme.skyBlue,
       ),
       AppKpiCard(
         title: 'Comprobantes pendientes',

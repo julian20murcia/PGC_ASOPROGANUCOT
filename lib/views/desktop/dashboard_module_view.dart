@@ -243,7 +243,7 @@ class _DashboardModuleViewState extends State<DashboardModuleView> {
         subtitle:
             'Mañana: ${AppFormatters.formatLiters(recCtrl.todayMorningLiters)} · Tarde: ${AppFormatters.formatLiters(recCtrl.todayAfternoonLiters)}',
         icon: Icons.water_drop_outlined,
-        accentColor: AppTheme.primaryGreen,
+        accentColor: AppTheme.skyBlue,
       ),
       AppKpiCard(
         title: 'Acumulado quincena actual',
@@ -252,7 +252,7 @@ class _DashboardModuleViewState extends State<DashboardModuleView> {
             ? 'Estimado: ${AppFormatters.formatCurrency(quincenaEstimated)}'
             : recCtrl.currentQuincenaLabel,
         icon: Icons.date_range_outlined,
-        accentColor: AppTheme.inkBlack,
+        accentColor: AppTheme.primaryGreen,
       ),
       AppKpiCard(
         title: 'Productores que entregaron hoy',
@@ -260,7 +260,7 @@ class _DashboardModuleViewState extends State<DashboardModuleView> {
         subtitle:
             'De $activeProducersCount activos · ${recCtrl.todayDeliveriesCount} entrega(s) hoy',
         icon: Icons.agriculture_outlined,
-        accentColor: AppTheme.primaryGreen,
+        accentColor: AppTheme.warmGold,
       ),
       AppKpiCard(
         title: 'Estado de sincronización',
@@ -273,7 +273,7 @@ class _DashboardModuleViewState extends State<DashboardModuleView> {
         icon: pendingSync == 0
             ? Icons.cloud_done_outlined
             : Icons.cloud_upload_outlined,
-        accentColor: pendingSync == 0 ? AppTheme.primaryGreen : AppTheme.warning,
+        accentColor: pendingSync == 0 ? AppTheme.tealAccent : AppTheme.warning,
       ),
     ];
 
@@ -469,7 +469,7 @@ class _SevenDayChartCard extends StatelessWidget {
               const Wrap(
                 spacing: 12,
                 children: <Widget>[
-                  _LegendDot(color: AppTheme.inkBlack, label: 'Mañana'),
+                  _LegendDot(color: AppTheme.skyBlue, label: 'Mañana'),
                   _LegendDot(color: AppTheme.primaryGreen, label: 'Tarde'),
                 ],
               ),
@@ -537,7 +537,7 @@ class _SevenDayChartCard extends StatelessWidget {
                                                   .round()
                                                   .clamp(1, 100000),
                                               child: Container(
-                                                color: AppTheme.inkBlack,
+                                                color: AppTheme.skyBlue,
                                               ),
                                             ),
                                         ],
@@ -712,20 +712,32 @@ class _QuickOperationsCard extends StatelessWidget {
           const SizedBox(height: 8),
           OutlinedButton.icon(
             onPressed: () => onNavigateSection?.call('productores'),
-            icon: const Icon(Icons.agriculture_outlined, size: 17),
+            icon: const Icon(
+              Icons.agriculture_outlined,
+              size: 17,
+              color: AppTheme.primaryGreen,
+            ),
             label: const Text('Consultar productores'),
           ),
           if (isAdmin) ...<Widget>[
             const SizedBox(height: 8),
             OutlinedButton.icon(
               onPressed: () => onNavigateSection?.call('liquidaciones'),
-              icon: const Icon(Icons.receipt_long_outlined, size: 17),
+              icon: const Icon(
+                Icons.receipt_long_outlined,
+                size: 17,
+                color: AppTheme.warmGold,
+              ),
               label: const Text('Cerrar quincena y comprobantes'),
             ),
             const SizedBox(height: 8),
             OutlinedButton.icon(
               onPressed: () => onNavigateSection?.call('reportes'),
-              icon: const Icon(Icons.assessment_outlined, size: 17),
+              icon: const Icon(
+                Icons.assessment_outlined,
+                size: 17,
+                color: AppTheme.indigoAccent,
+              ),
               label: const Text('Reportes PDF / CSV y Auditoría'),
             ),
           ],

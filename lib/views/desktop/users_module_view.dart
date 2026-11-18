@@ -668,6 +668,7 @@ class _UserSummaryStrip extends StatelessWidget {
         value: '${ctrl.totalCount}',
         subtitle: 'Registrados en plataforma',
         icon: Icons.people_outline_rounded,
+        accentColor: AppTheme.skyBlue,
       ),
       _UserMetricCard(
         title: 'Cuentas activas',
@@ -681,12 +682,14 @@ class _UserSummaryStrip extends StatelessWidget {
         value: '${ctrl.adminCount + ctrl.operarioCount}',
         subtitle: '${ctrl.adminCount} admin · ${ctrl.operarioCount} operarios',
         icon: Icons.badge_outlined,
+        accentColor: AppTheme.warmGold,
       ),
       _UserMetricCard(
         title: 'Productores',
         value: '${ctrl.productorCount}',
         subtitle: 'Asociados en campo',
         icon: Icons.agriculture_outlined,
+        accentColor: AppTheme.indigoAccent,
       ),
     ];
 
@@ -748,7 +751,7 @@ class _UserMetricCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.surface,
         borderRadius: BorderRadius.circular(AppTheme.radiusCard),
-        border: Border.all(color: AppTheme.border),
+        border: Border.all(color: accentColor.withValues(alpha: 0.24)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -769,7 +772,15 @@ class _UserMetricCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 6),
-              Icon(icon, size: 16, color: accentColor),
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: accentColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(7),
+                ),
+                child: Icon(icon, size: 16, color: accentColor),
+              ),
             ],
           ),
           const SizedBox(height: 6),

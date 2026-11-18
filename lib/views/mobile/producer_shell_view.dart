@@ -114,6 +114,8 @@ class _ProducerShellViewState extends State<ProducerShellView> {
                   icon: Icons.bar_chart_rounded,
                   user: user,
                   tagLabel: 'Quincena actual',
+                  accentColor: AppTheme.primaryGreen,
+                  accentBgColor: AppTheme.primaryGreenLight,
                 ),
                 _ProducerTabCard(
                   title: 'Mis Entregas Diarias',
@@ -122,6 +124,8 @@ class _ProducerShellViewState extends State<ProducerShellView> {
                   icon: Icons.water_drop_outlined,
                   user: user,
                   tagLabel: 'Historial de acopio',
+                  accentColor: AppTheme.skyBlue,
+                  accentBgColor: AppTheme.skyBlueLight,
                 ),
                 _ProducerTabCard(
                   title: 'Liquidaciones y Avisos',
@@ -130,6 +134,8 @@ class _ProducerShellViewState extends State<ProducerShellView> {
                   icon: Icons.receipt_long_outlined,
                   user: user,
                   tagLabel: 'Pagos y comprobantes',
+                  accentColor: AppTheme.warmGold,
+                  accentBgColor: AppTheme.warmGoldLight,
                 ),
               ],
             ),
@@ -142,23 +148,24 @@ class _ProducerShellViewState extends State<ProducerShellView> {
         ),
         child: NavigationBar(
           backgroundColor: AppTheme.surface,
-          indicatorColor: AppTheme.inkBlack,
+          indicatorColor: AppTheme.primaryGreen,
           selectedIndex: _tabIndex,
           onDestinationSelected: (int index) =>
               setState(() => _tabIndex = index),
           destinations: const <NavigationDestination>[
             NavigationDestination(
-              icon: Icon(Icons.home_outlined),
+              icon: Icon(Icons.home_outlined, color: AppTheme.primaryGreen),
               selectedIcon: Icon(Icons.home_rounded, color: Colors.white),
               label: 'Resumen',
             ),
             NavigationDestination(
-              icon: Icon(Icons.water_drop_outlined),
+              icon: Icon(Icons.water_drop_outlined, color: AppTheme.skyBlue),
               selectedIcon: Icon(Icons.water_drop_rounded, color: Colors.white),
               label: 'Mis Entregas',
             ),
             NavigationDestination(
-              icon: Icon(Icons.notifications_outlined),
+              icon:
+                  Icon(Icons.notifications_outlined, color: AppTheme.warmGold),
               selectedIcon:
                   Icon(Icons.notifications_rounded, color: Colors.white),
               label: 'Liquidaciones',
@@ -177,6 +184,8 @@ class _ProducerTabCard extends StatelessWidget {
     required this.icon,
     required this.user,
     required this.tagLabel,
+    required this.accentColor,
+    required this.accentBgColor,
   });
 
   final String title;
@@ -184,6 +193,8 @@ class _ProducerTabCard extends StatelessWidget {
   final IconData icon;
   final UserModel user;
   final String tagLabel;
+  final Color accentColor;
+  final Color accentBgColor;
 
   @override
   Widget build(BuildContext context) {
@@ -195,7 +206,7 @@ class _ProducerTabCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppTheme.surface,
             borderRadius: BorderRadius.circular(AppTheme.radiusCard),
-            border: Border.all(color: AppTheme.border),
+            border: Border.all(color: accentColor.withValues(alpha: 0.25)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -206,15 +217,15 @@ class _ProducerTabCard extends StatelessWidget {
                     width: 42,
                     height: 42,
                     decoration: BoxDecoration(
-                      color: AppTheme.primaryGreenLight,
+                      color: accentBgColor,
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                        color: AppTheme.primaryGreen.withValues(alpha: 0.25),
+                        color: accentColor.withValues(alpha: 0.25),
                       ),
                     ),
                     child: Icon(
                       icon,
-                      color: AppTheme.primaryGreen,
+                      color: accentColor,
                       size: 22,
                     ),
                   ),
@@ -226,10 +237,10 @@ class _ProducerTabCard extends StatelessWidget {
                         Text(title, style: AppTheme.subtitleStyle()),
                         Text(
                           tagLabel,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12.5,
                             fontWeight: FontWeight.w600,
-                            color: AppTheme.primaryGreen,
+                            color: accentColor,
                           ),
                         ),
                       ],

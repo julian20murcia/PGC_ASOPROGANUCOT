@@ -150,24 +150,23 @@ class HeaderPropertyChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final Color effectiveDot = dotColor ?? AppTheme.primaryGreen;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         color: AppTheme.surfaceMuted,
         borderRadius: BorderRadius.circular(AppTheme.radiusControl),
-        border: Border.all(color: AppTheme.border),
+        border: Border.all(color: effectiveDot.withValues(alpha: 0.25)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          if (dotColor != null) ...<Widget>[
-            Container(
-              width: 6,
-              height: 6,
-              decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
-            ),
-            const SizedBox(width: 6),
-          ],
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(color: effectiveDot, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 6),
           Text(
             label,
             style: const TextStyle(
@@ -201,7 +200,7 @@ class AppKpiCard extends StatelessWidget {
     required this.value,
     this.subtitle,
     this.icon,
-    this.accentColor = AppTheme.cowBlack,
+    this.accentColor = AppTheme.primaryGreen,
   });
 
   final String title;
@@ -217,7 +216,7 @@ class AppKpiCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.surface,
         borderRadius: BorderRadius.circular(AppTheme.radiusCard),
-        border: Border.all(color: AppTheme.border),
+        border: Border.all(color: accentColor.withValues(alpha: 0.26)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -225,6 +224,15 @@ class AppKpiCard extends StatelessWidget {
         children: <Widget>[
           Row(
             children: <Widget>[
+              Container(
+                width: 4,
+                height: 15,
+                decoration: BoxDecoration(
+                  color: accentColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   title,
@@ -235,16 +243,21 @@ class AppKpiCard extends StatelessWidget {
                   ),
                 ),
               ),
-              if (icon != null)
+              if (icon != null) ...<Widget>[
+                const SizedBox(width: 8),
                 Container(
-                  width: 32,
-                  height: 32,
+                  width: 34,
+                  height: 34,
                   decoration: BoxDecoration(
-                    color: AppTheme.surfaceMuted,
+                    color: accentColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: accentColor.withValues(alpha: 0.25),
+                    ),
                   ),
                   child: Icon(icon, size: 17, color: accentColor),
                 ),
+              ],
             ],
           ),
           const SizedBox(height: 12),
@@ -348,10 +361,10 @@ class PrimaryActionButton extends StatelessWidget {
       child: ElevatedButton(
         onPressed: isLoading ? null : onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppTheme.inkBlack,
+          backgroundColor: AppTheme.primaryGreen,
           foregroundColor: Colors.white,
           disabledBackgroundColor: isLoading
-              ? AppTheme.inkBlack.withValues(alpha: 0.72)
+              ? AppTheme.primaryGreen.withValues(alpha: 0.72)
               : AppTheme.border,
           disabledForegroundColor:
               isLoading ? Colors.white : AppTheme.textMuted,
@@ -440,7 +453,9 @@ class CleanDataTable extends StatelessWidget {
                 dataRowMaxHeight: 58,
                 horizontalMargin: 16,
                 columnSpacing: 22,
-                headingRowColor: WidgetStateProperty.all(AppTheme.surfaceMuted),
+                headingRowColor: WidgetStateProperty.all(
+                  AppTheme.primaryGreenLight.withValues(alpha: 0.55),
+                ),
                 dividerThickness: 1,
                 border: TableBorder(
                   horizontalInside: BorderSide(
@@ -481,7 +496,7 @@ class CleanDataTable extends StatelessWidget {
                                 size: 15,
                                 color: col.sortAscending == null
                                     ? AppTheme.textMuted
-                                    : AppTheme.cowBlack,
+                                    : AppTheme.primaryGreen,
                               ),
                             ],
                           ],
