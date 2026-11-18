@@ -12,6 +12,7 @@ import '../../models/user_model.dart';
 import '../shared/widgets/dairy_loader.dart';
 import '../shared/widgets/design_system_widgets.dart';
 import 'producers_module_view.dart';
+import 'reception_module_view.dart';
 import 'users_module_view.dart';
 
 enum AdminSection {
@@ -651,6 +652,9 @@ class _AdminShellViewState extends State<AdminShellView> {
     }
     if (_activeSection == AdminSection.productores) {
       return const ProducersModuleView();
+    }
+    if (_activeSection == AdminSection.recepcion) {
+      return const ReceptionModuleView();
     }
 
     final _NavItemMeta meta = _metaFor(_activeSection);

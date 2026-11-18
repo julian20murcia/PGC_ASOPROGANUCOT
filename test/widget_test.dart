@@ -4,15 +4,18 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:pgc_asoproganucot/controllers/auth_controller.dart';
 import 'package:pgc_asoproganucot/controllers/producer_controller.dart';
+import 'package:pgc_asoproganucot/controllers/reception_controller.dart';
 import 'package:pgc_asoproganucot/controllers/user_controller.dart';
 import 'package:pgc_asoproganucot/core/constants/app_constants.dart';
 import 'package:pgc_asoproganucot/core/services/fcm_service.dart';
 import 'package:pgc_asoproganucot/core/services/firebase_user_service.dart';
 import 'package:pgc_asoproganucot/core/services/hive_service.dart';
 import 'package:pgc_asoproganucot/core/services/producer_service.dart';
+import 'package:pgc_asoproganucot/core/services/reception_service.dart';
 import 'package:pgc_asoproganucot/core/theme/app_theme.dart';
 import 'package:pgc_asoproganucot/main.dart';
 import 'package:pgc_asoproganucot/models/audit_log_model.dart';
+import 'package:pgc_asoproganucot/models/milk_reception_model.dart';
 import 'package:pgc_asoproganucot/models/producer_model.dart';
 import 'package:pgc_asoproganucot/models/user_model.dart';
 import 'package:pgc_asoproganucot/views/shared/widgets/dairy_loader.dart';
@@ -33,6 +36,23 @@ class _FakeRemoteProducerDataSource implements RemoteProducerDataSource {
   Future<void> upsertProducer(ProducerModel producer) async {
     _items.removeWhere((ProducerModel p) => p.productorId == producer.productorId);
     _items.add(producer);
+  }
+
+  @override
+  Future<void> appendAuditLog(AuditLogModel log) async {}
+}
+
+class _FakeRemoteReceptionDataSource implements RemoteReceptionDataSource {
+  final List<MilkReceptionModel> _items = <MilkReceptionModel>[];
+
+  @override
+  Future<List<MilkReceptionModel>> fetchReceptions() async =>
+      List<MilkReceptionModel>.from(_items);
+
+  @override
+  Future<void> upsertReception(MilkReceptionModel reception) async {
+    _items.removeWhere((MilkReceptionModel r) => r.recepcionId == reception.recepcionId);
+    _items.add(reception);
   }
 
   @override
@@ -94,10 +114,19 @@ void main() {
     final UserController userController = UserController(
       userService: mockUserService,
     );
+    final ProducerService producerService = ProducerService(
+      hiveService: memoryHive,
+      remoteDataSource: _FakeRemoteProducerDataSource(),
+    );
     final ProducerController producerController = ProducerController(
-      producerService: ProducerService(
+      producerService: producerService,
+    );
+    final ReceptionController receptionController = ReceptionController(
+      hiveService: memoryHive,
+      producerService: producerService,
+      receptionService: ReceptionService(
         hiveService: memoryHive,
-        remoteDataSource: _FakeRemoteProducerDataSource(),
+        remoteDataSource: _FakeRemoteReceptionDataSource(),
       ),
     );
 
@@ -108,6 +137,9 @@ void main() {
           ChangeNotifierProvider<UserController>.value(value: userController),
           ChangeNotifierProvider<ProducerController>.value(
             value: producerController,
+          ),
+          ChangeNotifierProvider<ReceptionController>.value(
+            value: receptionController,
           ),
         ],
         child: MaterialApp(
@@ -165,5 +197,15 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Guardar productor'), findsOneWidget);
+
+    // Cerrar diálogo y navegar a Recepción de Leche
+    await tester.tap(find.text('Cancelar'));
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.tap(find.text('Recepción de Leche').first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Captura rápida en planta'), findsOneWidget);
+    expect(find.text('Litros recibidos hoy'), findsOneWidget);
+    expect(find.text('Registrar entrega'), findsOneWidget);
   });
 }
