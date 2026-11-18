@@ -172,7 +172,9 @@ class SettlementService {
           (SettlementModel a, SettlementModel b) =>
               b.fechaLiquidacion.compareTo(a.fechaLiquidacion),
         );
-        await _hiveService.cacheSettlements(remote);
+        for (final settlement in remote) {
+          await _hiveService.upsertSettlement(settlement);
+        }
         return (settlements: remote, fromCache: false);
       } catch (_) {
         final List<SettlementModel> cached =

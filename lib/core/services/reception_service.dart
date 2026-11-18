@@ -234,7 +234,7 @@ class ReceptionService {
             (MilkReceptionModel a, MilkReceptionModel b) =>
                 b.createdAt.compareTo(a.createdAt),
           );
-        await _hiveService.cacheReceptions(combined);
+        await _hiveService.cacheProducerReceptions(combined);
         return (receptions: combined, fromCache: false);
       } catch (_) {
         return (receptions: localScoped, fromCache: true);

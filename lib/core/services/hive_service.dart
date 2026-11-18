@@ -53,9 +53,13 @@ class HiveService {
     if (enablePersistence) {
       await Hive.initFlutter('asoproganucot_db');
       final HiveAesCipher? cipher = await _resolveAesCipher();
+      if (cipher == null) {
+        _initialized = true;
+        return;
+      }
 
-      _usersBox = await Hive.openBox<dynamic>(AppConstants.usersBox);
-      _sessionBox = await Hive.openBox<dynamic>(AppConstants.sessionBox);
+      _usersBox = await _openProtectedBox(AppConstants.usersBox, cipher);
+      _sessionBox = await _openProtectedBox(AppConstants.sessionBox, cipher);
       _deliveriesBox = await Hive.openBox<dynamic>(
         AppConstants.deliveriesBox,
         encryptionCipher: cipher,
@@ -80,6 +84,20 @@ class HiveService {
     _initialized = true;
   }
 
+  Future<Box<dynamic>> _openProtectedBox(String name, HiveAesCipher cipher) async {
+    final protected = await Hive.openBox<dynamic>('${name}_secure', encryptionCipher: cipher);
+    if (await Hive.boxExists(name)) {
+      final legacy = await Hive.openBox<dynamic>(name, crashRecovery: false);
+      await protected.putAll(<dynamic, dynamic>{
+        for (final entry in legacy.toMap().entries)
+          if (!protected.containsKey(entry.key)) entry.key: entry.value,
+      });
+      await protected.flush();
+      await legacy.deleteFromDisk();
+    }
+    return protected;
+  }
+
   Future<HiveAesCipher?> _resolveAesCipher() async {
     try {
       final String? stored = await _secureStorage.read(
@@ -90,6 +108,7 @@ class HiveService {
         if (decoded.length == 32) {
           return HiveAesCipher(decoded);
         }
+        return null;
       }
 
       final List<int> freshKey = Hive.generateSecureKey();
@@ -99,7 +118,7 @@ class HiveService {
       );
       return HiveAesCipher(freshKey);
     } catch (_) {
-      // Respaldo resiliente si el entorno no dispone de keyring seguro nativo.
+      // La aplicación puede consultar en línea sin escribir datos personales en texto claro.
       return null;
     }
   }
@@ -292,6 +311,9 @@ class HiveService {
   /// Guarda atómicamente una recepción en Hive. Bloquea sobrescritura post-liquidación.
   Future<void> saveReception(MilkReceptionModel reception) async {
     await init();
+    if (enablePersistence && _deliveriesBox == null && !reception.isSynced) {
+      throw StateError('El almacenamiento cifrado no está disponible. La entrega sigue sin registrarse.');
+    }
     final MilkReceptionModel? existing =
         await getReceptionById(reception.recepcionId);
     if (existing != null && existing.isLiquidada) {
@@ -317,6 +339,19 @@ class HiveService {
         keyOf: (MilkReceptionModel r) => r.recepcionId,
         toMap: (MilkReceptionModel r) => r.toMap(),
       );
+
+  Future<void> cacheProducerReceptions(List<MilkReceptionModel> receptions) async {
+    await init();
+    for (final reception in receptions) {
+      await _upsertItem<MilkReceptionModel>(
+        box: _deliveriesBox,
+        memoryMap: _memoryDeliveries,
+        item: reception,
+        keyOf: (MilkReceptionModel r) => r.recepcionId,
+        toMap: (MilkReceptionModel r) => r.toMap(),
+      );
+    }
+  }
 
   Future<List<MilkReceptionModel>> getReceptions() async {
     final List<MilkReceptionModel> items =

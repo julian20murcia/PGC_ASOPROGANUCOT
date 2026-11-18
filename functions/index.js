@@ -15,12 +15,6 @@ const SUPPORTED_PUSH_TYPES = new Set([
   'COMUNICADO',
 ]);
 
-function safeTopicName(raw) {
-  return `productor_${String(raw || '')
-    .trim()
-    .replace(/[^a-zA-Z0-9\-_.~%]/g, '_')}`;
-}
-
 /**
  * Envía alertas push automáticas mediante FCM HTTP v1 ante los eventos:
  * ENTREGA, CIERRE_QUINCENA, LIQUIDACION, PAGO y COMUNICADO (RF-23, RF-24, CHK-05).
@@ -80,16 +74,6 @@ exports.onNotificationCreated = onDocumentCreated(
       });
     }
 
-    // Notificación dirigida: enviar al tópico del productor y a tokens FCM registrados.
-    const tasks = [
-      messaging.send({
-        topic: safeTopicName(destinoProductorId),
-        notification: notificationBlock,
-        data: dataPayload,
-        android: androidConfig,
-      }),
-    ];
-
     const db = getFirestore();
     const producerDoc = await db
       .collection('productores')
@@ -100,24 +84,19 @@ exports.onNotificationCreated = onDocumentCreated(
       ? String(producerDoc.data().uidUsuario || '').trim()
       : destinoProductorId;
 
-    if (uidUsuario) {
-      const userDoc = await db.collection('usuarios').doc(uidUsuario).get();
-      const tokens = userDoc.exists && Array.isArray(userDoc.data().fcmTokens)
-        ? userDoc.data().fcmTokens.filter((t) => typeof t === 'string' && t.trim().length > 0)
-        : [];
-
-      if (tokens.length > 0) {
-        tasks.push(
-          messaging.sendEachForMulticast({
-            tokens,
-            notification: notificationBlock,
-            data: dataPayload,
-            android: androidConfig,
-          }),
-        );
-      }
-    }
-
-    return Promise.allSettled(tasks);
+    if (!uidUsuario) return null;
+    const account = await db.collection('usuarios').doc(uidUsuario).get();
+    if (account.get('activo') !== true || account.get('rol') !== 'PRODUCTOR') return null;
+    const savedTokens = account.get('fcmTokens');
+    const tokens = Array.isArray(savedTokens)
+      ? savedTokens.filter((token) => typeof token === 'string' && token.trim().length > 0)
+      : [];
+    if (tokens.length === 0) return null;
+    return messaging.sendEachForMulticast({
+      tokens,
+      notification: { title: 'ASOPROGANUCOTT', body: 'Tienes un nuevo aviso. Consúltalo en la aplicación.' },
+      data: { refrescarAvisos: 'true' },
+      android: androidConfig,
+    });
   },
 );

@@ -51,7 +51,7 @@ class FirestoreProducerDataSource implements RemoteProducerDataSource {
         .collection(AppConstants.producersCollection)
         .where('uidUsuario', isEqualTo: uid.trim())
         .limit(1)
-        .get();
+        .get(const GetOptions(source: Source.server));
     if (snap.docs.isEmpty) {
       return null;
     }
@@ -246,14 +246,19 @@ class ProducerService {
             await _remoteDataSource.fetchProducerByUid(user.uid);
         if (remote != null) {
           await _hiveService.upsertProducer(remote);
-          return remote;
         }
-      } catch (_) {
-        // Sin red: consultar caché local cifrada.
+        return remote;
+      } on FirebaseException catch (error) {
+        if (error.code != 'unavailable' && error.code != 'deadline-exceeded') {
+          rethrow;
+        }
       }
       final List<ProducerModel> cached =
           await _hiveService.getCachedProducers();
-      return matchFromList(cached);
+      for (final producer in cached) {
+        if (producer.uidUsuario == user.uid) return producer;
+      }
+      return null;
     }
 
     final result = await listProducers();
