@@ -3,9 +3,11 @@ import 'package:uuid/uuid.dart';
 
 import '../../models/audit_log_model.dart';
 import '../../models/producer_model.dart';
+import '../../models/privacy_notice.dart';
 import '../../models/user_model.dart';
 import '../constants/app_constants.dart';
 import 'firebase_user_service.dart';
+import 'firestore_audit.dart';
 import 'hive_service.dart';
 
 class ProducerServiceException implements Exception {
@@ -63,6 +65,35 @@ class FirestoreProducerDataSource implements RemoteProducerDataSource {
         .collection(AppConstants.producersCollection)
         .doc(producer.productorId)
         .set(producer.toMap(), SetOptions(merge: true));
+  }
+
+  Future<ProducerModel> saveAuditedProducer(
+    ProducerModel producer,
+    AuditLogModel event, {
+    ProducerModel? previous,
+  }) async {
+    final record = _db.collection(AppConstants.producersCollection).doc(producer.productorId);
+    final saved = producer.copyWith(isSynced: true, auditLogId: event.logId);
+    await _db.runTransaction((Transaction transaction) async {
+      final before = (await transaction.get(record)).data();
+      if ((before == null) != (previous == null) ||
+          before?['auditLogId'] != previous?.auditLogId) {
+        throw ProducerServiceException('El productor cambió. Actualiza el padrón e intenta de nuevo.');
+      }
+      final after = <String, dynamic>{...?before, ...saved.toMap()};
+      if (before != null) {
+        for (final key in <String>['fechaCreacion', 'fechaAutorizacionDatos', 'autorizadoPorUid']) {
+          if (before.containsKey(key)) {
+            after[key] = before[key];
+          } else {
+            after.remove(key);
+          }
+        }
+      }
+      writeAuditedVersion(db: _db, transaction: transaction, record: record,
+          before: before, after: after, event: event);
+    });
+    return saved;
   }
 
   @override
@@ -280,6 +311,8 @@ class ProducerService {
     required String estado,
     required bool aceptoHabeasData,
     required String actorUid,
+    PrivacyNotice? privacyNotice,
+    String? authorizationReference,
     bool createMobileAccount = false,
     String? mobileEmail,
     String? mobilePassword,
@@ -308,6 +341,12 @@ class ProducerService {
       throw ProducerServiceException(
         'Debes confirmar la autorización de tratamiento de datos personales del productor (Ley 1581 de 2012).',
       );
+    }
+
+    final String? reference = authorizationReference?.trim();
+    if (_remoteDataSource is FirestoreProducerDataSource &&
+        (privacyNotice == null || reference == null || reference.isEmpty || reference.length > 120)) {
+      throw ProducerServiceException('Confirma el aviso vigente y registra la referencia del soporte de autorización.');
     }
 
     await validateUniqueCedulaAndCode(
@@ -350,9 +389,15 @@ class ProducerService {
       aceptoHabeasData: true,
       fechaAutorizacionDatos: now,
       autorizadoPorUid: actorUid,
+      avisoPrivacidad: privacyNotice?.data,
+      soporteAutorizacion: reference,
       fechaCreacion: now,
       isSynced: false,
     );
+
+    if (_remoteDataSource is FirestoreProducerDataSource) {
+      return _saveAuditedProducer(model, actorUid: actorUid);
+    }
 
     try {
       await _remoteDataSource.upsertProducer(model);
@@ -457,10 +502,12 @@ class ProducerService {
       vereda: cleanVereda,
       estado: cleanEstado == 'INACTIVO' ? 'INACTIVO' : 'ACTIVO',
       aceptoHabeasData: true,
-      fechaAutorizacionDatos: previous.fechaAutorizacionDatos ?? now,
-      autorizadoPorUid: previous.autorizadoPorUid ?? actorUid,
       isSynced: false,
     );
+
+    if (_remoteDataSource is FirestoreProducerDataSource) {
+      return _saveAuditedProducer(updated, previous: previous, actorUid: actorUid);
+    }
 
     try {
       await _remoteDataSource.upsertProducer(updated);
@@ -496,6 +543,11 @@ class ProducerService {
       isSynced: false,
     );
 
+    if (_remoteDataSource is FirestoreProducerDataSource) {
+      return _saveAuditedProducer(updated, previous: producer, actorUid: actorUid,
+          reason: 'Cambio de estado operativo del productor.');
+    }
+
     try {
       await _remoteDataSource.upsertProducer(updated);
       updated = updated.copyWith(isSynced: true);
@@ -518,6 +570,22 @@ class ProducerService {
 
     await _hiveService.upsertProducer(updated);
     return updated;
+  }
+
+  Future<ProducerModel> _saveAuditedProducer(
+    ProducerModel producer, {
+    ProducerModel? previous,
+    required String actorUid,
+    String? reason,
+  }) async {
+    final source = _remoteDataSource as FirestoreProducerDataSource;
+    final saved = await source.saveAuditedProducer(producer, AuditLogModel(
+      logId: _uuid.v4(), entidadAfectada: AppConstants.producersCollection,
+      registroId: producer.productorId, accion: previous == null ? 'CREAR' : 'EDITAR',
+      usuarioUid: actorUid, motivo: reason, timestamp: DateTime.now().toUtc(),
+    ), previous: previous);
+    await _hiveService.upsertProducer(saved);
+    return saved;
   }
 
   String suggestNextCodigoAsociado(List<ProducerModel> existing) {

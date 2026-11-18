@@ -16,6 +16,9 @@ class ProducerModel {
     required this.aceptoHabeasData,
     this.fechaAutorizacionDatos,
     this.autorizadoPorUid,
+    this.avisoPrivacidad,
+    this.soporteAutorizacion,
+    this.auditLogId,
     required this.fechaCreacion,
     this.isSynced = true,
   });
@@ -33,6 +36,9 @@ class ProducerModel {
   final bool aceptoHabeasData;
   final DateTime? fechaAutorizacionDatos;
   final String? autorizadoPorUid;
+  final Map<String, dynamic>? avisoPrivacidad;
+  final String? soporteAutorizacion;
+  final String? auditLogId;
   final DateTime fechaCreacion;
   final bool isSynced;
 
@@ -67,6 +73,9 @@ class ProducerModel {
           parseNullableUtcDate(map['fechaAutorizacionDatos']),
       autorizadoPorUid:
           (authUidRaw == null || authUidRaw.isEmpty) ? null : authUidRaw,
+      avisoPrivacidad: parseOptionalMap(map['avisoPrivacidad']),
+      soporteAutorizacion: map['soporteAutorizacion'] as String?,
+      auditLogId: map['auditLogId'] as String?,
       fechaCreacion: parseUtcDate(map['fechaCreacion']),
       isSynced: map['isSynced'] is bool ? map['isSynced'] as bool : true,
     );
@@ -88,6 +97,9 @@ class ProducerModel {
       'fechaAutorizacionDatos':
           fechaAutorizacionDatos?.toUtc().toIso8601String(),
       'autorizadoPorUid': autorizadoPorUid,
+      if (avisoPrivacidad != null) 'avisoPrivacidad': avisoPrivacidad,
+      if (soporteAutorizacion != null) 'soporteAutorizacion': soporteAutorizacion,
+      if (auditLogId != null) 'auditLogId': auditLogId,
       'fechaCreacion': fechaCreacion.toUtc().toIso8601String(),
       'isSynced': isSynced,
     };
@@ -110,6 +122,7 @@ class ProducerModel {
     String? autorizadoPorUid,
     DateTime? fechaCreacion,
     bool? isSynced,
+    String? auditLogId,
   }) {
     return ProducerModel(
       productorId: productorId ?? this.productorId,
@@ -126,6 +139,9 @@ class ProducerModel {
       fechaAutorizacionDatos:
           fechaAutorizacionDatos ?? this.fechaAutorizacionDatos,
       autorizadoPorUid: autorizadoPorUid ?? this.autorizadoPorUid,
+      avisoPrivacidad: avisoPrivacidad,
+      soporteAutorizacion: soporteAutorizacion,
+      auditLogId: auditLogId ?? this.auditLogId,
       fechaCreacion: fechaCreacion ?? this.fechaCreacion,
       isSynced: isSynced ?? this.isSynced,
     );
