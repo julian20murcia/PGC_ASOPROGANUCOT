@@ -164,16 +164,16 @@ void main() {
     });
   });
 
-  group('Modelo 3D GLB de la cabeza de vaca', () {
-    test('Parsea la malla completa sin decimación de medium__cow-balloon.glb', () {
-      final File glbFile = File('assets/models/medium__cow-balloon.glb');
+  group('Modelo 3D GLB oficial de ASOPROGANUCOTT', () {
+    test('Parsea la malla subdividida con colores horneados de spot_holstein_cow.glb', () {
+      final File glbFile = File('assets/models/spot_holstein_cow.glb');
       expect(glbFile.existsSync(), isTrue);
 
       final Uint8List raw = glbFile.readAsBytesSync();
       final GlbCowMesh mesh = GlbCowMesh.fromGlbBytes(ByteData.sublistView(raw));
 
-      expect(mesh.vertexCount, 59474);
-      expect(mesh.triangleCount, 118940);
+      expect(mesh.vertexCount, 48009);
+      expect(mesh.triangleCount, 93696);
       expect(mesh.positions.length, mesh.vertexCount * 3);
       expect(mesh.normals.length, mesh.vertexCount * 3);
       expect(mesh.linearRgb.length, mesh.vertexCount * 3);

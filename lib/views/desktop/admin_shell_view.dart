@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -7,6 +9,7 @@ import '../../controllers/user_controller.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/user_model.dart';
+import '../shared/widgets/dairy_loader.dart';
 import '../shared/widgets/design_system_widgets.dart';
 import 'users_module_view.dart';
 
@@ -29,6 +32,7 @@ class _NavItemMeta {
     required this.adminOnly,
     required this.description,
     required this.rfTags,
+    this.isFooterGroup = false,
   });
 
   final AdminSection section;
@@ -38,10 +42,12 @@ class _NavItemMeta {
   final bool adminOnly;
   final String description;
   final List<String> rfTags;
+  final bool isFooterGroup;
 }
 
-/// Shell administrativo de escritorio/planta con identidad propia Agro-Holstein
-/// inspirada en el marco Houston (barra lateral colapsable sobre gutter + pantalla flotante).
+/// Shell administrativo de escritorio/planta de ASOPROGANUCOT:
+/// barra lateral en tinta negra `#0E1117` con pestaña cóncava blanca activa,
+/// encabezados serif con divisores y hoja principal limpia en blanco puro `#FFFFFF`.
 class AdminShellView extends StatefulWidget {
   const AdminShellView({super.key});
 
@@ -53,10 +59,7 @@ class _AdminShellViewState extends State<AdminShellView> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   late AdminSection _activeSection;
-  final List<AdminSection> _recentSections = <AdminSection>[];
-  bool _sidebarPinned = true;
-  bool _sidebarHovered = false;
-  bool _logoutHovered = false;
+  bool _sidebarExpanded = true;
 
   static const List<_NavItemMeta> _allNavItems = <_NavItemMeta>[
     _NavItemMeta(
@@ -66,7 +69,7 @@ class _AdminShellViewState extends State<AdminShellView> {
       group: 'Principal',
       adminOnly: false,
       description:
-          'Indicadores en tiempo real de litros acopiados por jornada (mañana/tarde), acumulado quincenal y estado de sincronización.',
+          'Indicadores operativos de litros acopiados por jornada (mañana y tarde), acumulado quincenal y estado de sincronización.',
       rfTags: <String>['RF-16', 'RNF-03'],
     ),
     _NavItemMeta(
@@ -96,7 +99,7 @@ class _AdminShellViewState extends State<AdminShellView> {
       group: 'Finanzas y control',
       adminOnly: true,
       description:
-          'Cálculo quincenal exacto, emisión de comprobantes PDF (Ley 527/1999), registro de pagos y alertas push.',
+          'Cálculo quincenal exacto, emisión de comprobantes PDF (Ley 527/1999), registro de pagos y notificaciones push.',
       rfTags: <String>['RF-13', 'RF-14', 'RF-15'],
     ),
     _NavItemMeta(
@@ -128,6 +131,7 @@ class _AdminShellViewState extends State<AdminShellView> {
       description:
           'Gestión de cuentas en Firebase Authentication y asignación de roles diferenciados (ADMIN, OPERARIO, PRODUCTOR).',
       rfTags: <String>['RF-01', 'RF-02', 'RF-03'],
+      isFooterGroup: true,
     ),
   ];
 
@@ -158,18 +162,22 @@ class _AdminShellViewState extends State<AdminShellView> {
     );
   }
 
+  String _roleDisplayName(String rol) {
+    switch (rol) {
+      case AppConstants.roleAdmin:
+        return 'Administrador';
+      case AppConstants.roleOperario:
+        return 'Operario de planta';
+      case AppConstants.roleProductor:
+        return 'Productor';
+      default:
+        return rol;
+    }
+  }
+
   void _selectSection(AdminSection section) {
     if (_activeSection == section) return;
-    setState(() {
-      if (_activeSection != AdminSection.dashboard) {
-        _recentSections.remove(_activeSection);
-        _recentSections.insert(0, _activeSection);
-        if (_recentSections.length > 3) {
-          _recentSections.removeLast();
-        }
-      }
-      _activeSection = section;
-    });
+    setState(() => _activeSection = section);
   }
 
   @override
@@ -179,7 +187,6 @@ class _AdminShellViewState extends State<AdminShellView> {
     final UserModel user = auth.currentUser ?? UserModel.bootstrapAdmin();
     final List<_NavItemMeta> items = _visibleItemsFor(user);
     final bool isDesktop = MediaQuery.of(context).size.width >= 960;
-    final bool isExpanded = _sidebarPinned || _sidebarHovered;
 
     return Scaffold(
       key: _scaffoldKey,
@@ -187,13 +194,13 @@ class _AdminShellViewState extends State<AdminShellView> {
       drawer: isDesktop
           ? null
           : Drawer(
-              backgroundColor: AppTheme.canvas,
+              width: 244,
+              backgroundColor: AppTheme.inkBlack,
               child: SafeArea(
-                child: _buildHolsteinSidebar(
+                child: _buildBlackSidebar(
                   user: user,
                   items: items,
                   expanded: true,
-                  isOnline: userCtrl.isOnline,
                   isDrawer: true,
                   onSelectSection: (AdminSection section) {
                     _selectSection(section);
@@ -202,587 +209,525 @@ class _AdminShellViewState extends State<AdminShellView> {
                 ),
               ),
             ),
-      body: SafeArea(
-        child: Row(
-          children: <Widget>[
-            if (isDesktop)
-              MouseRegion(
-                onEnter: (_) => setState(() => _sidebarHovered = true),
-                onExit: (_) => setState(() => _sidebarHovered = false),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 190),
-                  curve: Curves.easeOutCubic,
-                  width: isExpanded ? 258 : 70,
-                  child: _buildHolsteinSidebar(
-                    user: user,
-                    items: items,
-                    expanded: isExpanded,
-                    isOnline: userCtrl.isOnline,
-                    isDrawer: false,
-                    onSelectSection: _selectSection,
-                  ),
-                ),
-              ),
-            Expanded(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(isDesktop ? 0 : 8, 6, 8, 8),
-                child: Column(
-                  children: <Widget>[
-                    _buildHoustonTopBar(
-                      user: user,
-                      isDesktop: isDesktop,
-                      isOnline: userCtrl.isOnline,
-                      isExpanded: isExpanded,
-                    ),
-                    const SizedBox(height: 6),
-                    Expanded(
-                      child: Container(
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: AppTheme.surface,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: AppTheme.border),
-                          boxShadow: <BoxShadow>[
-                            BoxShadow(
-                              color: AppTheme.cowBlack.withValues(alpha: 0.04),
-                              blurRadius: 10,
-                              offset: const Offset(0, 1),
-                            ),
-                          ],
-                        ),
-                        clipBehavior: Clip.antiAlias,
-                        child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 220),
-                          switchInCurve: Curves.easeOutCubic,
-                          switchOutCurve: Curves.easeIn,
-                          transitionBuilder:
-                              (Widget child, Animation<double> anim) {
-                            return FadeTransition(
-                              opacity: anim,
-                              child: SlideTransition(
-                                position: Tween<Offset>(
-                                  begin: const Offset(0, 0.012),
-                                  end: Offset.zero,
-                                ).animate(anim),
-                                child: child,
-                              ),
-                            );
-                          },
-                          child: KeyedSubtree(
-                            key: ValueKey<AdminSection>(_activeSection),
-                            child: _buildActiveSectionBody(user),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+      body: Row(
+        children: <Widget>[
+          if (isDesktop)
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 190),
+              curve: Curves.easeOutCubic,
+              width: _sidebarExpanded ? 228 : 62,
+              child: _buildBlackSidebar(
+                user: user,
+                items: items,
+                expanded: _sidebarExpanded,
+                isDrawer: false,
+                onSelectSection: _selectSection,
               ),
             ),
-          ],
-        ),
+          Expanded(
+            child: Container(
+              color: AppTheme.canvas,
+              child: Column(
+                children: <Widget>[
+                  _buildTopBar(
+                    isDesktop: isDesktop,
+                    isOnline: userCtrl.isOnline,
+                  ),
+                  Expanded(
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 210),
+                      switchInCurve: Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeIn,
+                      transitionBuilder:
+                          (Widget child, Animation<double> anim) {
+                        return FadeTransition(
+                          opacity: anim,
+                          child: SlideTransition(
+                            position: Tween<Offset>(
+                              begin: const Offset(0, 0.01),
+                              end: Offset.zero,
+                            ).animate(anim),
+                            child: child,
+                          ),
+                        );
+                      },
+                      child: KeyedSubtree(
+                        key: ValueKey<AdminSection>(_activeSection),
+                        child: _buildActiveSectionBody(user),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildHolsteinSidebar({
+  Widget _buildBlackSidebar({
     required UserModel user,
     required List<_NavItemMeta> items,
     required bool expanded,
-    required bool isOnline,
     required bool isDrawer,
     required ValueChanged<AdminSection> onSelectSection,
   }) {
-    final _NavItemMeta? homeItem = items.cast<_NavItemMeta?>().firstWhere(
-          (_NavItemMeta? i) => i?.section == AdminSection.dashboard,
-          orElse: () => null,
-        );
-    final List<String> groups = <String>[
-      'Operación en planta',
-      'Finanzas y control',
-      'Administración',
-    ];
+    final List<_NavItemMeta> mainItems =
+        items.where((_NavItemMeta i) => !i.isFooterGroup).toList();
+    final List<_NavItemMeta> footerItems =
+        items.where((_NavItemMeta i) => i.isFooterGroup).toList();
 
-    return Column(
-      children: <Widget>[
-        // Cabecera propia ASOPROGANUCOT con detalle sutil Holstein
-        Container(
-          margin: const EdgeInsets.fromLTRB(8, 8, 8, 4),
-          padding: EdgeInsets.symmetric(
-            horizontal: expanded ? 10 : 0,
-            vertical: 10,
-          ),
-          decoration: BoxDecoration(
-            color: expanded ? AppTheme.surface : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
-            border: expanded ? Border.all(color: AppTheme.border) : null,
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: CustomPaint(
-            painter: expanded
-                ? const CowSpotPatternPainter(spotColor: Color(0x0B14161D))
-                : null,
-            child: Row(
-              mainAxisAlignment: expanded
-                  ? MainAxisAlignment.start
-                  : MainAxisAlignment.center,
+    final Map<String, List<_NavItemMeta>> grouped =
+        <String, List<_NavItemMeta>>{};
+    for (final _NavItemMeta item in mainItems) {
+      grouped.putIfAbsent(item.group, () => <_NavItemMeta>[]).add(item);
+    }
+
+    return Container(
+      color: AppTheme.inkBlack,
+      child: Stack(
+        fit: StackFit.expand,
+        children: <Widget>[
+          // Estelas sutiles de Susa en el cuarto inferior del menú lateral
+          const MilkFlowBackground(bottomMasked: true, opacity: 0.75),
+          SafeArea(
+            right: false,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                Container(
-                  padding: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    color: AppTheme.surface,
-                    borderRadius: BorderRadius.circular(9),
-                    border: Border.all(color: AppTheme.cowBlack, width: 1.3),
+                // Marca + botón de colapso
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    expanded ? 14 : 8,
+                    14,
+                    expanded ? 10 : 8,
+                    12,
                   ),
-                  child: const AsoproganucotLogo(size: 30, compact: true),
-                ),
-                if (expanded) ...<Widget>[
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Text(
-                          AppConstants.appName,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.cowBlack,
-                            letterSpacing: -0.2,
-                          ),
-                        ),
-                        Row(
+                  child: expanded
+                      ? Row(
                           children: <Widget>[
-                            Container(
-                              width: 6,
-                              height: 6,
-                              decoration: BoxDecoration(
-                                color: isOnline
-                                    ? AppTheme.success
-                                    : AppTheme.warning,
-                                shape: BoxShape.circle,
+                            const AsoproganucotLogo(
+                              size: 32,
+                              compact: true,
+                              onDark: true,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: <Widget>[
+                                  Text(
+                                    AppConstants.appName,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 13.5,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.2,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Planta Susa',
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color:
+                                          Colors.white.withValues(alpha: 0.52),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            const SizedBox(width: 5),
-                            const Flexible(
-                              child: Text(
-                                'Planta Susa · v1.0',
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
-                                  color: AppTheme.textSecondary,
-                                ),
+                            if (!isDrawer)
+                              _SidebarIconButton(
+                                tooltip: 'Contraer menú',
+                                icon: Icons.chevron_left_rounded,
+                                onPressed: () =>
+                                    setState(() => _sidebarExpanded = false),
                               ),
+                          ],
+                        )
+                      : Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            const AsoproganucotLogo(
+                              size: 30,
+                              compact: true,
+                              onDark: true,
+                            ),
+                            const SizedBox(height: 8),
+                            _SidebarIconButton(
+                              tooltip: 'Expandir menú',
+                              icon: Icons.chevron_right_rounded,
+                              onPressed: () =>
+                                  setState(() => _sidebarExpanded = true),
                             ),
                           ],
+                        ),
+                ),
+                // Navegación principal agrupada
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.fromLTRB(
+                      expanded ? 10 : 6,
+                      4,
+                      isDrawer ? 10 : 0,
+                      12,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: grouped.entries.map(
+                        (MapEntry<String, List<_NavItemMeta>> entry) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: <Widget>[
+                              if (expanded)
+                                _SidebarGroupHeader(
+                                  title: entry.key,
+                                  rightInset: isDrawer ? 0 : 12,
+                                )
+                              else
+                                Padding(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                  child: Divider(
+                                    height: 1,
+                                    color: Colors.white.withValues(alpha: 0.10),
+                                  ),
+                                ),
+                              ...entry.value.map(
+                                (_NavItemMeta item) => _OtepNavTab(
+                                  item: item,
+                                  selected: _activeSection == item.section,
+                                  expanded: expanded,
+                                  showConcaveTab: !isDrawer && expanded,
+                                  onTap: () => onSelectSection(item.section),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ).toList(),
+                    ),
+                  ),
+                ),
+                // Sección inferior de administración (ej. Usuarios)
+                if (footerItems.isNotEmpty)
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      expanded ? 10 : 6,
+                      0,
+                      isDrawer ? 10 : 0,
+                      8,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        if (expanded)
+                          _SidebarGroupHeader(
+                            title: 'Administración',
+                            rightInset: isDrawer ? 0 : 12,
+                          )
+                        else
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            child: Divider(
+                              height: 1,
+                              color: Colors.white.withValues(alpha: 0.10),
+                            ),
+                          ),
+                        ...footerItems.map(
+                          (_NavItemMeta item) => _OtepNavTab(
+                            item: item,
+                            selected: _activeSection == item.section,
+                            expanded: expanded,
+                            showConcaveTab: !isDrawer && expanded,
+                            onTap: () => onSelectSection(item.section),
+                          ),
                         ),
                       ],
                     ),
                   ),
-                  if (!isDrawer)
-                    IconButton(
-                      tooltip: _sidebarPinned
-                          ? 'Colapsar barra fija'
-                          : 'Fijar barra lateral',
-                      visualDensity: VisualDensity.compact,
-                      onPressed: () =>
-                          setState(() => _sidebarPinned = !_sidebarPinned),
-                      icon: Icon(
-                        _sidebarPinned
-                            ? Icons.push_pin_rounded
-                            : Icons.push_pin_outlined,
-                        size: 15,
-                        color: _sidebarPinned
-                            ? AppTheme.cowBlack
-                            : AppTheme.textMuted,
+                // Pie con perfil del usuario activo y cierre de sesión
+                Container(
+                  decoration: BoxDecoration(
+                    border: Border(
+                      top: BorderSide(
+                        color: Colors.white.withValues(alpha: 0.10),
                       ),
                     ),
-                ],
+                  ),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: expanded ? 12 : 6,
+                    vertical: 12,
+                  ),
+                  child: expanded
+                      ? Row(
+                          children: <Widget>[
+                            _UserInitialCircle(initials: user.initials),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: <Widget>[
+                                  Text(
+                                    user.nombreCompleto,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  Text(
+                                    _roleDisplayName(user.rol),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color:
+                                          Colors.white.withValues(alpha: 0.56),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            _SidebarIconButton(
+                              tooltip: 'Cerrar sesión',
+                              icon: Icons.logout_rounded,
+                              onPressed: () =>
+                                  context.read<AuthController>().signOut(),
+                            ),
+                          ],
+                        )
+                      : Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            _UserInitialCircle(initials: user.initials),
+                            const SizedBox(height: 8),
+                            _SidebarIconButton(
+                              tooltip: 'Cerrar sesión',
+                              icon: Icons.logout_rounded,
+                              onPressed: () =>
+                                  context.read<AuthController>().signOut(),
+                            ),
+                          ],
+                        ),
+                ),
               ],
             ),
           ),
-        ),
-
-        // Navegación principal
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            children: <Widget>[
-              if (homeItem != null) ...<Widget>[
-                _SidebarItemTile(
-                  item: homeItem,
-                  selected: _activeSection == homeItem.section,
-                  expanded: expanded,
-                  onTap: () => onSelectSection(homeItem.section),
-                ),
-                const SizedBox(height: 8),
-              ],
-
-              // Recientes (inspirado en AdminSidebar.jsx)
-              if (expanded && _recentSections.isNotEmpty) ...<Widget>[
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(10, 6, 10, 4),
-                  child: Text(
-                    'Recientes',
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w500,
-                      color: AppTheme.textMuted,
-                    ),
-                  ),
-                ),
-                for (final AdminSection recentSec in _recentSections)
-                  if (items.any((_NavItemMeta i) => i.section == recentSec))
-                    _SidebarItemTile(
-                      item: _metaFor(recentSec),
-                      selected: _activeSection == recentSec,
-                      expanded: expanded,
-                      isSubtleRecent: true,
-                      onTap: () => onSelectSection(recentSec),
-                    ),
-                const SizedBox(height: 6),
-              ],
-
-              // Grupos de módulos
-              for (final String group in groups) ...<Widget>[
-                if (items.any((_NavItemMeta i) => i.group == group)) ...<Widget>[
-                  if (expanded)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(10, 12, 10, 4),
-                      child: Text(
-                        group,
-                        style: const TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w500,
-                          color: AppTheme.textMuted,
-                        ),
-                      ),
-                    )
-                  else
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-                      child: Divider(height: 1),
-                    ),
-                  for (final _NavItemMeta item
-                      in items.where((_NavItemMeta i) => i.group == group))
-                    _SidebarItemTile(
-                      item: item,
-                      selected: _activeSection == item.section,
-                      expanded: expanded,
-                      onTap: () => onSelectSection(item.section),
-                    ),
-                ],
-              ],
-            ],
-          ),
-        ),
-
-        // Pie de barra con identidad del usuario activo y botón Cerrar sesión
-        Padding(
-          padding: const EdgeInsets.fromLTRB(10, 4, 10, 10),
-          child: Column(
-            children: <Widget>[
-              if (expanded)
-                Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppTheme.surface,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppTheme.border),
-                  ),
-                  child: Row(
-                    children: <Widget>[
-                      CircleAvatar(
-                        radius: 14,
-                        backgroundColor: AppTheme.cowBlack,
-                        child: Text(
-                          user.initials,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 9),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Text(
-                              user.nombreCompleto,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w600,
-                                color: AppTheme.textPrimary,
-                              ),
-                            ),
-                            Text(
-                              AppConstants.roleShortLabel(user.rol),
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: AppTheme.textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              MouseRegion(
-                onEnter: (_) => setState(() => _logoutHovered = true),
-                onExit: (_) => setState(() => _logoutHovered = false),
-                child: InkWell(
-                  onTap: () => context.read<AuthController>().signOut(),
-                  borderRadius: BorderRadius.circular(8),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 140),
-                    height: 36,
-                    padding: EdgeInsets.symmetric(horizontal: expanded ? 10 : 0),
-                    decoration: BoxDecoration(
-                      color: _logoutHovered
-                          ? AppTheme.dangerBg
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: expanded
-                          ? MainAxisAlignment.start
-                          : MainAxisAlignment.center,
-                      children: <Widget>[
-                        Icon(
-                          Icons.logout_rounded,
-                          size: 18,
-                          color: _logoutHovered
-                              ? AppTheme.dangerText
-                              : AppTheme.textSecondary,
-                        ),
-                        if (expanded) ...<Widget>[
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              'Cerrar sesión',
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 13.5,
-                                fontWeight: FontWeight.w500,
-                                color: _logoutHovered
-                                    ? AppTheme.dangerText
-                                    : AppTheme.textSecondary,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  Widget _buildHoustonTopBar({
-    required UserModel user,
+  Widget _buildTopBar({
     required bool isDesktop,
     required bool isOnline,
-    required bool isExpanded,
   }) {
-    final _NavItemMeta current = _metaFor(_activeSection);
+    final _NavItemMeta meta = _metaFor(_activeSection);
 
-    return SizedBox(
-      height: 46,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 6),
-        child: Row(
-          children: <Widget>[
+    return Container(
+      height: 56,
+      padding: EdgeInsets.symmetric(horizontal: isDesktop ? 22 : 14),
+      decoration: const BoxDecoration(
+        color: AppTheme.surface,
+        border: Border(
+          bottom: BorderSide(color: AppTheme.border),
+        ),
+      ),
+      child: Row(
+        children: <Widget>[
+          if (!isDesktop) ...<Widget>[
             IconButton(
-              tooltip: isDesktop
-                  ? (_sidebarPinned ? 'Contraer menú' : 'Fijar menú')
-                  : 'Abrir menú',
-              visualDensity: VisualDensity.compact,
-              onPressed: () {
-                if (isDesktop) {
-                  setState(() => _sidebarPinned = !_sidebarPinned);
-                } else {
-                  _scaffoldKey.currentState?.openDrawer();
-                }
-              },
-              icon: Icon(
-                isDesktop
-                    ? (isExpanded
-                        ? Icons.view_sidebar_outlined
-                        : Icons.menu_rounded)
-                    : Icons.menu_rounded,
+              tooltip: 'Abrir menú',
+              onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+              icon: const Icon(
+                Icons.menu_rounded,
                 size: 20,
-                color: AppTheme.cowBlack,
+                color: AppTheme.inkBlack,
               ),
             ),
-            const SizedBox(width: 4),
-            Expanded(
-              child: Row(
-                children: <Widget>[
-                  if (isDesktop) ...<Widget>[
-                    const Flexible(
-                      child: Text(
-                        AppConstants.appName,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: AppTheme.textMuted,
-                        ),
-                      ),
+            const SizedBox(width: 6),
+          ],
+          Expanded(
+            child: Row(
+              children: <Widget>[
+                if (isDesktop) ...<Widget>[
+                  Text(
+                    meta.group,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      color: AppTheme.textMuted,
+                      fontWeight: FontWeight.w500,
                     ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 6),
-                      child: Icon(
-                        Icons.chevron_right_rounded,
-                        size: 16,
-                        color: AppTheme.textMuted,
-                      ),
-                    ),
-                  ],
-                  Expanded(
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8),
                     child: Text(
-                      current.label,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textPrimary,
+                      '/',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: AppTheme.textMuted,
                       ),
                     ),
                   ),
                 ],
-              ),
-            ),
-            SyncStatusBadge(
-              isSynced: isOnline,
-              syncedLabel: 'En línea · Cloud',
-              pendingLabel: 'Offline · Hive',
-            ),
-            if (isDesktop) ...<Widget>[
-              const SizedBox(width: 10),
-              Tooltip(
-                message: '${user.nombreCompleto} (${user.correo})',
-                child: CircleAvatar(
-                  radius: 15,
-                  backgroundColor: AppTheme.cowBlack,
+                Flexible(
                   child: Text(
-                    user.initials,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
+                    meta.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.sourceSerif4(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.25,
+                      color: AppTheme.textPrimary,
                     ),
                   ),
                 ),
-              ),
-            ],
-          ],
-        ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Flexible(
+            flex: 0,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                SyncStatusBadge(
+                  isSynced: isOnline,
+                  syncedLabel: 'En línea',
+                  pendingLabel: 'Offline · Hive',
+                ),
+                if (isDesktop) ...<Widget>[
+                  Container(
+                    width: 1,
+                    height: 16,
+                    margin: const EdgeInsets.symmetric(horizontal: 12),
+                    color: AppTheme.border,
+                  ),
+                  const Text(
+                    'Susa, Cundinamarca',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textSecondary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  Container(
+                    width: 1,
+                    height: 16,
+                    margin: const EdgeInsets.symmetric(horizontal: 12),
+                    color: AppTheme.border,
+                  ),
+                  const _LiveHeaderDateTime(),
+                ],
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildActiveSectionBody(UserModel user) {
-    if (_activeSection == AdminSection.usuarios && user.isAdmin) {
+    if (_activeSection == AdminSection.usuarios) {
       return const UsersModuleView();
     }
 
     final _NavItemMeta meta = _metaFor(_activeSection);
-    return Center(
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 540),
-        child: Padding(
-          padding: const EdgeInsets.all(28),
-          child: Container(
-            padding: const EdgeInsets.all(28),
-            decoration: BoxDecoration(
-              color: AppTheme.canvasAlt,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppTheme.border),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: AppTheme.cowBlack,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(meta.icon, color: Colors.white, size: 22),
+        constraints: const BoxConstraints(maxWidth: 680),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: AppTheme.surface,
+            borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+            border: Border.all(color: AppTheme.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: AppTheme.surfaceMuted,
+                      borderRadius: BorderRadius.circular(AppTheme.radiusControl),
+                      border: Border.all(color: AppTheme.border),
                     ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(meta.label, style: AppTheme.subtitleStyle()),
-                          const SizedBox(height: 2),
-                          const Text(
-                            'Siguiente módulo en la hoja de ruta',
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              color: AppTheme.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
+                    child: Icon(
+                      meta.icon,
+                      color: AppTheme.primaryGreen,
+                      size: 20,
                     ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  meta.description,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    height: 1.5,
-                    color: AppTheme.textSecondary,
                   ),
-                ),
-                const SizedBox(height: 16),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: meta.rfTags
-                      .map(
-                        (String tag) => HeaderPropertyChip(
-                          label: tag,
-                          value: '',
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          meta.label,
+                          style: AppTheme.serifStyle(
+                            fontSize: 20,
+                            color: AppTheme.textPrimary,
+                          ),
                         ),
-                      )
-                      .toList(),
-                ),
-                if (user.isAdmin) ...<Widget>[
-                  const SizedBox(height: 22),
-                  PrimaryActionButton(
-                    label: 'Volver a Usuarios',
-                    icon: Icons.manage_accounts_outlined,
-                    fullWidth: false,
-                    onPressed: () => _selectSection(AdminSection.usuarios),
+                        const Text(
+                          'Módulo planificado en la hoja de ruta',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: AppTheme.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 16),
+              const Divider(height: 1),
+              const SizedBox(height: 16),
+              Text(
+                meta.description,
+                style: const TextStyle(
+                  fontSize: 14,
+                  height: 1.5,
+                  color: AppTheme.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: meta.rfTags
+                    .map(
+                      (String tag) => HeaderPropertyChip(label: tag, value: ''),
+                    )
+                    .toList(),
+              ),
+              if (user.isAdmin) ...<Widget>[
+                const SizedBox(height: 22),
+                PrimaryActionButton(
+                  label: 'Volver a Usuarios',
+                  icon: Icons.manage_accounts_outlined,
+                  fullWidth: false,
+                  onPressed: () => _selectSection(AdminSection.usuarios),
+                ),
               ],
-            ),
+            ],
           ),
         ),
       ),
@@ -790,103 +735,375 @@ class _AdminShellViewState extends State<AdminShellView> {
   }
 }
 
-class _SidebarItemTile extends StatefulWidget {
-  const _SidebarItemTile({
+class _SidebarGroupHeader extends StatelessWidget {
+  const _SidebarGroupHeader({
+    required this.title,
+    this.rightInset = 12,
+  });
+
+  final String title;
+  final double rightInset;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(10, 12, rightInset, 6),
+      child: Row(
+        children: <Widget>[
+          Flexible(
+            flex: 0,
+            child: Text(
+              title,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.sourceSerif4(
+                fontSize: 11.5,
+                fontStyle: FontStyle.italic,
+                color: Colors.white.withValues(alpha: 0.50),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Container(
+              height: 1,
+              color: Colors.white.withValues(alpha: 0.11),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OtepNavTab extends StatefulWidget {
+  const _OtepNavTab({
     required this.item,
     required this.selected,
     required this.expanded,
+    required this.showConcaveTab,
     required this.onTap,
-    this.isSubtleRecent = false,
   });
 
   final _NavItemMeta item;
   final bool selected;
   final bool expanded;
+  final bool showConcaveTab;
   final VoidCallback onTap;
-  final bool isSubtleRecent;
 
   @override
-  State<_SidebarItemTile> createState() => _SidebarItemTileState();
+  State<_OtepNavTab> createState() => _OtepNavTabState();
 }
 
-class _SidebarItemTileState extends State<_SidebarItemTile> {
+class _OtepNavTabState extends State<_OtepNavTab> {
   bool _hovered = false;
 
   @override
   Widget build(BuildContext context) {
     final bool selected = widget.selected;
-    final Color bg = selected
-        ? AppTheme.cowBlack
-        : _hovered
-            ? AppTheme.cowBlack.withValues(alpha: 0.06)
-            : Colors.transparent;
-    final Color fg = selected
-        ? Colors.white
-        : _hovered
-            ? AppTheme.cowBlack
-            : (widget.isSubtleRecent
-                ? AppTheme.textSecondary
-                : AppTheme.textPrimary);
+    final bool showConcave = selected && widget.showConcaveTab;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 1.5),
-      child: Tooltip(
-        message: widget.expanded ? '' : widget.item.label,
-        child: MouseRegion(
-          onEnter: (_) => setState(() => _hovered = true),
-          onExit: (_) => setState(() => _hovered = false),
+    final Color fg = selected
+        ? AppTheme.inkBlack
+        : _hovered
+            ? Colors.white
+            : Colors.white.withValues(alpha: 0.78);
+    final Color iconColor = selected
+        ? AppTheme.primaryGreen
+        : _hovered
+            ? Colors.white
+            : Colors.white.withValues(alpha: 0.62);
+    final Color bg = selected
+        ? AppTheme.surface
+        : _hovered
+            ? Colors.white.withValues(alpha: 0.08)
+            : Colors.transparent;
+
+    final BorderRadius radius = showConcave
+        ? const BorderRadius.only(
+            topLeft: Radius.circular(8),
+            bottomLeft: Radius.circular(8),
+          )
+        : BorderRadius.circular(7);
+
+    final Widget tabTile = Tooltip(
+      message: widget.expanded ? '' : widget.item.label,
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: Material(
+          color: Colors.transparent,
           child: InkWell(
             onTap: widget.onTap,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: radius,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 140),
               height: 36,
+              margin: showConcave
+                  ? EdgeInsets.zero
+                  : EdgeInsets.only(right: widget.expanded ? 10 : 0),
               padding: EdgeInsets.symmetric(
-                horizontal: widget.expanded ? 10 : 0,
+                horizontal: widget.expanded ? 11 : 0,
               ),
               decoration: BoxDecoration(
                 color: bg,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: radius,
               ),
               child: Row(
                 mainAxisAlignment: widget.expanded
                     ? MainAxisAlignment.start
                     : MainAxisAlignment.center,
                 children: <Widget>[
-                  Icon(
-                    widget.item.icon,
-                    size: 18,
-                    color: selected ? Colors.white : fg.withValues(alpha: 0.85),
-                  ),
+                  Icon(widget.item.icon, size: 17, color: iconColor),
                   if (widget.expanded) ...<Widget>[
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 9),
                     Expanded(
                       child: Text(
                         widget.item.label,
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: 13.5,
+                          fontSize: 13,
                           fontWeight:
                               selected ? FontWeight.w600 : FontWeight.w500,
                           color: fg,
                         ),
                       ),
                     ),
-                    if (selected)
-                      Container(
-                        width: 6,
-                        height: 6,
-                        decoration: const BoxDecoration(
-                          color: AppTheme.success,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
                   ],
                 ],
               ),
             ),
           ),
         ),
+      ),
+    );
+
+    if (!showConcave) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 1.5),
+        child: tabTile,
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 1.5),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: <Widget>[
+          tabTile,
+          Positioned(
+            top: -8,
+            right: 0,
+            width: 8,
+            height: 8,
+            child: IgnorePointer(
+              child: CustomPaint(
+                painter: _ConcaveFilletPainter(isTop: true),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: -8,
+            right: 0,
+            width: 8,
+            height: 8,
+            child: IgnorePointer(
+              child: CustomPaint(
+                painter: _ConcaveFilletPainter(isTop: false),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Dibuja las esquinas cóncavas blancas de 8px de la pestaña activa contra la barra negra.
+class _ConcaveFilletPainter extends CustomPainter {
+  _ConcaveFilletPainter({required this.isTop});
+
+  final bool isTop;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final double r = size.width;
+    final Paint paint = Paint()
+      ..color = AppTheme.surface
+      ..style = PaintingStyle.fill;
+
+    final Path path = Path();
+    if (isTop) {
+      path
+        ..moveTo(r, 0)
+        ..lineTo(r, r)
+        ..lineTo(0, r)
+        ..arcToPoint(
+          Offset(r, 0),
+          radius: Radius.circular(r),
+          clockwise: false,
+        )
+        ..close();
+    } else {
+      path
+        ..moveTo(0, 0)
+        ..lineTo(r, 0)
+        ..lineTo(r, r)
+        ..arcToPoint(
+          Offset.zero,
+          radius: Radius.circular(r),
+          clockwise: false,
+        )
+        ..close();
+    }
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ConcaveFilletPainter oldDelegate) =>
+      oldDelegate.isTop != isTop;
+}
+
+class _UserInitialCircle extends StatelessWidget {
+  const _UserInitialCircle({required this.initials});
+
+  final String initials;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 30,
+      height: 30,
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.12),
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.24),
+        ),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        initials,
+        style: GoogleFonts.sourceSerif4(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: Colors.white,
+        ),
+      ),
+    );
+  }
+}
+
+class _SidebarIconButton extends StatefulWidget {
+  const _SidebarIconButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  @override
+  State<_SidebarIconButton> createState() => _SidebarIconButtonState();
+}
+
+class _SidebarIconButtonState extends State<_SidebarIconButton> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: widget.tooltip,
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: InkWell(
+          onTap: widget.onPressed,
+          borderRadius: BorderRadius.circular(AppTheme.radiusControl),
+          child: Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: _hovered
+                  ? Colors.white.withValues(alpha: 0.12)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(AppTheme.radiusControl),
+            ),
+            alignment: Alignment.center,
+            child: Icon(
+              widget.icon,
+              size: 17,
+              color: _hovered
+                  ? Colors.white
+                  : Colors.white.withValues(alpha: 0.65),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LiveHeaderDateTime extends StatefulWidget {
+  const _LiveHeaderDateTime();
+
+  @override
+  State<_LiveHeaderDateTime> createState() => _LiveHeaderDateTimeState();
+}
+
+class _LiveHeaderDateTimeState extends State<_LiveHeaderDateTime> {
+  static const List<String> _months = <String>[
+    'ene',
+    'feb',
+    'mar',
+    'abr',
+    'may',
+    'jun',
+    'jul',
+    'ago',
+    'sep',
+    'oct',
+    'nov',
+    'dic',
+  ];
+
+  late DateTime _now;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _now = DateTime.now();
+    _timer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (!mounted) return;
+      final DateTime current = DateTime.now();
+      if (current.minute != _now.minute || current.hour != _now.hour) {
+        setState(() => _now = current);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  String _pad2(int n) => n < 10 ? '0$n' : '$n';
+
+  @override
+  Widget build(BuildContext context) {
+    final String formatted =
+        '${_pad2(_now.day)} ${_months[_now.month - 1]} ${_now.year} · '
+        '${_pad2(_now.hour)}:${_pad2(_now.minute)}';
+    return Text(
+      formatted,
+      style: AppTheme.monoStyle(
+        fontSize: 11.5,
+        fontWeight: FontWeight.w500,
+        color: AppTheme.textSecondary,
       ),
     );
   }

@@ -10,8 +10,8 @@ import '../../models/user_model.dart';
 import '../shared/widgets/dairy_loader.dart';
 import '../shared/widgets/design_system_widgets.dart';
 
-/// Módulo administrativo de Usuarios estilo Houston + Holstein (`UsersPage.jsx`).
-/// Cabecera limpia con píldoras de propiedades, barra de herramientas integrada y tabla completa.
+/// Módulo administrativo de Usuarios de ASOPROGANUCOTT.
+/// Cabecera editorial limpia con propiedades numéricas, barra de herramientas integrada y tabla completa.
 class UsersModuleView extends StatefulWidget {
   const UsersModuleView({super.key});
 
@@ -138,18 +138,18 @@ class _UsersModuleViewState extends State<UsersModuleView> {
   @override
   Widget build(BuildContext context) {
     final UserController ctrl = context.watch<UserController>();
-    final bool isNarrow = MediaQuery.of(context).size.width < 760;
+    final bool isNarrow = MediaQuery.of(context).size.width < 920;
 
     return SingleChildScrollView(
       padding: EdgeInsets.symmetric(
-        horizontal: isNarrow ? 16 : 32,
-        vertical: isNarrow ? 18 : 26,
+        horizontal: isNarrow ? 16 : 24,
+        vertical: isNarrow ? 16 : 20,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          _buildHoustonHeader(ctrl, isNarrow),
-          const SizedBox(height: 22),
+          _buildEditorialHeader(ctrl, isNarrow),
+          const SizedBox(height: 18),
           _buildToolbar(ctrl, isNarrow),
           const SizedBox(height: 12),
           if (ctrl.isLoading && ctrl.allUsers.isEmpty)
@@ -172,7 +172,7 @@ class _UsersModuleViewState extends State<UsersModuleView> {
     );
   }
 
-  Widget _buildHoustonHeader(UserController ctrl, bool isNarrow) {
+  Widget _buildEditorialHeader(UserController ctrl, bool isNarrow) {
     final Widget titleBlock = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -269,22 +269,22 @@ class _UsersModuleViewState extends State<UsersModuleView> {
         : '${ctrl.filteredUsers.length} de ${ctrl.allUsers.length}';
 
     final Widget searchField = SizedBox(
-      height: 38,
+      height: 36,
       child: TextField(
         controller: _searchCtrl,
         onChanged: ctrl.setSearchQuery,
         decoration: InputDecoration(
           hintText: 'Buscar por nombre, documento o correo…',
           contentPadding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          prefixIcon: const Icon(Icons.search_rounded, size: 18),
+              const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          prefixIcon: const Icon(Icons.search_rounded, size: 17),
           suffixIcon: ctrl.searchQuery.isNotEmpty
               ? IconButton(
                   onPressed: () {
                     _searchCtrl.clear();
                     ctrl.setSearchQuery('');
                   },
-                  icon: const Icon(Icons.close_rounded, size: 16),
+                  icon: const Icon(Icons.close_rounded, size: 15),
                 )
               : null,
         ),
@@ -292,12 +292,12 @@ class _UsersModuleViewState extends State<UsersModuleView> {
     );
 
     final Widget roleDropdown = SizedBox(
-      height: 38,
+      height: 36,
       child: DropdownButtonFormField<String>(
         initialValue: ctrl.roleFilter,
         isExpanded: true,
         decoration: const InputDecoration(
-          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         ),
         items: const <DropdownMenuItem<String>>[
           DropdownMenuItem<String>(
@@ -324,12 +324,12 @@ class _UsersModuleViewState extends State<UsersModuleView> {
     );
 
     final Widget statusDropdown = SizedBox(
-      height: 38,
+      height: 36,
       child: DropdownButtonFormField<String>(
         initialValue: ctrl.statusFilter,
         isExpanded: true,
         decoration: const InputDecoration(
-          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         ),
         items: const <DropdownMenuItem<String>>[
           DropdownMenuItem<String>(
@@ -391,19 +391,24 @@ class _UsersModuleViewState extends State<UsersModuleView> {
 
     return Row(
       children: <Widget>[
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 340),
-          child: searchField,
+        Expanded(
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 320),
+              child: searchField,
+            ),
+          ),
         ),
-        const Spacer(),
+        const SizedBox(width: 12),
         Text(
           countText,
           style: AppTheme.monoStyle(fontSize: 12, color: AppTheme.textMuted),
         ),
         const SizedBox(width: 12),
-        SizedBox(width: 175, child: roleDropdown),
+        SizedBox(width: 168, child: roleDropdown),
         const SizedBox(width: 8),
-        SizedBox(width: 170, child: statusDropdown),
+        SizedBox(width: 164, child: statusDropdown),
         if (ctrl.hasActiveFilters) ...<Widget>[
           const SizedBox(width: 6),
           TextButton(

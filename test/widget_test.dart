@@ -23,7 +23,8 @@ void main() {
     GoogleFonts.config.allowRuntimeFetching = false;
   });
 
-  testWidgets('Login valida credenciales, muestra DairyLoader y abre AdminShellView con sidebar Holstein',
+  testWidgets(
+      'Login valida credenciales, muestra flujo lácteo/DairyLoader y abre AdminShellView con sidebar negro',
       (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1366, 860);
     tester.view.devicePixelRatio = 1.0;
@@ -87,12 +88,14 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 600));
 
-    expect(find.text('Inicia sesión'), findsOneWidget);
+    expect(find.text('ACCESO AL SISTEMA'), findsOneWidget);
     expect(find.text('Iniciar sesión'), findsOneWidget);
+    expect(find.text('Ingresar al sistema'), findsOneWidget);
+    expect(find.byType(MilkFlowBackground), findsWidgets);
     expect(find.byType(DairyLoader), findsWidgets);
 
     // Intento vacío debe mostrar mensaje de validación
-    await tester.tap(find.text('Iniciar sesión'));
+    await tester.tap(find.text('Ingresar al sistema'));
     await tester.pump();
     expect(
       find.text('Ingresa tu correo electrónico o número de documento.'),
@@ -103,12 +106,13 @@ void main() {
     final Finder fields = find.byType(TextField);
     await tester.enterText(fields.at(0), 'bradley@asoproganucot.com');
     await tester.enterText(fields.at(1), 'Password123');
-    await tester.tap(find.text('Iniciar sesión'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
+    await tester.tap(find.text('Ingresar al sistema'));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 800));
 
     expect(find.text('Usuarios'), findsAtLeastNWidgets(1));
     expect(find.text('Recepción de Leche'), findsOneWidget);
+    expect(find.text('Operación en planta'), findsOneWidget);
     expect(find.text('Nuevo usuario'), findsOneWidget);
     expect(find.text('Bradley Ballen'), findsAtLeastNWidgets(1));
   });

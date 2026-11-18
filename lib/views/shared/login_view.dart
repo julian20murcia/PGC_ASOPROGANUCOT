@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
@@ -10,8 +11,9 @@ import 'widgets/cow_balloon_3d_widget.dart';
 import 'widgets/dairy_loader.dart';
 import 'widgets/design_system_widgets.dart';
 
-/// Pantalla de inicio de sesión multiplataforma estilo Houston + Holstein.
-/// Incluye modelo 3D nítido animado con el puntero y animaciones de carga.
+/// Pantalla de inicio de sesión editorial de ASOPROGANUCOTT.
+/// Panel izquierdo en tinta negra `#0E1117` con curvas lácteas y vaca Holstein 3D;
+/// hoja derecha en blanco puro `#FFFFFF` con formulario limpio y telón al autenticar.
 class LoginView extends StatefulWidget {
   const LoginView({super.key});
 
@@ -29,10 +31,14 @@ class _LoginViewState extends State<LoginView>
   late final AnimationController _entryController;
   late final Animation<double> _fadeAnim;
   late final Animation<Offset> _slideAnim;
+  late final Animation<double> _line1Anim;
+  late final Animation<double> _line2Anim;
+  late final Animation<double> _line3Anim;
 
   bool _obscurePassword = true;
   bool _rememberMe = true;
   bool _didLoadSaved = false;
+  bool _capsLockOn = false;
   Offset _pointerNormalized = Offset.zero;
   String? _localNotice;
 
@@ -41,18 +47,35 @@ class _LoginViewState extends State<LoginView>
     super.initState();
     _entryController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 520),
+      duration: const Duration(milliseconds: 760),
     )..forward();
     _fadeAnim = CurvedAnimation(
       parent: _entryController,
-      curve: Curves.easeOut,
+      curve: const Interval(0.0, 0.72, curve: Curves.easeOut),
     );
     _slideAnim = Tween<Offset>(
-      begin: const Offset(0, 0.03),
+      begin: const Offset(0, 0.025),
       end: Offset.zero,
     ).animate(
-      CurvedAnimation(parent: _entryController, curve: Curves.easeOutCubic),
+      CurvedAnimation(
+        parent: _entryController,
+        curve: const Interval(0.0, 0.75, curve: Curves.easeOutCubic),
+      ),
     );
+    _line1Anim = CurvedAnimation(
+      parent: _entryController,
+      curve: const Interval(0.10, 0.62, curve: Curves.easeOutCubic),
+    );
+    _line2Anim = CurvedAnimation(
+      parent: _entryController,
+      curve: const Interval(0.24, 0.78, curve: Curves.easeOutCubic),
+    );
+    _line3Anim = CurvedAnimation(
+      parent: _entryController,
+      curve: const Interval(0.38, 0.94, curve: Curves.easeOutCubic),
+    );
+    HardwareKeyboard.instance.addHandler(_handleHardwareKey);
+    _refreshCapsLock();
   }
 
   @override
@@ -70,6 +93,7 @@ class _LoginViewState extends State<LoginView>
 
   @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_handleHardwareKey);
     _entryController.dispose();
     _identifierCtrl.dispose();
     _passwordCtrl.dispose();
@@ -77,10 +101,23 @@ class _LoginViewState extends State<LoginView>
     super.dispose();
   }
 
+  bool _handleHardwareKey(KeyEvent event) {
+    _refreshCapsLock();
+    return false;
+  }
+
+  void _refreshCapsLock() {
+    final bool active = HardwareKeyboard.instance.lockModesEnabled
+        .contains(KeyboardLockMode.capsLock);
+    if (active != _capsLockOn && mounted) {
+      setState(() => _capsLockOn = active);
+    }
+  }
+
   void _updatePointerFromGlobal(Offset globalPosition) {
     final Size screenSize = MediaQuery.of(context).size;
     final BuildContext? cowCtx = _cowContainerKey.currentContext;
-    Offset center = Offset(screenSize.width * 0.25, screenSize.height * 0.36);
+    Offset center = Offset(screenSize.width * 0.22, screenSize.height * 0.42);
 
     if (cowCtx != null) {
       final RenderBox? box = cowCtx.findRenderObject() as RenderBox?;
@@ -93,8 +130,8 @@ class _LoginViewState extends State<LoginView>
       }
     }
 
-    final double halfW = (screenSize.width * 0.5).clamp(200.0, 2000.0);
-    final double halfH = (screenSize.height * 0.5).clamp(200.0, 2000.0);
+    final double halfW = (screenSize.width * 0.45).clamp(200.0, 2000.0);
+    final double halfH = (screenSize.height * 0.45).clamp(200.0, 2000.0);
 
     setState(() {
       _pointerNormalized = Offset(
@@ -121,7 +158,7 @@ class _LoginViewState extends State<LoginView>
     if (!identifier.contains('@')) {
       setState(() {
         _localNotice =
-            'Escribe tu correo electrónico en el primer campo y pulsa "¿La olvidaste?" para enviar el enlace de recuperación.';
+            'Escribe tu correo electrónico en el primer campo y pulsa "¿Olvidaste tu contraseña?" para enviar el enlace.';
       });
       return;
     }
@@ -143,51 +180,32 @@ class _LoginViewState extends State<LoginView>
     final bool isDesktop = size.width >= 900;
 
     return MouseRegion(
-      onHover: (event) => _updatePointerFromGlobal(event.position),
+      onHover: (PointerHoverEvent event) =>
+          _updatePointerFromGlobal(event.position),
       onExit: (_) => setState(() => _pointerNormalized = Offset.zero),
       child: Scaffold(
-        backgroundColor: AppTheme.canvas,
+        backgroundColor: AppTheme.surface,
         body: Stack(
           children: <Widget>[
             SafeArea(
+              top: !isDesktop,
+              bottom: !isDesktop,
               child: isDesktop
                   ? _buildDesktopLayout(auth)
                   : _buildMobileLayout(auth),
             ),
-            // Overlay animado con DairyLoader al iniciar sesión
+            // Telón institucional oscuro durante la validación de credenciales
             Positioned.fill(
               child: IgnorePointer(
                 ignoring: !auth.isLoading,
                 child: AnimatedOpacity(
                   opacity: auth.isLoading ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 240),
+                  duration: const Duration(milliseconds: 220),
                   curve: Curves.easeOut,
-                  child: Container(
-                    color: AppTheme.canvas.withValues(alpha: 0.88),
-                    alignment: Alignment.center,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 32,
-                        vertical: 28,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppTheme.surface,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppTheme.border),
-                        boxShadow: <BoxShadow>[
-                          BoxShadow(
-                            color: AppTheme.cowBlack.withValues(alpha: 0.08),
-                            blurRadius: 24,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
-                      ),
-                      child: const DairyLoader(
-                        size: DairyLoaderSize.lg,
-                        label: 'Validando credenciales…',
-                        hint: 'Conectando con Firebase Auth y tu perfil en ASOPROGANUCOTT.',
-                      ),
-                    ),
+                  child: const AsoproganucotCurtain(
+                    eyebrow: 'VERIFICANDO ACCESO · SUSA',
+                    statusText:
+                        'Validando credenciales con Firebase Auth y perfil operativo…',
                   ),
                 ),
               ),
@@ -199,403 +217,186 @@ class _LoginViewState extends State<LoginView>
   }
 
   Widget _buildDesktopLayout(AuthController auth) {
-    return Padding(
-      padding: const EdgeInsets.all(10),
-      child: Row(
-        children: <Widget>[
-          // Marco izquierdo Holstein con modelo 3D proporcionado
-          Expanded(
-            flex: 11,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: CustomPaint(
-                painter: const CowSpotPatternPainter(
-                  spotColor: Color(0x0E14161D),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(44, 28, 36, 28),
+    return Row(
+      children: <Widget>[
+        // Panel izquierdo editorial en tinta negra (44%)
+        Expanded(
+          flex: 44,
+          child: Container(
+            color: AppTheme.inkBlack,
+            child: Stack(
+              fit: StackFit.expand,
+              children: <Widget>[
+                const MilkFlowBackground(opacity: 0.92),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(36, 28, 36, 26),
                   child: FadeTransition(
                     opacity: _fadeAnim,
-                    child: SlideTransition(
-                      position: _slideAnim,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Row(
-                            children: <Widget>[
-                              const AsoproganucotLogo(size: 46, compact: true),
-                              const SizedBox(width: 12),
-                              Column(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        // Encabezado de marca
+                        Row(
+                          children: <Widget>[
+                            const AsoproganucotLogo(
+                              size: 38,
+                              compact: true,
+                              onDark: true,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
                                 children: <Widget>[
                                   Text(
                                     AppConstants.appName,
+                                    overflow: TextOverflow.ellipsis,
                                     style: GoogleFonts.plusJakartaSans(
-                                      fontSize: 16,
+                                      fontSize: 14,
                                       fontWeight: FontWeight.w700,
-                                      color: AppTheme.cowBlack,
-                                      letterSpacing: -0.2,
+                                      color: Colors.white,
+                                      letterSpacing: 0.3,
                                     ),
                                   ),
                                   const Text(
-                                    'Susa · Valle de Ubaté, Cundinamarca',
+                                    'Susa · Cundinamarca',
+                                    overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
-                                      fontSize: 12,
-                                      color: AppTheme.textSecondary,
+                                      fontSize: 11.5,
+                                      color: Color(0x88FFFFFF),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        // Escenario central 3D Spot Holstein
+                        Expanded(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: <Widget>[
+                              Expanded(
+                                child: Center(
+                                  child: ConstrainedBox(
+                                    constraints: const BoxConstraints(
+                                      maxWidth: 320,
+                                      maxHeight: 250,
+                                    ),
+                                    child: Stack(
+                                      alignment: Alignment.center,
+                                      children: <Widget>[
+                                        // Halos de escenario sutiles (luz sobre suelo oscuro)
+                                        Container(
+                                          width: 224,
+                                          height: 224,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            border: Border.all(
+                                              color: Colors.white
+                                                  .withValues(alpha: 0.08),
+                                            ),
+                                            gradient: RadialGradient(
+                                              colors: <Color>[
+                                                Colors.white
+                                                    .withValues(alpha: 0.09),
+                                                AppTheme.primaryGreen
+                                                    .withValues(alpha: 0.04),
+                                                Colors.transparent,
+                                              ],
+                                              stops: const <double>[
+                                                0.0,
+                                                0.55,
+                                                1.0,
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                        Positioned.fill(
+                                          child: Container(
+                                            key: _cowContainerKey,
+                                            alignment: Alignment.center,
+                                            child: CowBalloon3DWidget(
+                                              pointerNormalized:
+                                                  _pointerNormalized,
+                                              showContactShadow: false,
+                                              scaleFactor: 0.38,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                mainAxisSize: MainAxisSize.min,
+                                children: <Widget>[
+                                  Container(
+                                    width: 6,
+                                    height: 6,
+                                    decoration: const BoxDecoration(
+                                      color: AppTheme.primaryGreen,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 7),
+                                  const Flexible(
+                                    child: Text(
+                                      'Modelo interactivo · Mueva el puntero o arrastre',
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Color(0x75FFFFFF),
+                                      ),
                                     ),
                                   ),
                                 ],
                               ),
                             ],
                           ),
-                          Expanded(
-                            child: Center(
-                              child: ConstrainedBox(
-                                constraints: const BoxConstraints(
-                                  maxWidth: 340,
-                                  maxHeight: 280,
-                                ),
-                                child: Container(
-                                  key: _cowContainerKey,
-                                  alignment: Alignment.center,
-                                  child: CowBalloon3DWidget(
-                                    pointerNormalized: _pointerNormalized,
-                                    scaleFactor: 0.25,
-                                  ),
-                                ),
+                        ),
+                        const SizedBox(height: 16),
+                        // Titular editorial escalonado
+                        _StaggeredLine(
+                          animation: _line1Anim,
+                          text: 'Recepción láctea,',
+                          color: Colors.white,
+                        ),
+                        _StaggeredLine(
+                          animation: _line2Anim,
+                          text: 'control quincenal y',
+                          color: Colors.white,
+                        ),
+                        _StaggeredLine(
+                          animation: _line3Anim,
+                          text: 'trazabilidad en campo.',
+                          color: const Color(0xFFA7F3D0),
+                          italic: true,
+                        ),
+                        const SizedBox(height: 18),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.only(top: 12),
+                          decoration: BoxDecoration(
+                            border: Border(
+                              top: BorderSide(
+                                color: Colors.white.withValues(alpha: 0.12),
                               ),
                             ),
                           ),
-                          ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 440),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: <Widget>[
-                                Text(
-                                  'Todo tu proceso,\nen un solo lugar.',
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 34,
-                                    fontWeight: FontWeight.w700,
-                                    height: 1.12,
-                                    letterSpacing: -0.8,
-                                    color: AppTheme.cowBlack,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                const Text(
-                                  'Ingresa para continuar con la recepción diaria de leche cruda, gestión de asociados, liquidación quincenal y consulta en campo.',
-                                  style: TextStyle(
-                                    fontSize: 14.5,
-                                    height: 1.5,
-                                    color: AppTheme.textSecondary,
-                                  ),
-                                ),
-                                const SizedBox(height: 28),
-                                Wrap(
-                                  crossAxisAlignment: WrapCrossAlignment.center,
-                                  runSpacing: 6,
-                                  children: <Widget>[
-                                    const Text(
-                                      'Recepción',
-                                      style: TextStyle(
-                                        fontSize: 12.5,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppTheme.textMuted,
-                                      ),
-                                    ),
-                                    _metaDot(),
-                                    const Text(
-                                      'Offline-First',
-                                      style: TextStyle(
-                                        fontSize: 12.5,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppTheme.textMuted,
-                                      ),
-                                    ),
-                                    _metaDot(),
-                                    const Text(
-                                      'Liquidación',
-                                      style: TextStyle(
-                                        fontSize: 12.5,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppTheme.textMuted,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
+                          child: const Text(
+                            'Planta de Acopio · Gestión de Productores y Liquidaciones',
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: Color(0x88FFFFFF),
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          // Pantalla blanca flotante derecha
-          Expanded(
-            flex: 10,
-            child: Container(
-              height: double.infinity,
-              decoration: BoxDecoration(
-                color: AppTheme.surface,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppTheme.border),
-                boxShadow: <BoxShadow>[
-                  BoxShadow(
-                    color: AppTheme.cowBlack.withValues(alpha: 0.045),
-                    blurRadius: 14,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Center(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(36),
-                  child: FadeTransition(
-                    opacity: _fadeAnim,
-                    child: SlideTransition(
-                      position: _slideAnim,
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 360),
-                        child: _buildFormCardContent(auth, isMobile: false),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _metaDot() {
-    return Container(
-      width: 4,
-      height: 4,
-      margin: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: const BoxDecoration(
-        color: AppTheme.textMuted,
-        shape: BoxShape.circle,
-      ),
-    );
-  }
-
-  Widget _buildMobileLayout(AuthController auth) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-      child: FadeTransition(
-        opacity: _fadeAnim,
-        child: Column(
-          children: <Widget>[
-            Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: AppTheme.surface,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppTheme.border),
-              ),
-              child: CustomPaint(
-                painter: const CowSpotPatternPainter(
-                  spotColor: Color(0x0C14161D),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
-                  child: Column(
-                    children: <Widget>[
-                      SizedBox(
-                        key: _cowContainerKey,
-                        height: 150,
-                        width: double.infinity,
-                        child: CowBalloon3DWidget(
-                          pointerNormalized: _pointerNormalized,
-                          scaleFactor: 0.28,
                         ),
-                      ),
-                      const AsoproganucotLogo(size: 86),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Susa · Valle de Ubaté, Cundinamarca',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          color: AppTheme.textSecondary,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(22),
-              decoration: BoxDecoration(
-                color: AppTheme.surface,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppTheme.border),
-              ),
-              child: _buildFormCardContent(auth, isMobile: true),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFormCardContent(AuthController auth, {required bool isMobile}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: <Widget>[
-        Center(
-          child: AsoproganucotLogo(size: isMobile ? 64 : 108),
-        ),
-        const SizedBox(height: 18),
-        Text(
-          'Inicia sesión',
-          style: AppTheme.titleStyle(isMobile: isMobile),
-        ),
-        const SizedBox(height: 4),
-        const Text(
-          'Usa las credenciales asignadas a tu cuenta.',
-          style: TextStyle(
-            fontSize: 14,
-            color: AppTheme.textSecondary,
-          ),
-        ),
-        if (auth.errorMessage != null) ...<Widget>[
-          const SizedBox(height: 16),
-          _AlertBanner(
-            message: auth.errorMessage!,
-            isError: true,
-          ),
-        ],
-        if (_localNotice != null) ...<Widget>[
-          const SizedBox(height: 16),
-          _AlertBanner(
-            message: _localNotice!,
-            isError: false,
-          ),
-        ],
-        const SizedBox(height: 22),
-        const Text(
-          'Correo electrónico o documento',
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: AppTheme.textPrimary,
-          ),
-        ),
-        const SizedBox(height: 6),
-        TextField(
-          controller: _identifierCtrl,
-          enabled: !auth.isLoading,
-          keyboardType: TextInputType.emailAddress,
-          textInputAction: TextInputAction.next,
-          onChanged: (_) => auth.clearError(),
-          onSubmitted: (_) => _passwordFocus.requestFocus(),
-          decoration: const InputDecoration(
-            hintText: 'usuario@asoproganucot.com o cédula',
-            prefixIcon: Icon(Icons.person_outline_rounded, size: 19),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: <Widget>[
-            const Text(
-              'Contraseña',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.textPrimary,
-              ),
-            ),
-            TextButton(
-              onPressed: auth.isLoading ? null : _handleForgotPassword,
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                foregroundColor: AppTheme.textSecondary,
-              ),
-              child: const Text(
-                '¿La olvidaste?',
-                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        TextField(
-          controller: _passwordCtrl,
-          focusNode: _passwordFocus,
-          enabled: !auth.isLoading,
-          obscureText: _obscurePassword,
-          textInputAction: TextInputAction.done,
-          onChanged: (_) => auth.clearError(),
-          onSubmitted: (_) => _submit(),
-          decoration: InputDecoration(
-            hintText: 'Ingresa tu contraseña',
-            prefixIcon: const Icon(Icons.lock_outline_rounded, size: 19),
-            suffixIcon: IconButton(
-              onPressed: auth.isLoading
-                  ? null
-                  : () => setState(() => _obscurePassword = !_obscurePassword),
-              tooltip: _obscurePassword
-                  ? 'Mostrar contraseña'
-                  : 'Ocultar contraseña',
-              icon: Icon(
-                _obscurePassword
-                    ? Icons.visibility_outlined
-                    : Icons.visibility_off_outlined,
-                size: 19,
-                color: AppTheme.textSecondary,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 14),
-        InkWell(
-          onTap: auth.isLoading
-              ? null
-              : () => setState(() => _rememberMe = !_rememberMe),
-          borderRadius: BorderRadius.circular(6),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: Checkbox(
-                    value: _rememberMe,
-                    onChanged: auth.isLoading
-                        ? null
-                        : (bool? v) =>
-                            setState(() => _rememberMe = v ?? true),
-                    activeColor: AppTheme.cowBlack,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                const Flexible(
-                  child: Text(
-                    'Mantener mi sesión iniciada',
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      color: AppTheme.textSecondary,
+                      ],
                     ),
                   ),
                 ),
@@ -603,55 +404,400 @@ class _LoginViewState extends State<LoginView>
             ),
           ),
         ),
-        const SizedBox(height: 22),
-        SizedBox(
-          width: double.infinity,
-          height: isMobile ? 50 : 44,
-          child: ElevatedButton(
-            onPressed: auth.isLoading ? null : _submit,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.cowBlack,
-              foregroundColor: Colors.white,
-              disabledBackgroundColor: AppTheme.cowBlack.withValues(alpha: 0.78),
-              disabledForegroundColor: Colors.white,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+        // Hoja derecha pura y blanca (56%)
+        Expanded(
+          flex: 56,
+          child: Container(
+            color: AppTheme.surface,
+            alignment: Alignment.center,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 44, vertical: 32),
+              child: FadeTransition(
+                opacity: _fadeAnim,
+                child: SlideTransition(
+                  position: _slideAnim,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 380),
+                    child: _buildLoginForm(auth, isMobile: false),
+                  ),
+                ),
               ),
             ),
-            child: auth.isLoading
-                ? const DairyLoader(
-                    size: DairyLoaderSize.xs,
-                    label: 'Iniciando sesión…',
-                    color: Colors.white,
-                  )
-                : const Text(
-                    'Iniciar sesión',
-                    style: TextStyle(
-                      fontSize: 14.5,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
           ),
         ),
-        const SizedBox(height: 20),
-        const Divider(),
-        const SizedBox(height: 14),
+      ],
+    );
+  }
+
+  Widget _buildMobileLayout(AuthController auth) {
+    return Column(
+      children: <Widget>[
+        Container(
+          height: 215,
+          width: double.infinity,
+          color: AppTheme.inkBlack,
+          child: Stack(
+            fit: StackFit.expand,
+            children: <Widget>[
+              const MilkFlowBackground(opacity: 0.9),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
+                child: Column(
+                  children: <Widget>[
+                    Row(
+                      children: <Widget>[
+                        const AsoproganucotLogo(
+                          size: 32,
+                          compact: true,
+                          onDark: true,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            AppConstants.appName,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                        const Text(
+                          'Susa',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: Color(0x88FFFFFF),
+                          ),
+                        ),
+                      ],
+                    ),
+                    Expanded(
+                      child: Container(
+                        key: _cowContainerKey,
+                        alignment: Alignment.center,
+                        child: CowBalloon3DWidget(
+                          pointerNormalized: _pointerNormalized,
+                          showContactShadow: false,
+                          scaleFactor: 0.40,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  height: 16,
+                  decoration: const BoxDecoration(
+                    color: AppTheme.surface,
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(18),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: Container(
+            width: double.infinity,
+            color: AppTheme.surface,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(22, 10, 22, 28),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: _buildLoginForm(auth, isMobile: true),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLoginForm(AuthController auth, {required bool isMobile}) {
+    final String? error = auth.errorMessage;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        const Text(
+          'ACCESO AL SISTEMA',
+          style: TextStyle(
+            fontSize: 11,
+            letterSpacing: 1.5,
+            fontWeight: FontWeight.w700,
+            color: AppTheme.primaryGreen,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Iniciar sesión',
+          style: AppTheme.serifStyle(
+            fontSize: isMobile ? 25 : 29,
+            fontWeight: FontWeight.w600,
+            color: AppTheme.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'Ingresa tu usuario o correo institucional para continuar.',
+          style: TextStyle(
+            fontSize: 13.5,
+            color: AppTheme.textSecondary,
+            height: 1.4,
+          ),
+        ),
+        const SizedBox(height: 24),
+        const _FieldLabel('Usuario o correo electrónico'),
+        const SizedBox(height: 6),
+        TextField(
+          controller: _identifierCtrl,
+          keyboardType: TextInputType.emailAddress,
+          textInputAction: TextInputAction.next,
+          autofillHints: const <String>[AutofillHints.username],
+          onChanged: (_) {
+            if (auth.errorMessage != null) auth.clearError();
+          },
+          onSubmitted: (_) => _passwordFocus.requestFocus(),
+          decoration: const InputDecoration(
+            hintText: 'usuario@asoproganucott.com',
+            prefixIcon: Icon(
+              Icons.person_outline_rounded,
+              size: 18,
+              color: AppTheme.textMuted,
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        const _FieldLabel('Contraseña'),
+        const SizedBox(height: 6),
+        TextField(
+          controller: _passwordCtrl,
+          focusNode: _passwordFocus,
+          obscureText: _obscurePassword,
+          textInputAction: TextInputAction.done,
+          autofillHints: const <String>[AutofillHints.password],
+          onChanged: (_) {
+            _refreshCapsLock();
+            if (auth.errorMessage != null) auth.clearError();
+          },
+          onSubmitted: (_) => _submit(),
+          decoration: InputDecoration(
+            hintText: 'Ingresa tu contraseña',
+            prefixIcon: const Icon(
+              Icons.lock_outline_rounded,
+              size: 18,
+              color: AppTheme.textMuted,
+            ),
+            suffixIcon: IconButton(
+              tooltip: _obscurePassword
+                  ? 'Mostrar contraseña'
+                  : 'Ocultar contraseña',
+              onPressed: () {
+                setState(() => _obscurePassword = !_obscurePassword);
+              },
+              icon: Icon(
+                _obscurePassword
+                    ? Icons.visibility_outlined
+                    : Icons.visibility_off_outlined,
+                size: 18,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+          ),
+        ),
+        if (_capsLockOn) ...<Widget>[
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppTheme.warningBg,
+              borderRadius: BorderRadius.circular(AppTheme.radiusControl),
+              border: Border.all(
+                color: AppTheme.warning.withValues(alpha: 0.35),
+              ),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Icon(
+                  Icons.keyboard_capslock_rounded,
+                  size: 15,
+                  color: AppTheme.warningText,
+                ),
+                SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    'Bloq Mayús activado',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.warningText,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+        const SizedBox(height: 12),
         Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: const <Widget>[
+          children: <Widget>[
+            Expanded(
+              child: InkWell(
+                onTap: () => setState(() => _rememberMe = !_rememberMe),
+                borderRadius: BorderRadius.circular(6),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: Checkbox(
+                          value: _rememberMe,
+                          activeColor: AppTheme.inkBlack,
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
+                          side: const BorderSide(
+                            color: AppTheme.inputBorder,
+                            width: 1.3,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          onChanged: (bool? v) {
+                            setState(() => _rememberMe = v ?? true);
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Flexible(
+                        child: Text(
+                          'Recordar acceso',
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: auth.isLoading ? null : _handleForgotPassword,
+              style: TextButton.styleFrom(
+                foregroundColor: AppTheme.primaryGreen,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 4,
+                ),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: const Text(
+                '¿Olvidaste tu contraseña?',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (error != null && error.isNotEmpty) ...<Widget>[
+          const SizedBox(height: 14),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppTheme.dangerBg,
+              borderRadius: BorderRadius.circular(AppTheme.radiusControl),
+              border: Border.all(
+                color: AppTheme.danger.withValues(alpha: 0.28),
+              ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const Icon(
+                  Icons.error_outline_rounded,
+                  size: 17,
+                  color: AppTheme.dangerText,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    error,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      color: AppTheme.dangerText,
+                      fontWeight: FontWeight.w500,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+        if (_localNotice != null) ...<Widget>[
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryGreenLight,
+              borderRadius: BorderRadius.circular(AppTheme.radiusControl),
+              border: Border.all(
+                color: AppTheme.primaryGreen.withValues(alpha: 0.25),
+              ),
+            ),
+            child: Text(
+              _localNotice!,
+              style: const TextStyle(
+                fontSize: 12.5,
+                color: AppTheme.successText,
+                height: 1.35,
+              ),
+            ),
+          ),
+        ],
+        const SizedBox(height: 20),
+        PrimaryActionButton(
+          label: 'Ingresar al sistema',
+          icon: Icons.login_rounded,
+          isLoading: auth.isLoading,
+          isMobile: isMobile,
+          onPressed: _submit,
+        ),
+        const SizedBox(height: 16),
+        const Divider(height: 1),
+        const SizedBox(height: 12),
+        const Row(
+          children: <Widget>[
             Icon(
               Icons.verified_user_outlined,
               size: 15,
-              color: AppTheme.primaryGreen,
+              color: AppTheme.textMuted,
             ),
-            SizedBox(width: 6),
-            Flexible(
+            SizedBox(width: 7),
+            Expanded(
               child: Text(
-                'Acceso cifrado · Firebase Auth & Hive',
-                overflow: TextOverflow.ellipsis,
+                'Acceso validado por rol con respaldo local cifrado Hive.',
                 style: TextStyle(
-                  fontSize: 12.5,
+                  fontSize: 12,
                   color: AppTheme.textMuted,
                 ),
               ),
@@ -663,47 +809,63 @@ class _LoginViewState extends State<LoginView>
   }
 }
 
-class _AlertBanner extends StatelessWidget {
-  const _AlertBanner({
-    required this.message,
-    required this.isError,
+class _StaggeredLine extends StatelessWidget {
+  const _StaggeredLine({
+    required this.animation,
+    required this.text,
+    required this.color,
+    this.italic = false,
   });
 
-  final String message;
-  final bool isError;
+  final Animation<double> animation;
+  final String text;
+  final Color color;
+  final bool italic;
 
   @override
   Widget build(BuildContext context) {
-    final Color bg = isError ? AppTheme.dangerBg : AppTheme.canvasAlt;
-    final Color fg = isError ? AppTheme.dangerText : AppTheme.textPrimary;
-    final Color border = isError
-        ? AppTheme.danger.withValues(alpha: 0.35)
-        : AppTheme.border;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(AppTheme.radiusControl),
-        border: Border.all(color: border),
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (BuildContext context, Widget? child) {
+        final double v = animation.value;
+        return Opacity(
+          opacity: v,
+          child: Transform.translate(
+            offset: Offset(0, (1.0 - v) * 12),
+            child: child,
+          ),
+        );
+      },
+      child: Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: GoogleFonts.sourceSerif4(
+          fontSize: 28,
+          height: 1.16,
+          letterSpacing: -0.45,
+          fontWeight: FontWeight.w500,
+          fontStyle: italic ? FontStyle.italic : FontStyle.normal,
+          color: color,
+        ),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Icon(
-            isError ? Icons.error_outline_rounded : Icons.info_outline_rounded,
-            size: 18,
-            color: fg,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              message,
-              style: TextStyle(fontSize: 13, height: 1.4, color: fg),
-            ),
-          ),
-        ],
+    );
+  }
+}
+
+class _FieldLabel extends StatelessWidget {
+  const _FieldLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: const TextStyle(
+        fontSize: 12.5,
+        fontWeight: FontWeight.w600,
+        color: AppTheme.textPrimary,
       ),
     );
   }
