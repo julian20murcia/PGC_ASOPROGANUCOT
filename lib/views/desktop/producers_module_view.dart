@@ -1101,7 +1101,8 @@ class _ProducerFormDialogState extends State<_ProducerFormDialog> {
                     ),
                     const SizedBox(height: 14),
                   ],
-                  if (!_isEditing)
+                  if (!_isEditing) ...[
+                    Text('Aviso de privacidad', style: AppTheme.subtitleStyle()),
                     FutureBuilder<PrivacyNotice>(
                       future: _noticeFuture,
                       builder: (context, snapshot) {
@@ -1146,6 +1147,7 @@ class _ProducerFormDialogState extends State<_ProducerFormDialog> {
                         );
                       },
                     ),
+                  ],
                   if (_isEditing) ...[
                     Text(widget.existingProducer!.soporteAutorizacion == null
                         ? 'Autorización histórica. Verifica el soporte en el archivo de la asociación.'

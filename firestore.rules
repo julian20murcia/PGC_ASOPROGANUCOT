@@ -113,7 +113,7 @@ service cloud.firestore {
         request.resource.data.precioPorLitro is number &&
         request.resource.data.precioPorLitro > 0;
       allow update: if isAdmin() &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fechaFinVigencia']);
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fechaFinVigencia', 'activa']);
     }
 
     match /recepciones_leche/{recepcionId} {

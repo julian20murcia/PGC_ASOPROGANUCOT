@@ -14,7 +14,7 @@ class PrivacyNoticeView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Text('Aviso de privacidad · ${data['version']}', style: AppTheme.subtitleStyle()),
+        Text('Versión ${data['version']}', style: AppTheme.subtitleStyle()),
         const SizedBox(height: 8),
         SelectableText(
           '${data['responsable']} es responsable del tratamiento.\n'

@@ -73,7 +73,9 @@ class ProducerModel {
           parseNullableUtcDate(map['fechaAutorizacionDatos']),
       autorizadoPorUid:
           (authUidRaw == null || authUidRaw.isEmpty) ? null : authUidRaw,
-      avisoPrivacidad: parseOptionalMap(map['avisoPrivacidad']),
+      avisoPrivacidad: map['avisoPrivacidad'] is Map
+          ? Map<String, dynamic>.from(map['avisoPrivacidad'] as Map)
+          : null,
       soporteAutorizacion: map['soporteAutorizacion'] as String?,
       auditLogId: map['auditLogId'] as String?,
       fechaCreacion: parseUtcDate(map['fechaCreacion']),

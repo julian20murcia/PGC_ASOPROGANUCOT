@@ -292,10 +292,11 @@ void main() {
     await tester.tap(find.text('Nuevo productor'));
     await tester.pump(const Duration(milliseconds: 300));
     expect(
-      find.text('Aviso de Privacidad y Tratamiento de Datos (Ley 1581 de 2012)'),
+      find.text('Aviso de privacidad'),
       findsOneWidget,
     );
     expect(find.text('Guardar productor'), findsOneWidget);
+    expect(find.text('Referencia del soporte firmado o electrónico'), findsNothing);
 
     // Cerrar diálogo y navegar a Recepción de Leche
     await tester.tap(find.text('Cancelar'));
