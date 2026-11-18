@@ -1,0 +1,108 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function userDocExists() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/usuarios/$(request.auth.uid));
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
+    }
+
+    function isActiveUser() {
+      return userDocExists() && getUserData().activo == true;
+    }
+
+    function hasRole(role) {
+      return isActiveUser() && getUserData().rol == role;
+    }
+
+    function isAdmin() {
+      return hasRole('ADMIN');
+    }
+
+    function isOperario() {
+      return hasRole('OPERARIO');
+    }
+
+    function isStaff() {
+      return isAdmin() || isOperario();
+    }
+
+    // 1. Colección usuarios (RF-01, RF-02, RF-03)
+    match /usuarios/{uid} {
+      allow read: if isAuthenticated() && (request.auth.uid == uid || isStaff());
+      allow create: if isAdmin() || (isAuthenticated() && request.auth.uid == uid);
+      allow update: if isAdmin() || (
+        isAuthenticated() &&
+        request.auth.uid == uid &&
+        request.resource.data.rol == resource.data.rol &&
+        request.resource.data.activo == resource.data.activo
+      );
+      allow delete: if false;
+    }
+
+    // 2. Colección productores (RF-04, RF-05 Ley 1581/2012, RF-06, RF-07)
+    match /productores/{productorId} {
+      allow read: if isStaff() || (
+        isAuthenticated() && resource.data.uidUsuario == request.auth.uid
+      );
+      allow create: if isAdmin() &&
+        request.resource.data.aceptoHabeasData == true;
+      allow update: if isAdmin() &&
+        request.resource.data.aceptoHabeasData == true;
+      allow delete: if false;
+    }
+
+    // 3. Colección tarifas_leche (RF-12 - histórica, no se elimina)
+    match /tarifas_leche/{tarifaId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAdmin();
+      allow delete: if false;
+    }
+
+    // 4. Colección recepciones_leche (RF-08 a RF-11, Ley 527/1999 inmutabilidad post-liquidación)
+    match /recepciones_leche/{recepcionId} {
+      allow read: if isStaff() || isAuthenticated();
+      allow create: if isStaff() &&
+        request.resource.data.litros is number &&
+        request.resource.data.litros > 0;
+      allow update: if (
+        isOperario() &&
+        resource.data.liquidacionId == null &&
+        request.resource.data.liquidacionId == null
+      ) || (
+        isAdmin() &&
+        resource.data.liquidacionId == null
+      );
+      allow delete: if false;
+    }
+
+    // 5. Colección liquidaciones (RF-13, RF-14, RF-15, RF-22)
+    match /liquidaciones/{liquidacionId} {
+      allow read: if isStaff() || isAuthenticated();
+      allow create, update: if isAdmin();
+      allow delete: if false;
+    }
+
+    // 6. Colección notificaciones (RF-23, RF-24)
+    match /notificaciones/{notificacionId} {
+      allow read: if isAuthenticated();
+      allow create: if isStaff();
+      allow update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    // 7. Colección auditoria_logs (RF-03, RF-11, RNF-06, RNF-07 - append-only estricto)
+    match /auditoria_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isStaff();
+      allow update, delete: if false;
+    }
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "481071557489",
+    "project_id": "asoproganucott-d2a07",
+    "storage_bucket": "asoproganucott-d2a07.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:481071557489:android:22551e27277a7c140464d0",
+        "android_client_info": {
+          "package_name": "com.example.pgc_asoproganucot"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA3G5-9U5iT4SVmfRAQnX-tF-UIJz3Acxk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
