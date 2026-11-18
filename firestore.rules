@@ -1,162 +1,212 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isAuthenticated() {
+    function signedIn() {
       return request.auth != null;
     }
 
-    function userDocExists() {
-      return isAuthenticated() &&
-        exists(/databases/$(database)/documents/usuarios/$(request.auth.uid));
-    }
-
-    function getUserData() {
+    function profile() {
       return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
     }
 
     function isActiveUser() {
-      return userDocExists() && getUserData().activo == true;
-    }
-
-    function hasRole(role) {
-      return isActiveUser() && getUserData().rol == role;
+      return signedIn() && profile().activo == true;
     }
 
     function isAdmin() {
-      return hasRole('ADMIN');
-    }
-
-    function isOperario() {
-      return hasRole('OPERARIO');
+      return isActiveUser() && profile().rol == 'ADMIN';
     }
 
     function isStaff() {
-      return isAdmin() || isOperario();
+      return isActiveUser() && profile().rol in ['ADMIN', 'OPERARIO'];
     }
 
-    function isProducerOwner(productorId) {
-      return isAuthenticated() &&
-        productorId is string &&
-        exists(/databases/$(database)/documents/productores/$(productorId)) &&
+    function isProducer() {
+      return isActiveUser() && profile().rol == 'PRODUCTOR';
+    }
+
+    function ownsProducer(productorId) {
+      return isProducer() && productorId is string && productorId.size() > 0 &&
         get(/databases/$(database)/documents/productores/$(productorId)).data.uidUsuario == request.auth.uid;
     }
 
-    // 1. Colección usuarios (RF-01, RF-02, RF-03, RNF-07)
-    // Lectura permitida para resolver documento/cédula a correo en el login;
-    // escrituras restringidas al Administrador o al propio usuario autenticado (ej. fcmTokens/ultimoAcceso).
+    function audit(logId) {
+      return getAfter(/databases/$(database)/documents/auditoria_logs/$(logId)).data;
+    }
+
+    function validAudit(collection, id, action, before) {
+      let next = request.resource.data;
+      let log = audit(next.auditLogId);
+      return next.updatedAt == request.time && next.updatedByUid == request.auth.uid &&
+        log.logId == next.auditLogId &&
+        log.entidadAfectada == collection && log.registroId == id &&
+        log.accion == action && log.usuarioUid == request.auth.uid &&
+        log.timestamp == request.time && log.valorAnterior == before &&
+        log.valorNuevo.diff(next).affectedKeys().hasOnly(['updatedAt']);
+    }
+
+    function validConsent() {
+      let fields = request.resource.data;
+      let notice = get(/databases/$(database)/documents/configuracion/privacidad).data;
+      return fields.aceptoHabeasData == true &&
+        fields.autorizadoPorUid == request.auth.uid &&
+        fields.fechaAutorizacionDatos is string && fields.fechaAutorizacionDatos.size() > 0 &&
+        fields.soporteAutorizacion is string &&
+        fields.soporteAutorizacion.matches('.*[^ ].*') &&
+        fields.soporteAutorizacion.size() <= 120 &&
+        fields.avisoPrivacidad == notice &&
+        notice.keys().hasAll(['version', 'responsable', 'direccion', 'correo',
+          'telefono', 'politicaUrl', 'finalidades', 'derechos']) &&
+        notice.version is string && notice.version.size() > 0 &&
+        notice.responsable is string && notice.responsable.size() > 0 &&
+        notice.direccion is string && notice.direccion.size() > 0 &&
+        notice.correo is string && notice.correo.size() > 0 &&
+        notice.telefono is string && notice.telefono.size() > 0 &&
+        notice.politicaUrl is string && notice.politicaUrl.matches('https://.+') &&
+        notice.finalidades is string && notice.finalidades.size() > 0 &&
+        notice.derechos is string && notice.derechos.size() > 0;
+    }
+
+    function validLogin(uid) {
+      let next = request.resource.data;
+      let log = audit(next.ultimoAccesoLogId);
+      return next.ultimoAcceso == request.time && log.timestamp == request.time &&
+        log.logId == next.ultimoAccesoLogId && log.entidadAfectada == 'usuarios' &&
+        log.registroId == uid && log.usuarioUid == uid && log.accion == 'INICIAR_SESION';
+    }
+
     match /usuarios/{uid} {
-      allow read: if true;
-      allow create, update: if isAuthenticated() &&
-        (isAdmin() || request.auth.uid == uid);
-      allow delete: if false;
+      allow get: if isAdmin() || (signedIn() && request.auth.uid == uid);
+      allow list: if isAdmin();
+      allow create: if isAdmin() && request.resource.data.uid == uid &&
+        request.resource.data.rol in ['ADMIN', 'OPERARIO', 'PRODUCTOR'];
+      allow update: if (isAdmin() &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['nombreCompleto', 'documento', 'telefono', 'rol', 'activo']) &&
+          request.resource.data.rol in ['ADMIN', 'OPERARIO', 'PRODUCTOR']) ||
+        (isActiveUser() && request.auth.uid == uid && (
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fcmTokens']) &&
+            request.resource.data.fcmTokens is list && request.resource.data.fcmTokens.size() <= 30) ||
+          (request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['ultimoAcceso', 'ultimoAccesoLogId']) && validLogin(uid))
+        ));
     }
 
-    // 2. Colección productores (RF-04, RF-05 Ley 1581/2012, RF-06, RF-07)
+    match /configuracion/privacidad {
+      allow get: if isActiveUser();
+    }
+
     match /productores/{productorId} {
-      allow read: if isStaff() || (
-        isAuthenticated() && resource.data.uidUsuario == request.auth.uid
-      );
-      allow create: if isAdmin() &&
-        request.resource.data.aceptoHabeasData == true;
+      allow read: if isStaff() || (isProducer() && resource.data.uidUsuario == request.auth.uid);
+      allow create: if isAdmin() && request.resource.data.productorId == productorId &&
+        validConsent() && validAudit('productores', productorId, 'CREAR', null);
       allow update: if isAdmin() &&
-        request.resource.data.aceptoHabeasData == true;
-      allow delete: if false;
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'uidUsuario', 'codigoAsociado', 'cedula', 'nombres', 'apellidos', 'telefono',
+          'nombreFinca', 'vereda', 'estado', 'isSynced', 'auditLogId', 'updatedAt', 'updatedByUid'
+        ]) && validAudit('productores', productorId, 'EDITAR', resource.data);
     }
 
-    // 3. Colección tarifas_leche (RF-12 - histórica, precio inmutable)
     match /tarifas_leche/{tarifaId} {
-      allow read: if isAuthenticated();
+      allow read: if isActiveUser();
       allow create: if isAdmin() &&
         request.resource.data.precioPorLitro is number &&
         request.resource.data.precioPorLitro > 0;
       allow update: if isAdmin() &&
-        request.resource.data.precioPorLitro == resource.data.precioPorLitro &&
-        request.resource.data.fechaInicioVigencia == resource.data.fechaInicioVigencia &&
-        request.resource.data.registradoPorUid == resource.data.registradoPorUid;
-      allow delete: if false;
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fechaFinVigencia']);
     }
 
-    // 4. Colección recepciones_leche (RF-08 a RF-11, Ley 527/1999 inmutabilidad post-liquidación)
     match /recepciones_leche/{recepcionId} {
-      allow read: if isStaff() || (
-        isAuthenticated() && (
-          resource.data.productorId == request.auth.uid ||
-          resource.data.uidUsuario == request.auth.uid ||
-          isProducerOwner(resource.data.productorId)
-        )
-      );
-      allow create: if isStaff() &&
-        request.resource.data.litros is number &&
-        request.resource.data.litros > 0;
-      allow update: if (
-        isOperario() &&
-        resource.data.liquidacionId == null &&
-        request.resource.data.liquidacionId == null
-      ) || (
-        isAdmin() &&
-        resource.data.liquidacionId == null &&
-        (
-          request.resource.data.liquidacionId == null ||
-          (
-            request.resource.data.litros == resource.data.litros &&
-            request.resource.data.productorId == resource.data.productorId &&
-            request.resource.data.fechaEntrega == resource.data.fechaEntrega &&
-            request.resource.data.anulado == resource.data.anulado
-          )
-        )
-      );
-      allow delete: if false;
+      function validLiters() {
+        return request.resource.data.litros is number &&
+          request.resource.data.litros >= 0.01 && request.resource.data.litros <= 5000;
+      }
+
+      function validCorrection() {
+        let next = request.resource.data;
+        let changed = next.diff(resource.data).affectedKeys();
+        return resource.data.get('liquidacionId', null) == null &&
+          resource.data.get('anulado', false) == false &&
+          audit(next.auditLogId).motivo is string && audit(next.auditLogId).motivo.size() >= 5 &&
+          ((changed.hasOnly(['litros', 'auditLogId', 'updatedAt', 'updatedByUid']) &&
+            changed.hasAny(['litros']) && validLiters() &&
+            validAudit('recepciones_leche', recepcionId, 'EDITAR', resource.data)) ||
+          (changed.hasOnly(['anulado', 'motivoAnulacion', 'auditLogId', 'updatedAt', 'updatedByUid']) &&
+            next.anulado == true && next.motivoAnulacion == audit(next.auditLogId).motivo &&
+            validAudit('recepciones_leche', recepcionId, 'ANULAR', resource.data)));
+      }
+
+      allow read: if isStaff() || ownsProducer(resource.data.productorId);
+      allow create: if isStaff() && request.resource.data.recepcionId == recepcionId &&
+        request.resource.data.operarioUid == request.auth.uid &&
+        request.resource.data.productorId is string &&
+        request.resource.data.createdAt is string && request.resource.data.createdAt.size() > 0 &&
+        request.resource.data.liquidacionId == null && request.resource.data.anulado == false &&
+        request.resource.data.isSynced == true && request.resource.data.syncStatus == 'SINCRONIZADO' &&
+        validLiters() && validAudit('recepciones_leche', recepcionId, 'CREAR', null);
+      allow update: if isAdmin() && validCorrection();
     }
 
-    // 5. Colección liquidaciones (RF-13, RF-14, RF-15, RF-22 - montos inmutables tras emisión)
     match /liquidaciones/{liquidacionId} {
-      allow read: if isStaff() || (
-        isAuthenticated() && (
-          resource.data.productorId == request.auth.uid ||
-          resource.data.uidUsuario == request.auth.uid ||
-          isProducerOwner(resource.data.productorId)
-        )
-      );
-      allow create: if isAdmin() &&
-        request.resource.data.totalLitros is number &&
-        request.resource.data.totalLitros > 0 &&
-        request.resource.data.precioLitroAplicado is number &&
-        request.resource.data.precioLitroAplicado > 0 &&
-        request.resource.data.valorTotalPagar is number &&
-        request.resource.data.valorTotalPagar >= 0;
+      allow read: if isStaff() || ownsProducer(resource.data.productorId);
+      // La emisión y el bloqueo de entregas se ejecutan en la función de cierre.
       allow update: if isAdmin() &&
         resource.data.estadoPago == 'PENDIENTE' &&
         request.resource.data.estadoPago == 'PAGADA' &&
-        request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['estadoPago', 'fechaPago', 'observacionPago']);
-      allow delete: if false;
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'estadoPago', 'fechaPago', 'observacionPago', 'auditLogId', 'updatedAt', 'updatedByUid'
+        ]) && request.resource.data.fechaPago is string &&
+        request.resource.data.observacionPago is string &&
+        request.resource.data.observacionPago.size() >= 3 &&
+        validAudit('liquidaciones', liquidacionId, 'EDITAR', resource.data);
     }
 
-    // 6. Colección notificaciones (RF-23, RF-24)
     match /notificaciones/{notificacionId} {
-      allow read: if isStaff() || (
-        isAuthenticated() && (
-          resource.data.destinoProductorId == null ||
-          resource.data.destinoProductorId == '' ||
-          resource.data.destinoProductorId == request.auth.uid ||
-          isProducerOwner(resource.data.destinoProductorId)
-        )
-      );
+      function belongsToProducer() {
+        let target = resource.data.destinoProductorId;
+        return isProducer() && (target == request.auth.uid || ownsProducer(target));
+      }
+
+      allow read: if isStaff() || belongsToProducer() ||
+        (isProducer() && resource.data.destinoProductorId == null);
       allow create: if isStaff() || (
-        isAuthenticated() && request.resource.data.tipo == 'RECTIFICACION'
+        request.resource.data.tipo == 'RECTIFICACION' && request.resource.data.leida == false &&
+        ownsProducer(request.resource.data.destinoProductorId)
       );
       allow update: if isStaff() || (
-        isAuthenticated() &&
+        belongsToProducer() && request.resource.data.leida == true &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['leida'])
       );
       allow delete: if isAdmin();
     }
 
-    // 7. Colección auditoria_logs (RF-03, RF-11, RNF-06, RNF-07 - append-only estricto)
     match /auditoria_logs/{logId} {
-      allow read: if isStaff();
-      allow create: if isAuthenticated();
-      allow update, delete: if false;
+      function isCurrentVersion(log) {
+        let record = getAfter(/databases/$(database)/documents/$(log.entidadAfectada)/$(log.registroId)).data;
+        return record.auditLogId == logId && record.updatedAt == request.time &&
+          log.timestamp == request.time;
+      }
+
+      function isLogin(log) {
+        let user = getAfter(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
+        return log.entidadAfectada == 'usuarios' && log.accion == 'INICIAR_SESION' &&
+          log.registroId == request.auth.uid && log.timestamp == request.time &&
+          user.ultimoAccesoLogId == logId && user.ultimoAcceso == request.time;
+      }
+
+      allow read: if isAdmin();
+      allow create: if isActiveUser() && request.resource.data.logId == logId &&
+        request.resource.data.usuarioUid == request.auth.uid && (
+          (request.resource.data.entidadAfectada in ['recepciones_leche', 'productores', 'liquidaciones'] &&
+            request.resource.data.accion in ['CREAR', 'EDITAR', 'ANULAR'] &&
+            isCurrentVersion(request.resource.data)) ||
+          isLogin(request.resource.data) ||
+          (request.resource.data.accion == 'SOLICITAR_RECTIFICACION' &&
+            request.resource.data.entidadAfectada == 'productores' &&
+            ownsProducer(request.resource.data.registroId)) ||
+          (isAdmin() && request.resource.data.entidadAfectada in ['usuarios', 'tarifas_leche', 'notificaciones'] &&
+            request.resource.data.accion != 'INICIAR_SESION')
+        );
     }
   }
 }

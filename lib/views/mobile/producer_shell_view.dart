@@ -10,11 +10,13 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
 import '../../models/app_notification_model.dart';
 import '../../models/milk_reception_model.dart';
+import '../../models/privacy_notice.dart';
 import '../../models/producer_model.dart';
 import '../../models/settlement_model.dart';
 import '../../models/user_model.dart';
 import '../shared/widgets/dairy_loader.dart';
 import '../shared/widgets/design_system_widgets.dart';
+import '../shared/widgets/privacy_notice_view.dart';
 
 /// Portal móvil exclusivo de solo lectura para Productores / Ganaderos en campo
 /// (`RF-19` a `RF-24`, `RNF-02`, `RNF-05`, `HU-10` a `HU-14`).
@@ -1923,13 +1925,46 @@ class _ProducerProfileSheetState extends State<_ProducerProfileSheet> {
                       ),
                       _ProfileLine(
                         label: 'Habeas Data',
-                        value: producer.hasValidHabeasData
+                        value: producer.soporteAutorizacion != null && producer.hasValidHabeasData
                             ? 'Autorizado (${AppFormatters.formatDate(producer.fechaAutorizacionDatos!)})'
-                            : 'Autorización registrada',
+                            : 'Consulta el soporte con la asociación',
                       ),
                     ],
                   ],
                 ),
+              ),
+              TextButton.icon(
+                icon: const Icon(Icons.privacy_tip_outlined),
+                label: const Text('Aviso de privacidad y canales de atención'),
+                onPressed: () {
+                  final notice = PrivacyNotice.load();
+                  showDialog<void>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Tratamiento de datos personales'),
+                      content: SingleChildScrollView(
+                        child: FutureBuilder<PrivacyNotice>(
+                          future: notice,
+                          builder: (context, snapshot) {
+                            final data = snapshot.data;
+                            if (data != null) return PrivacyNoticeView(notice: data);
+                            if (snapshot.hasError) {
+                              final savedNotice = producer?.avisoPrivacidad;
+                              if (savedNotice != null) {
+                                return PrivacyNoticeView(notice: PrivacyNotice.fromMap(savedNotice));
+                              }
+                              return const Text('No se pudo cargar el aviso. Puedes solicitar una copia en la sede de la asociación.');
+                            }
+                            return const LinearProgressIndicator();
+                          },
+                        ),
+                      ),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar')),
+                      ],
+                    ),
+                  );
+                },
               ),
               if (_localMessage != null) ...<Widget>[
                 const SizedBox(height: 12),
