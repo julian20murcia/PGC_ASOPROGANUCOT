@@ -23,20 +23,21 @@ jobs:
       - name: Clonar repositorio
         uses: actions/checkout@v4
 
-      - name: Configurar Flutter (stable)
+      - name: Configurar Flutter 3.44.1 (Dart 3.12.1)
         uses: subosito/flutter-action@v2
         with:
-          channel: 'stable'
+          channel: stable
+          flutter-version: '3.44.1'
           cache: true
 
       - name: Verificar versión de Flutter y Dart
         run: flutter --version
 
       - name: Instalar dependencias (flutter pub get)
-        run: flutter pub get
+        run: flutter pub get --enforce-lockfile
 
       - name: Ejecutar análisis estático (0 issues requeridos)
-        run: flutter analyze
+        run: flutter analyze --no-pub
 
       - name: Ejecutar pruebas unitarias, E2E y de widgets (XP)
-        run: flutter test --reporter expanded
+        run: flutter test --no-pub --reporter expanded

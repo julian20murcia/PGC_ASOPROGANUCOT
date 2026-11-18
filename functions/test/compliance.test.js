@@ -26,7 +26,9 @@ function value(data) {
   if (data === null) return { nullValue: null };
   if (typeof data === 'string') return { stringValue: data };
   if (typeof data === 'boolean') return { booleanValue: data };
-  if (typeof data === 'number') return { doubleValue: data };
+  if (typeof data === 'number') {
+    return Number.isInteger(data) ? { integerValue: String(data) } : { doubleValue: data };
+  }
   if (typeof data.toDate === 'function') {
     const seconds = new Date(data.seconds * 1000).toISOString().slice(0, -4);
     return { timestampValue: `${seconds}${String(data.nanoseconds).padStart(9, '0')}Z` };
