@@ -10,17 +10,19 @@ class AsoproganucotLogo extends StatelessWidget {
     super.key,
     this.size = 64,
     this.compact = false,
+    this.onDark = false,
   });
 
   final double size;
   final bool compact;
+  final bool onDark;
 
   @override
   Widget build(BuildContext context) {
     final String assetPath =
         compact ? AppConstants.iconAssetPath : AppConstants.logoAssetPath;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(compact ? 8 : 12),
+    final Widget image = ClipRRect(
+      borderRadius: BorderRadius.circular(compact ? 7 : 10),
       child: Image.asset(
         assetPath,
         width: size,
@@ -31,20 +33,35 @@ class AsoproganucotLogo extends StatelessWidget {
           width: size,
           height: size,
           decoration: BoxDecoration(
-            color: AppTheme.cowBlack,
-            borderRadius: BorderRadius.circular(compact ? 8 : 12),
+            color: onDark ? Colors.white : AppTheme.inkBlack,
+            borderRadius: BorderRadius.circular(compact ? 7 : 10),
           ),
           alignment: Alignment.center,
           child: Text(
             'AS',
             style: TextStyle(
-              color: Colors.white,
+              color: onDark ? AppTheme.inkBlack : Colors.white,
               fontWeight: FontWeight.w700,
               fontSize: size * 0.36,
             ),
           ),
         ),
       ),
+    );
+
+    if (!onDark) {
+      return image;
+    }
+
+    return Container(
+      width: size,
+      height: size,
+      padding: EdgeInsets.all(compact ? 2.5 : 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(compact ? 8 : 11),
+      ),
+      child: image,
     );
   }
 }
@@ -149,18 +166,19 @@ class HeaderPropertyChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         color: AppTheme.surfaceMuted,
-        borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+        borderRadius: BorderRadius.circular(AppTheme.radiusControl),
+        border: Border.all(color: AppTheme.border),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
           if (dotColor != null) ...<Widget>[
             Container(
-              width: 7,
-              height: 7,
+              width: 6,
+              height: 6,
               decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
             ),
             const SizedBox(width: 6),
@@ -168,7 +186,7 @@ class HeaderPropertyChip extends StatelessWidget {
           Text(
             label,
             style: const TextStyle(
-              fontSize: 12.5,
+              fontSize: 12,
               color: AppTheme.textSecondary,
               fontWeight: FontWeight.w500,
             ),
@@ -178,7 +196,7 @@ class HeaderPropertyChip extends StatelessWidget {
             Text(
               value,
               style: AppTheme.monoStyle(
-                fontSize: 12.5,
+                fontSize: 12,
                 fontWeight: FontWeight.w700,
                 color: valueColor ?? AppTheme.textPrimary,
               ),
@@ -289,25 +307,25 @@ class SyncStatusBadge extends StatelessWidget {
     final Color dot = isSynced ? AppTheme.success : AppTheme.warning;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+        borderRadius: BorderRadius.circular(AppTheme.radiusBadge),
         border: Border.all(color: dot.withValues(alpha: 0.25)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
           Container(
-            width: 7,
-            height: 7,
+            width: 6,
+            height: 6,
             decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
           ),
           const SizedBox(width: 6),
           Text(
             isSynced ? syncedLabel : pendingLabel,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: 11.5,
               fontWeight: FontWeight.w600,
               color: fg,
             ),
@@ -318,7 +336,7 @@ class SyncStatusBadge extends StatelessWidget {
   }
 }
 
-/// Botón primario estilo píldora con `DairyLoader` integrado en carga.
+/// Botón primario con `DairyLoader` integrado en carga.
 class PrimaryActionButton extends StatelessWidget {
   const PrimaryActionButton({
     super.key,
@@ -340,19 +358,19 @@ class PrimaryActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: isMobile ? 50 : 40,
+      height: isMobile ? 48 : 38,
       width: fullWidth ? double.infinity : null,
       child: ElevatedButton(
         onPressed: isLoading ? null : onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppTheme.cowBlack,
+          backgroundColor: AppTheme.inkBlack,
           foregroundColor: Colors.white,
-          disabledBackgroundColor: AppTheme.cowBlack.withValues(alpha: 0.72),
+          disabledBackgroundColor: AppTheme.inkBlack.withValues(alpha: 0.72),
           disabledForegroundColor: Colors.white,
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 18),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+            borderRadius: BorderRadius.circular(AppTheme.radiusControl),
           ),
         ),
         child: isLoading
@@ -366,14 +384,17 @@ class PrimaryActionButton extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: <Widget>[
                   if (icon != null) ...<Widget>[
-                    Icon(icon, size: 17),
+                    Icon(icon, size: 16),
                     const SizedBox(width: 7),
                   ],
-                  Text(
-                    label,
-                    style: const TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w600,
+                  Flexible(
+                    child: Text(
+                      label,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ],
@@ -426,13 +447,19 @@ class CleanDataTable extends StatelessWidget {
             child: ConstrainedBox(
               constraints: BoxConstraints(minWidth: constraints.maxWidth),
               child: DataTable(
-                headingRowHeight: 42,
-                dataRowMinHeight: 56,
-                dataRowMaxHeight: 62,
-                horizontalMargin: 18,
-                columnSpacing: 24,
+                headingRowHeight: 38,
+                dataRowMinHeight: 52,
+                dataRowMaxHeight: 58,
+                horizontalMargin: 16,
+                columnSpacing: 22,
                 headingRowColor: WidgetStateProperty.all(AppTheme.surfaceMuted),
                 dividerThickness: 1,
+                border: TableBorder(
+                  horizontalInside: BorderSide(
+                    color: AppTheme.dividerLight,
+                    width: 1,
+                  ),
+                ),
                 columns: columns.map((CleanTableColumn col) {
                   return DataColumn(
                     numeric: col.numeric,

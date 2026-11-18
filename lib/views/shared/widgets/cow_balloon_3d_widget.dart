@@ -10,16 +10,16 @@ import 'package:flutter/services.dart' show rootBundle;
 import '../../../core/constants/app_constants.dart';
 import 'dairy_loader.dart';
 
-/// Modelo 3D interactivo de la cabeza de vaca Holstein (`medium__cow-balloon.glb`).
-/// Conserva la malla original completa (59,474 vértices) con iluminación sRGB
-/// y seguimiento suavizado al puntero del mouse o arrastre táctil.
+/// Modelo 3D interactivo de vaca Holstein (`spot_holstein_cow.glb`).
+/// Malla subdividida (93,696 triángulos) con colores horneados e iluminación
+/// direccional suave con seguimiento suavizado al puntero o arrastre táctil.
 class CowBalloon3DWidget extends StatefulWidget {
   const CowBalloon3DWidget({
     super.key,
     this.pointerNormalized = Offset.zero,
     this.enableTouchDrag = true,
     this.showContactShadow = true,
-    this.scaleFactor = 0.25,
+    this.scaleFactor = 0.36,
   });
 
   /// Posición normalizada del puntero en [-1, 1] desde el centro del área visual.
@@ -40,9 +40,9 @@ class _CowBalloon3DWidgetState extends State<CowBalloon3DWidget>
   GlbCowMesh? _mesh;
   bool _loadFailed = false;
 
-  double _rotX = -0.35;
-  double _rotY = 0.15;
-  double _rotZ = 0.15;
+  double _rotX = 0.14;
+  double _rotY = 0.50;
+  double _rotZ = 0.0;
   double _elapsedSeconds = 0;
   Duration _lastTick = Duration.zero;
   Offset? _touchOffset;
@@ -84,16 +84,16 @@ class _CowBalloon3DWidgetState extends State<CowBalloon3DWidget>
     final double px = pointer.dx.clamp(-1.0, 1.0);
     final double py = pointer.dy.clamp(-1.0, 1.0);
 
-    const double defaultTiltX = -0.35;
-    const double defaultTiltY = 0.15;
-    const double defaultTiltZ = 0.15;
+    const double defaultTiltX = 0.14;
+    const double defaultTiltY = 0.50;
+    const double defaultTiltZ = 0.0;
 
-    final double floatRotX = math.sin(_elapsedSeconds * 1.4) * 0.035;
-    final double floatRotY = math.cos(_elapsedSeconds * 1.1) * 0.045;
+    final double floatRotX = math.sin(_elapsedSeconds * 1.4) * 0.03;
+    final double floatRotY = math.cos(_elapsedSeconds * 1.1) * 0.04;
 
-    final double targetX = (py * math.pi) / 4 + defaultTiltX + floatRotX;
-    final double targetY = (px * math.pi) / 4 + defaultTiltY + floatRotY;
-    final double targetZ = (px * math.pi) / 8 + defaultTiltZ;
+    final double targetX = (py * math.pi) / 9 + defaultTiltX + floatRotX;
+    final double targetY = (px * math.pi) / 3.8 + defaultTiltY + floatRotY;
+    final double targetZ = (px * math.pi) / 24 + defaultTiltZ;
 
     final double alpha = 1.0 - math.pow(1.0 - 0.1, dt * 60.0).toDouble();
 
@@ -178,7 +178,7 @@ class _CowBalloon3DWidgetState extends State<CowBalloon3DWidget>
   }
 }
 
-/// Representación en memoria de `medium__cow-balloon.glb` sin pérdida de resolución.
+/// Representación en memoria de `spot_holstein_cow.glb` con colores e iluminación horneados.
 class GlbCowMesh {
   GlbCowMesh._({
     required this.vertexCount,

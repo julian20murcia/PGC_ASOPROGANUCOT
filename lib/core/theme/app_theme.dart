@@ -2,47 +2,50 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 /// Sistema de diseño oficial de ASOPROGANUCOT.
-/// Estética clara Houston + Holstein con alto contraste y tipografía tabular.
+/// Estética editorial de alto contraste: menú lateral en tinta negra `#0E1117`,
+/// hoja principal en blanco puro `#FFFFFF`, acento esmeralda `#0D7A5F` y bordes `#E4E6EB`.
 class AppTheme {
   AppTheme._();
 
-  // Superficies claras con contraste definido
-  static const Color canvas = Color(0xFFEEF2F6);
-  static const Color canvasAlt = Color(0xFFF7F9FC);
+  // Superficies principales y neutros editoriales
+  static const Color inkBlack = Color(0xFF0E1117);
+  static const Color canvas = Color(0xFFFFFFFF);
+  static const Color canvasAlt = Color(0xFFF9FAFB);
   static const Color surface = Color(0xFFFFFFFF);
-  static const Color surfaceMuted = Color(0xFFEDF1F7);
-  static const Color border = Color(0xFFD8E0EA);
-  static const Color inputBorder = Color(0xFFC5CFD9);
+  static const Color surfaceMuted = Color(0xFFF5F6F8);
+  static const Color border = Color(0xFFE4E6EB);
+  static const Color dividerLight = Color(0xFFECEEF2);
+  static const Color inputBorder = Color(0xFFD3D7DF);
 
-  // Negro vaca Holstein para botones principales y estados activos
-  static const Color cowBlack = Color(0xFF14161D);
-  static const Color cowBlackHover = Color(0xFF282C38);
-  static const Color cowCharcoal = Color(0xFF1D2230);
+  // Alias de marca oscura para acciones principales y navegación activa
+  static const Color cowBlack = inkBlack;
+  static const Color cowBlackHover = Color(0xFF1A1F29);
+  static const Color cowCharcoal = Color(0xFF171B24);
 
   // Verde pradera institucional
-  static const Color primaryGreen = Color(0xFF0B6E4F);
-  static const Color primaryGreenLight = Color(0xFFE5F6EF);
+  static const Color primaryGreen = Color(0xFF0D7A5F);
+  static const Color primaryGreenLight = Color(0xFFE8F6F1);
 
   // Tipografía de alto contraste
-  static const Color textPrimary = Color(0xFF14161D);
-  static const Color textSecondary = Color(0xFF424A59);
-  static const Color textMuted = Color(0xFF717B8C);
+  static const Color textPrimary = Color(0xFF0E1117);
+  static const Color textSecondary = Color(0xFF475162);
+  static const Color textMuted = Color(0xFF7B8494);
 
   // Estados semánticos
-  static const Color success = Color(0xFF00A240);
-  static const Color successText = Color(0xFF006E2B);
-  static const Color successBg = Color(0xFFE3F5EA);
+  static const Color success = Color(0xFF10B981);
+  static const Color successText = Color(0xFF065F46);
+  static const Color successBg = Color(0xFFECFDF5);
 
-  static const Color warning = Color(0xFFE0AC00);
-  static const Color warningText = Color(0xFF7D5C00);
-  static const Color warningBg = Color(0xFFFCF4D9);
+  static const Color warning = Color(0xFFD97706);
+  static const Color warningText = Color(0xFF92400E);
+  static const Color warningBg = Color(0xFFFFFBEB);
 
-  static const Color danger = Color(0xFFE02E2A);
-  static const Color dangerText = Color(0xFFB3201D);
-  static const Color dangerBg = Color(0xFFFCE8E8);
+  static const Color danger = Color(0xFFDC2626);
+  static const Color dangerText = Color(0xFF991B1B);
+  static const Color dangerBg = Color(0xFFFEF2F2);
 
-  static const double radiusCard = 12;
-  static const double radiusControl = 8;
+  static const double radiusCard = 8;
+  static const double radiusControl = 6;
   static const double radiusBadge = 6;
   static const double radiusPill = 999;
 
@@ -61,21 +64,37 @@ class AppTheme {
     );
   }
 
+  static TextStyle serifStyle({
+    double fontSize = 22,
+    FontWeight fontWeight = FontWeight.w600,
+    Color color = textPrimary,
+    double letterSpacing = -0.3,
+    double? height,
+  }) {
+    return GoogleFonts.sourceSerif4(
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color,
+      letterSpacing: letterSpacing,
+      height: height,
+    );
+  }
+
   static TextStyle titleStyle({
     bool isMobile = false,
     Color color = textPrimary,
   }) {
-    return GoogleFonts.plusJakartaSans(
-      fontSize: isMobile ? 21 : 24,
-      fontWeight: FontWeight.w700,
-      letterSpacing: -0.5,
+    return GoogleFonts.sourceSerif4(
+      fontSize: isMobile ? 21 : 23,
+      fontWeight: FontWeight.w600,
+      letterSpacing: -0.35,
       color: color,
     );
   }
 
   static TextStyle subtitleStyle({Color color = textPrimary}) {
     return GoogleFonts.plusJakartaSans(
-      fontSize: 16,
+      fontSize: 15,
       fontWeight: FontWeight.w600,
       color: color,
     );
@@ -93,7 +112,7 @@ class AppTheme {
       scaffoldBackgroundColor: canvas,
       textTheme: baseTextTheme,
       colorScheme: const ColorScheme.light(
-        primary: cowBlack,
+        primary: inkBlack,
         onPrimary: Colors.white,
         secondary: primaryGreen,
         onSecondary: Colors.white,
@@ -113,20 +132,20 @@ class AppTheme {
         ),
       ),
       dividerTheme: const DividerThemeData(
-        color: border,
+        color: dividerLight,
         thickness: 1,
         space: 1,
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: const Color(0xFFFCFCFD),
+        fillColor: surface,
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: 13,
+          horizontal: 12,
+          vertical: 11,
         ),
         hintStyle: GoogleFonts.plusJakartaSans(
-          fontSize: 14,
+          fontSize: 13.5,
           color: textMuted,
           fontWeight: FontWeight.w400,
         ),
@@ -140,7 +159,7 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radiusControl),
-          borderSide: const BorderSide(color: cowBlack, width: 1.5),
+          borderSide: const BorderSide(color: inkBlack, width: 1.4),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radiusControl),
@@ -148,38 +167,38 @@ class AppTheme {
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radiusControl),
-          borderSide: const BorderSide(color: danger, width: 1.5),
+          borderSide: const BorderSide(color: danger, width: 1.4),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: cowBlack,
+          backgroundColor: inkBlack,
           foregroundColor: Colors.white,
           elevation: 0,
-          minimumSize: const Size(0, 44),
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
+          minimumSize: const Size(0, 38),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(radiusPill),
+            borderRadius: BorderRadius.circular(radiusControl),
           ),
           textStyle: GoogleFonts.plusJakartaSans(
-            fontSize: 14,
+            fontSize: 13.5,
             fontWeight: FontWeight.w600,
           ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: cowBlack,
+          foregroundColor: inkBlack,
           backgroundColor: surface,
           elevation: 0,
-          minimumSize: const Size(0, 42),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          minimumSize: const Size(0, 38),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
           side: const BorderSide(color: inputBorder, width: 1),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(radiusPill),
+            borderRadius: BorderRadius.circular(radiusControl),
           ),
           textStyle: GoogleFonts.plusJakartaSans(
-            fontSize: 14,
+            fontSize: 13.5,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -188,7 +207,7 @@ class AppTheme {
         backgroundColor: surface,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(10),
           side: const BorderSide(color: border, width: 1),
         ),
       ),

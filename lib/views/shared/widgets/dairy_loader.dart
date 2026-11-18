@@ -1,13 +1,15 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_theme.dart';
 
 enum DairyLoaderSize { xs, sm, md, lg }
 
-/// Indicador de carga animado de ASOPROGANUCOT:
-/// una botella de leche que se llena con doble ola sinusoidal y gota cayendo.
+/// Indicador de carga original de ASOPROGANUCOT:
+/// cantina lechera tradicional con llenado ondulatorio y órbita de sincronización.
 class DairyLoader extends StatefulWidget {
   const DairyLoader({
     super.key,
@@ -37,7 +39,7 @@ class _DairyLoaderState extends State<DairyLoader>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2600),
+      duration: const Duration(milliseconds: 2400),
     )..repeat();
   }
 
@@ -47,283 +49,657 @@ class _DairyLoaderState extends State<DairyLoader>
     super.dispose();
   }
 
-  double get _height {
+  double get _boxSize {
     switch (widget.size) {
       case DairyLoaderSize.xs:
         return 18;
       case DairyLoaderSize.sm:
-        return 24;
+        return 26;
       case DairyLoaderSize.md:
-        return 56;
+        return 58;
       case DairyLoaderSize.lg:
-        return 76;
+        return 80;
     }
   }
 
   double get _strokeWidth {
     switch (widget.size) {
       case DairyLoaderSize.xs:
-        return 4.0;
+        return 1.8;
       case DairyLoaderSize.sm:
-        return 3.4;
+        return 2.0;
       case DairyLoaderSize.md:
       case DairyLoaderSize.lg:
-        return 2.4;
+        return 2.2;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final bool isSmall = widget.size == DairyLoaderSize.xs ||
-        widget.size == DairyLoaderSize.sm;
+    final bool isSmall =
+        widget.size == DairyLoaderSize.xs || widget.size == DairyLoaderSize.sm;
     final bool isInline = widget.inline ?? isSmall;
     final Color tone = widget.color ??
         (widget.size == DairyLoaderSize.xs
             ? DefaultTextStyle.of(context).style.color ?? Colors.white
-            : AppTheme.cowBlack);
+            : AppTheme.inkBlack);
 
-    final double height = _height;
-    final double width = height * (48.0 / 80.0);
-
-    final Widget bottle = SizedBox(
-      width: width,
-      height: height,
+    final double dim = _boxSize;
+    final Widget churn = SizedBox(
+      width: dim,
+      height: dim,
       child: AnimatedBuilder(
         animation: _controller,
         builder: (BuildContext context, Widget? child) {
           return CustomPaint(
-            painter: _DairyBottlePainter(
+            painter: _MilkChurnPainter(
               progress: _controller.value,
               color: tone,
               strokeWidth: _strokeWidth,
-              isTiny: widget.size == DairyLoaderSize.xs,
+              compact: isSmall,
             ),
           );
         },
       ),
     );
 
-    final bool hasText =
-        (widget.label != null && widget.label!.isNotEmpty) ||
-            (widget.hint != null && widget.hint!.isNotEmpty);
+    final String? cleanLabel =
+        (widget.label == null || widget.label!.trim().isEmpty)
+            ? null
+            : widget.label;
+    final String? cleanHint =
+        (widget.hint == null || widget.hint!.trim().isEmpty) ? null : widget.hint;
 
-    if (!hasText) {
-      return Semantics(label: 'Cargando', child: bottle);
+    if (cleanLabel == null && cleanHint == null) {
+      return churn;
     }
-
-    final Widget copy = Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment:
-          isInline ? CrossAxisAlignment.start : CrossAxisAlignment.center,
-      children: <Widget>[
-        if (widget.label != null && widget.label!.isNotEmpty)
-          Text(
-            widget.label!,
-            textAlign: isInline ? TextAlign.left : TextAlign.center,
-            style: TextStyle(
-              fontSize: widget.size == DairyLoaderSize.lg
-                  ? 15.5
-                  : widget.size == DairyLoaderSize.sm
-                      ? 13
-                      : 14,
-              fontWeight: widget.size == DairyLoaderSize.sm
-                  ? FontWeight.w500
-                  : FontWeight.w600,
-              color: widget.size == DairyLoaderSize.xs
-                  ? tone
-                  : AppTheme.textPrimary,
-            ),
-          ),
-        if (widget.hint != null && widget.hint!.isNotEmpty) ...<Widget>[
-          const SizedBox(height: 3),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 320),
-            child: Text(
-              widget.hint!,
-              textAlign: isInline ? TextAlign.left : TextAlign.center,
-              style: const TextStyle(
-                fontSize: 13,
-                height: 1.4,
-                color: AppTheme.textSecondary,
-              ),
-            ),
-          ),
-        ],
-      ],
-    );
 
     if (isInline) {
       return Row(
         mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
         children: <Widget>[
-          bottle,
-          SizedBox(width: widget.size == DairyLoaderSize.xs ? 8 : 10),
-          Flexible(child: copy),
+          churn,
+          if (cleanLabel != null) ...<Widget>[
+            const SizedBox(width: 9),
+            Flexible(
+              child: Text(
+                cleanLabel,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: widget.size == DairyLoaderSize.xs ? 12.5 : 13.5,
+                  fontWeight: FontWeight.w500,
+                  color: widget.color ?? AppTheme.textSecondary,
+                ),
+              ),
+            ),
+          ],
         ],
       );
     }
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: <Widget>[
-        bottle,
-        SizedBox(height: widget.size == DairyLoaderSize.lg ? 18 : 14),
-        copy,
-      ],
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            churn,
+            if (cleanLabel != null) ...<Widget>[
+              const SizedBox(height: 14),
+              Text(
+                cleanLabel,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: widget.size == DairyLoaderSize.lg ? 15 : 13.5,
+                  fontWeight: FontWeight.w600,
+                  color: widget.color ?? AppTheme.textPrimary,
+                ),
+              ),
+            ],
+            if (cleanHint != null) ...<Widget>[
+              const SizedBox(height: 4),
+              Text(
+                cleanHint,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  color: (widget.color ?? AppTheme.textMuted)
+                      .withValues(alpha: 0.72),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
 
-class _DairyBottlePainter extends CustomPainter {
-  const _DairyBottlePainter({
+class _MilkChurnPainter extends CustomPainter {
+  _MilkChurnPainter({
     required this.progress,
     required this.color,
     required this.strokeWidth,
-    required this.isTiny,
+    required this.compact,
   });
 
   final double progress;
   final Color color;
   final double strokeWidth;
-  final bool isTiny;
+  final bool compact;
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Coordenadas lógicas viewBox 0 -14 48 80
-    final double scaleX = size.width / 48.0;
-    final double scaleY = size.height / 80.0;
-    final double s = math.min(scaleX, scaleY);
+    final double w = size.width;
+    final double h = size.height;
+    final Offset center = Offset(w * 0.5, h * 0.5);
 
-    canvas.save();
-    canvas.translate(
-      (size.width - 48.0 * s) * 0.5,
-      (size.height - 80.0 * s) * 0.5 + 14.0 * s,
-    );
-    canvas.scale(s, s);
+    // Anillo orbital sutil solo en tamaños medianos y grandes
+    if (!compact) {
+      final double orbitRadius = math.min(w, h) * 0.46;
+      final Rect orbitRect = Rect.fromCircle(center: center, radius: orbitRadius);
+      final Paint trackPaint = Paint()
+        ..color = color.withValues(alpha: 0.12)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.1;
+      canvas.drawCircle(center, orbitRadius, trackPaint);
 
-    // Silueta exacta de la botella de leche
-    final Path bottlePath = Path()
-      ..moveTo(19, 4)
-      ..lineTo(29, 4)
-      ..lineTo(29, 14)
-      ..cubicTo(29, 18, 38, 21, 38, 29)
-      ..lineTo(38, 55)
-      ..arcToPoint(
-        const Offset(33, 60),
-        radius: const Radius.circular(5),
-        clockwise: true,
+      final double startAngle = progress * 2 * math.pi - math.pi / 2;
+      final Paint arcPaint = Paint()
+        ..color = AppTheme.primaryGreen.withValues(alpha: 0.85)
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeWidth = 1.6;
+      canvas.drawArc(orbitRect, startAngle, math.pi * 0.65, false, arcPaint);
+
+      final double dotAngle = startAngle + math.pi * 0.65;
+      final Offset dotCenter = Offset(
+        center.dx + orbitRadius * math.cos(dotAngle),
+        center.dy + orbitRadius * math.sin(dotAngle),
+      );
+      canvas.drawCircle(
+        dotCenter,
+        2.3,
+        Paint()..color = AppTheme.primaryGreen,
+      );
+    }
+
+    // Geometría de cantina lechera tradicional de Susa
+    final double scale = compact ? 0.88 : 0.56;
+    final double cw = w * scale;
+    final double ch = h * scale;
+    final double ox = (w - cw) * 0.5;
+    final double oy = (h - ch) * 0.5;
+
+    final Path churnBody = Path()
+      // Borde izquierdo del cuello hacia hombro y cuerpo
+      ..moveTo(ox + cw * 0.34, oy + ch * 0.17)
+      ..lineTo(ox + cw * 0.34, oy + ch * 0.28)
+      ..cubicTo(
+        ox + cw * 0.24,
+        oy + ch * 0.33,
+        ox + cw * 0.18,
+        oy + ch * 0.40,
+        ox + cw * 0.18,
+        oy + ch * 0.48,
       )
-      ..lineTo(15, 60)
-      ..arcToPoint(
-        const Offset(10, 55),
-        radius: const Radius.circular(5),
-        clockwise: true,
+      ..lineTo(ox + cw * 0.19, oy + ch * 0.87)
+      ..quadraticBezierTo(
+        ox + cw * 0.20,
+        oy + ch * 0.94,
+        ox + cw * 0.28,
+        oy + ch * 0.94,
       )
-      ..lineTo(10, 29)
-      ..cubicTo(10, 21, 19, 18, 19, 14)
+      ..lineTo(ox + cw * 0.72, oy + ch * 0.94)
+      ..quadraticBezierTo(
+        ox + cw * 0.80,
+        oy + ch * 0.94,
+        ox + cw * 0.81,
+        oy + ch * 0.87,
+      )
+      ..lineTo(ox + cw * 0.82, oy + ch * 0.48)
+      ..cubicTo(
+        ox + cw * 0.82,
+        oy + ch * 0.40,
+        ox + cw * 0.76,
+        oy + ch * 0.33,
+        ox + cw * 0.66,
+        oy + ch * 0.28,
+      )
+      ..lineTo(ox + cw * 0.66, oy + ch * 0.17)
       ..close();
 
-    // 1. Gota cayendo (4 ciclos por vuelta de 2.6s)
-    final double dropPhase = (progress * 4.0) % 1.0;
-    final double dropY = -12.0 + dropPhase * 30.0;
-    final double dropOpacity = dropPhase < 0.25
-        ? dropPhase / 0.25
-        : (1.0 - (dropPhase - 0.25) / 0.75);
-    if (dropOpacity > 0.01) {
-      final Paint dropPaint = Paint()
-        ..color = color.withValues(alpha: dropOpacity.clamp(0.0, 1.0))
-        ..style = PaintingStyle.fill;
-      canvas.drawCircle(Offset(24, dropY), 2.4, dropPaint);
-    }
-
-    // 2. Nivel de llenado (0->0.10 entra, 0.10->0.72 sube de 54 a 22, 0.88->1 fade out)
-    double fillDy = 22.0;
-    double fillOpacity = 1.0;
-    if (progress < 0.10) {
-      final double t = progress / 0.10;
-      fillDy = 54.0 - t * 6.0;
-      fillOpacity = t;
-    } else if (progress < 0.72) {
-      final double t = Curves.easeInOut.transform((progress - 0.10) / 0.62);
-      fillDy = 48.0 - t * 26.0;
-      fillOpacity = 1.0;
-    } else if (progress <= 0.88) {
-      fillDy = 22.0;
-      fillOpacity = 1.0;
-    } else {
-      fillDy = 22.0;
-      fillOpacity = (1.0 - (progress - 0.88) / 0.12).clamp(0.0, 1.0);
-    }
+    // Nivel de leche con ciclo suave
+    final double cycle = 0.5 - 0.5 * math.cos(progress * 2 * math.pi);
+    final double fillFraction = 0.24 + cycle * 0.52;
+    final double liquidBottom = oy + ch * 0.94;
+    final double liquidHeight = ch * 0.62 * fillFraction;
+    final double waveY = liquidBottom - liquidHeight;
 
     canvas.save();
-    canvas.clipPath(bottlePath);
+    canvas.clipPath(churnBody);
 
-    if (fillOpacity > 0.01) {
-      final double frontAlpha = (isTiny ? 0.58 : 0.34) * fillOpacity;
-      final double backAlpha = (isTiny ? 0.30 : 0.18) * fillOpacity;
+    final Path backWave = Path()..moveTo(ox, liquidBottom);
+    final Path frontWave = Path()..moveTo(ox, liquidBottom);
+    final double phase = progress * 2 * math.pi;
+    final double amp = compact ? ch * 0.035 : ch * 0.04;
 
-      final Path backWave = _buildWavePath(
-        yBase: fillDy,
-        phase: -progress * math.pi * 2 * 1.4,
-        amplitude: 3.2,
-      );
-      canvas.drawPath(
-        backWave,
-        Paint()
-          ..color = color.withValues(alpha: backAlpha)
-          ..style = PaintingStyle.fill,
-      );
-
-      final Path frontWave = _buildWavePath(
-        yBase: fillDy + 1.0,
-        phase: progress * math.pi * 2 * 2.0,
-        amplitude: 3.6,
-      );
-      canvas.drawPath(
-        frontWave,
-        Paint()
-          ..color = color.withValues(alpha: frontAlpha)
-          ..style = PaintingStyle.fill,
-      );
+    for (double x = ox; x <= ox + cw; x += math.max(1.0, cw / 18)) {
+      final double nx = ((x - ox) / cw) * 2 * math.pi;
+      final double yBack = waveY - 1.5 + math.sin(nx - phase * 1.3 + 1.1) * (amp * 0.8);
+      final double yFront = waveY + math.sin(nx + phase * 1.8) * amp;
+      backWave.lineTo(x, yBack);
+      frontWave.lineTo(x, yFront);
     }
+    backWave
+      ..lineTo(ox + cw, liquidBottom)
+      ..close();
+    frontWave
+      ..lineTo(ox + cw, liquidBottom)
+      ..close();
+
+    canvas.drawPath(
+      backWave,
+      Paint()
+        ..color = color.withValues(alpha: 0.24)
+        ..style = PaintingStyle.fill,
+    );
+    canvas.drawPath(
+      frontWave,
+      Paint()
+        ..color = color.withValues(alpha: 0.88)
+        ..style = PaintingStyle.fill,
+    );
 
     canvas.restore();
 
-    // 3. Contorno de cristal de la botella
-    final Paint glassPaint = Paint()
-      ..color = color
+    // Contorno principal de la cantina
+    final Paint outlinePaint = Paint()
+      ..color = color.withValues(alpha: 0.88)
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
 
-    canvas.drawPath(bottlePath, glassPaint);
-    canvas.drawLine(const Offset(17, 4), const Offset(31, 4), glassPaint);
+    canvas.drawPath(churnBody, outlinePaint);
 
-    canvas.restore();
-  }
+    // Tapa y collar de la boca
+    canvas.drawLine(
+      Offset(ox + cw * 0.29, oy + ch * 0.17),
+      Offset(ox + cw * 0.71, oy + ch * 0.17),
+      outlinePaint,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(ox + cw * 0.38, oy + ch * 0.08, cw * 0.24, ch * 0.08),
+        const Radius.circular(2),
+      ),
+      outlinePaint,
+    );
 
-  Path _buildWavePath({
-    required double yBase,
-    required double phase,
-    required double amplitude,
-  }) {
-    final Path path = Path()..moveTo(6, 70);
-    for (double x = 6; x <= 42; x += 2.0) {
-      final double y =
-          yBase + math.sin((x / 48.0) * math.pi * 2 * 1.5 + phase) * amplitude;
-      path.lineTo(x, y);
-    }
-    path.lineTo(42, 70);
-    path.close();
-    return path;
+    // Asas laterales características de la cantina
+    final Path leftHandle = Path()
+      ..moveTo(ox + cw * 0.20, oy + ch * 0.42)
+      ..cubicTo(
+        ox + cw * 0.04,
+        oy + ch * 0.40,
+        ox + cw * 0.04,
+        oy + ch * 0.56,
+        ox + cw * 0.18,
+        oy + ch * 0.56,
+      );
+    final Path rightHandle = Path()
+      ..moveTo(ox + cw * 0.80, oy + ch * 0.42)
+      ..cubicTo(
+        ox + cw * 0.96,
+        oy + ch * 0.40,
+        ox + cw * 0.96,
+        oy + ch * 0.56,
+        ox + cw * 0.82,
+        oy + ch * 0.56,
+      );
+    canvas.drawPath(leftHandle, outlinePaint);
+    canvas.drawPath(rightHandle, outlinePaint);
   }
 
   @override
-  bool shouldRepaint(covariant _DairyBottlePainter oldDelegate) {
+  bool shouldRepaint(covariant _MilkChurnPainter oldDelegate) {
     return oldDelegate.progress != progress ||
         oldDelegate.color != color ||
-        oldDelegate.strokeWidth != strokeWidth;
+        oldDelegate.compact != compact;
+  }
+}
+
+/// Fondo animado exclusivo de ASOPROGANUCOT:
+/// curvas topográficas del valle de Susa y estelas lácteas fluidas sobre tinta negra.
+class MilkFlowBackground extends StatefulWidget {
+  const MilkFlowBackground({
+    super.key,
+    this.bottomMasked = false,
+    this.opacity = 1.0,
+  });
+
+  final bool bottomMasked;
+  final double opacity;
+
+  @override
+  State<MilkFlowBackground> createState() => _MilkFlowBackgroundState();
+}
+
+class _MilkFlowBackgroundState extends State<MilkFlowBackground>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 18),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Widget canvasWidget = AnimatedBuilder(
+      animation: _controller,
+      builder: (BuildContext context, _) {
+        return CustomPaint(
+          painter: _MilkFlowPainter(
+            progress: _controller.value,
+            opacity: widget.opacity,
+          ),
+          child: const SizedBox.expand(),
+        );
+      },
+    );
+
+    if (!widget.bottomMasked) {
+      return IgnorePointer(child: canvasWidget);
+    }
+
+    return IgnorePointer(
+      child: ShaderMask(
+        shaderCallback: (Rect bounds) {
+          return const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            stops: <double>[0.0, 0.58, 0.82, 1.0],
+            colors: <Color>[
+              Colors.transparent,
+              Color(0x00000000),
+              Color(0x99FFFFFF),
+              Color(0xFFFFFFFF),
+            ],
+          ).createShader(bounds);
+        },
+        blendMode: BlendMode.dstIn,
+        child: canvasWidget,
+      ),
+    );
+  }
+}
+
+class _MilkFlowPainter extends CustomPainter {
+  _MilkFlowPainter({
+    required this.progress,
+    required this.opacity,
+  });
+
+  final double progress;
+  final double opacity;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.width <= 0 || size.height <= 0) return;
+
+    final double t = progress * 2 * math.pi;
+    final List<double> baseFractions = <double>[0.18, 0.34, 0.52, 0.70, 0.86];
+
+    for (int i = 0; i < baseFractions.length; i++) {
+      final bool isEmerald = i == 2 || i == 4;
+      final Color lineColor = isEmerald
+          ? AppTheme.primaryGreen.withValues(alpha: (0.28 - i * 0.02) * opacity)
+          : Colors.white.withValues(alpha: (0.075 + (i % 2) * 0.025) * opacity);
+
+      final Paint linePaint = Paint()
+        ..color = lineColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = isEmerald ? 1.2 : 0.9
+        ..strokeCap = StrokeCap.round;
+
+      final Path path = Path();
+      final double yBase = size.height * baseFractions[i];
+      final double amp = 14.0 + i * 5.0;
+      final double phase = t + i * 1.15;
+
+      const int steps = 28;
+      Offset? trackedDot;
+      for (int s = 0; s <= steps; s++) {
+        final double u = s / steps;
+        final double x = u * size.width;
+        final double y = yBase +
+            math.sin(u * math.pi * 2.2 + phase) * amp +
+            math.cos(u * math.pi * 1.3 - phase * 0.7) * (amp * 0.45);
+        if (s == 0) {
+          path.moveTo(x, y);
+        } else {
+          path.lineTo(x, y);
+        }
+
+        final double targetU = (progress + i * 0.27) % 1.0;
+        if ((u - targetU).abs() < (1.0 / steps)) {
+          trackedDot = Offset(x, y);
+        }
+      }
+
+      canvas.drawPath(path, linePaint);
+
+      if (trackedDot != null && (i == 1 || i == 2 || i == 3)) {
+        canvas.drawCircle(
+          trackedDot,
+          i == 2 ? 2.4 : 1.8,
+          Paint()
+            ..color = (i == 2 ? AppTheme.primaryGreen : Colors.white)
+                .withValues(alpha: 0.55 * opacity),
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _MilkFlowPainter oldDelegate) {
+    return oldDelegate.progress != progress || oldDelegate.opacity != opacity;
+  }
+}
+
+/// Telón de transición institucional de ASOPROGANUCOT con flujo lácteo y
+/// disolución radial al completar el acceso o carga inicial.
+class AsoproganucotCurtain extends StatelessWidget {
+  const AsoproganucotCurtain({
+    super.key,
+    this.statusText = 'Preparando entorno…',
+    this.eyebrow = 'ASOPROGANUCOT · SUSA',
+    this.revealProgress = 0.0,
+    this.onSkip,
+  });
+
+  final String statusText;
+  final String eyebrow;
+
+  /// Valor en `[0.0, 1.0]`: `0.0` mantiene el telón cerrado, `> 0.0` abre una
+  /// disolución radial desde el centro hacia afuera.
+  final double revealProgress;
+  final VoidCallback? onSkip;
+
+  @override
+  Widget build(BuildContext context) {
+    final Widget body = Container(
+      color: AppTheme.inkBlack,
+      child: Stack(
+        fit: StackFit.expand,
+        children: <Widget>[
+          const MilkFlowBackground(opacity: 0.9),
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 28),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Text(
+                      eyebrow,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 10.5,
+                        letterSpacing: 2.2,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0x99FFFFFF),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    const DairyLoader(
+                      size: DairyLoaderSize.md,
+                      label: null,
+                      color: Colors.white,
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      AppConstants.appName,
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.sourceSerif4(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.4,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      statusText,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        color: Color(0xB8FFFFFF),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    const _IndeterminateHairlineBar(),
+                    if (onSkip != null) ...<Widget>[
+                      const SizedBox(height: 18),
+                      TextButton(
+                        onPressed: onSkip,
+                        style: TextButton.styleFrom(
+                          foregroundColor: const Color(0x99FFFFFF),
+                        ),
+                        child: const Text(
+                          'Continuar ahora',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (revealProgress <= 0.001) {
+      return body;
+    }
+
+    final double p = Curves.easeInOutCubic.transform(revealProgress.clamp(0.0, 1.0));
+    final double r = (-0.25 + 1.55 * p).clamp(0.0, 2.0);
+    final double inner = math.max(0.0, r - 0.14);
+
+    return IgnorePointer(
+      child: ShaderMask(
+        shaderCallback: (Rect bounds) {
+          return RadialGradient(
+            center: Alignment.center,
+            radius: 1.0,
+            stops: <double>[inner.clamp(0.0, 1.0), r.clamp(0.0, 1.0)],
+            colors: const <Color>[
+              Colors.transparent,
+              Colors.white,
+            ],
+          ).createShader(bounds);
+        },
+        blendMode: BlendMode.dstIn,
+        child: Opacity(
+          opacity: (1.0 - p * 0.25).clamp(0.0, 1.0),
+          child: body,
+        ),
+      ),
+    );
+  }
+}
+
+class _IndeterminateHairlineBar extends StatefulWidget {
+  const _IndeterminateHairlineBar();
+
+  @override
+  State<_IndeterminateHairlineBar> createState() =>
+      _IndeterminateHairlineBarState();
+}
+
+class _IndeterminateHairlineBarState extends State<_IndeterminateHairlineBar>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 180,
+      height: 2,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(2),
+      ),
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (BuildContext context, _) {
+          final double v = _controller.value;
+          final double alignX = -1.6 + v * 3.2;
+          return Align(
+            alignment: Alignment(alignX.clamp(-1.0, 1.0), 0),
+            child: Container(
+              width: 68,
+              height: 2,
+              decoration: BoxDecoration(
+                color: AppTheme.primaryGreen,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 }
