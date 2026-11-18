@@ -8,6 +8,8 @@ import 'package:google_fonts/google_fonts.dart';
 class AppTheme {
   AppTheme._();
 
+  static const String fontFamilyName = 'Inter';
+
   // Superficies principales y neutros inspirados en el campo de Susa
   static const Color inkBlack = Color(0xFF0C3B24);
   static const Color canvas = Color(0xFFF6FAF7);
@@ -112,19 +114,18 @@ class AppTheme {
   }
 
   static ThemeData lightTheme() {
-    final String? interFamily = GoogleFonts.inter().fontFamily;
     final TextTheme baseTextTheme = GoogleFonts.interTextTheme(
       ThemeData.light(useMaterial3: true).textTheme,
     ).apply(
       bodyColor: textPrimary,
       displayColor: textPrimary,
-      fontFamily: interFamily,
+      fontFamily: fontFamilyName,
     );
 
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
-      fontFamily: interFamily,
+      fontFamily: fontFamilyName,
       scaffoldBackgroundColor: canvas,
       textTheme: baseTextTheme,
       primaryTextTheme: baseTextTheme,
