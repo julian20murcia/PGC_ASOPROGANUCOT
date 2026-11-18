@@ -4,7 +4,7 @@
   "description": "Disparadores FCM HTTP v1 para ASOPROGANUCOTT (entrega diaria, cierre de quincena, liquidación, pago y comunicados).",
   "main": "index.js",
   "engines": {
-    "node": "20"
+    "node": "22"
   },
   "dependencies": {
     "firebase-admin": "^12.6.0",

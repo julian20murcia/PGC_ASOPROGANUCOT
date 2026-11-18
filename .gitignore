@@ -46,3 +46,7 @@ app.*.map.json
 
 # Local planning document
 PLAN_MAESTRO_DESARROLLO.md
+
+# Firebase Functions
+functions/node_modules/
+firebase-debug*.log
