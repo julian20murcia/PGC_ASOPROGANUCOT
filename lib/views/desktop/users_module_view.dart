@@ -316,22 +316,26 @@ class _UsersModuleViewState extends State<UsersModuleView> {
 
     final Widget roleDropdown = DropdownButtonFormField<String>(
       initialValue: ctrl.roleFilter,
+      isExpanded: true,
       decoration: const InputDecoration(
         contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       ),
       items: const <DropdownMenuItem<String>>[
-        DropdownMenuItem<String>(value: 'ALL', child: Text('Todos los roles')),
+        DropdownMenuItem<String>(
+          value: 'ALL',
+          child: Text('Todos los roles', overflow: TextOverflow.ellipsis),
+        ),
         DropdownMenuItem<String>(
           value: AppConstants.roleAdmin,
-          child: Text('Administrador'),
+          child: Text('Administrador', overflow: TextOverflow.ellipsis),
         ),
         DropdownMenuItem<String>(
           value: AppConstants.roleOperario,
-          child: Text('Operario'),
+          child: Text('Operario', overflow: TextOverflow.ellipsis),
         ),
         DropdownMenuItem<String>(
           value: AppConstants.roleProductor,
-          child: Text('Productor'),
+          child: Text('Productor', overflow: TextOverflow.ellipsis),
         ),
       ],
       onChanged: (String? value) {
@@ -341,18 +345,22 @@ class _UsersModuleViewState extends State<UsersModuleView> {
 
     final Widget statusDropdown = DropdownButtonFormField<String>(
       initialValue: ctrl.statusFilter,
+      isExpanded: true,
       decoration: const InputDecoration(
         contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       ),
       items: const <DropdownMenuItem<String>>[
         DropdownMenuItem<String>(
           value: 'ALL',
-          child: Text('Todos los estados'),
+          child: Text('Todos los estados', overflow: TextOverflow.ellipsis),
         ),
-        DropdownMenuItem<String>(value: 'ACTIVE', child: Text('Activos')),
+        DropdownMenuItem<String>(
+          value: 'ACTIVE',
+          child: Text('Activos', overflow: TextOverflow.ellipsis),
+        ),
         DropdownMenuItem<String>(
           value: 'INACTIVE',
-          child: Text('Suspendidos'),
+          child: Text('Suspendidos', overflow: TextOverflow.ellipsis),
         ),
       ],
       onChanged: (String? value) {

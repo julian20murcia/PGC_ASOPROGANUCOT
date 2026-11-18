@@ -367,12 +367,15 @@ class _AdminShellViewState extends State<AdminShellView> {
                         ),
                         if (expanded) ...<Widget>[
                           const SizedBox(width: 10),
-                          const Text(
-                            'Cerrar sesión',
-                            style: TextStyle(
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.dangerText,
+                          const Expanded(
+                            child: Text(
+                              'Cerrar sesión',
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.dangerText,
+                              ),
                             ),
                           ),
                         ],
@@ -427,11 +430,14 @@ class _AdminShellViewState extends State<AdminShellView> {
             child: Row(
               children: <Widget>[
                 if (isDesktop) ...<Widget>[
-                  const Text(
-                    'Planta Susa',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: AppTheme.textMuted,
+                  const Flexible(
+                    child: Text(
+                      'Planta Susa',
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.textMuted,
+                      ),
                     ),
                   ),
                   const Padding(
@@ -443,7 +449,7 @@ class _AdminShellViewState extends State<AdminShellView> {
                     ),
                   ),
                 ],
-                Flexible(
+                Expanded(
                   child: Text(
                     _currentMeta.label,
                     overflow: TextOverflow.ellipsis,

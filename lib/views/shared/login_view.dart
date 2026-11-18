@@ -495,11 +495,14 @@ class _LoginViewState extends State<LoginView> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Text(
-                  'Mantener mi sesión iniciada',
-                  style: TextStyle(
-                    fontSize: 13.5,
-                    color: AppTheme.textSecondary,
+                const Flexible(
+                  child: Text(
+                    'Mantener mi sesión iniciada',
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      color: AppTheme.textSecondary,
+                    ),
                   ),
                 ),
               ],
@@ -526,11 +529,14 @@ class _LoginViewState extends State<LoginView> {
               color: AppTheme.primaryGreen,
             ),
             SizedBox(width: 6),
-            Text(
-              'Conexión cifrada · Firebase Auth + Hive',
-              style: TextStyle(
-                fontSize: 12,
-                color: AppTheme.textMuted,
+            Flexible(
+              child: Text(
+                'Conexión cifrada · Firebase Auth + Hive',
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppTheme.textMuted,
+                ),
               ),
             ),
           ],

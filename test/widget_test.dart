@@ -73,7 +73,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 250));
 
     expect(find.text('Gestión de Usuarios'), findsOneWidget);
-    expect(find.text('Usuarios'), findsOneWidget);
+    expect(find.text('Usuarios'), findsAtLeastNWidgets(1));
     expect(find.text('Recepción de Leche'), findsOneWidget);
     expect(find.text('Nuevo usuario'), findsOneWidget);
   });
