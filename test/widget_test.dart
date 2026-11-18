@@ -137,8 +137,11 @@ void main() {
     await tester.enterText(fields.at(0), 'bradley@asoproganucot.com');
     await tester.enterText(fields.at(1), 'Password123');
     await tester.tap(find.text('Ingresar al sistema'));
-    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.pump(const Duration(milliseconds: 50));
     await tester.pump(const Duration(milliseconds: 800));
+    await tester.pump(const Duration(milliseconds: 50));
 
     expect(find.text('Usuarios'), findsAtLeastNWidgets(1));
     expect(find.text('Recepción de Leche'), findsOneWidget);
@@ -148,7 +151,8 @@ void main() {
 
     // Navegar al módulo de Productores
     await tester.tap(find.text('Productores').first);
-    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('Nuevo productor'), findsOneWidget);
     expect(find.text('Productores activos'), findsOneWidget);

@@ -153,17 +153,19 @@ class _AuthGateState extends State<AuthGate>
         ),
         if (_showingReveal)
           Positioned.fill(
-            child: AnimatedBuilder(
-              animation: _revealController,
-              builder: (BuildContext context, _) {
-                return AsoproganucotCurtain(
-                  eyebrow: 'ACCESO AUTORIZADO · ASOPROGANUCOTT',
-                  statusText: user == null
-                      ? 'Cerrando sesión…'
-                      : 'Abriendo entorno operativo…',
-                  revealProgress: _revealController.value,
-                );
-              },
+            child: IgnorePointer(
+              child: AnimatedBuilder(
+                animation: _revealController,
+                builder: (BuildContext context, _) {
+                  return AsoproganucotCurtain(
+                    eyebrow: 'ACCESO AUTORIZADO · ASOPROGANUCOTT',
+                    statusText: user == null
+                        ? 'Cerrando sesión…'
+                        : 'Abriendo entorno operativo…',
+                    revealProgress: _revealController.value,
+                  );
+                },
+              ),
             ),
           ),
       ],

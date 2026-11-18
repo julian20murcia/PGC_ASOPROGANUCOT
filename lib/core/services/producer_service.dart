@@ -80,14 +80,14 @@ abstract class ProducerAccountLinker {
 class FirebaseProducerAccountLinker implements ProducerAccountLinker {
   FirebaseProducerAccountLinker({
     required this.hiveService,
-    FirebaseUserService? userService,
-  }) : _userService = userService;
+    this.userService,
+  });
 
   final HiveService hiveService;
-  final FirebaseUserService? _userService;
+  final FirebaseUserService? userService;
 
   FirebaseUserService get _service =>
-      _userService ?? FirebaseUserService(hiveService: hiveService);
+      userService ?? FirebaseUserService(hiveService: hiveService);
 
   @override
   Future<String> linkOrCreateProducerAccount({
