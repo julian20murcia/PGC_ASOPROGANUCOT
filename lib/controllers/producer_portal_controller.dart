@@ -193,8 +193,12 @@ class ProducerPortalController extends ChangeNotifier {
         await _fcmSub?.cancel();
         _fcmSub = _fcmService.foregroundNotifications.listen(_handleIncomingFcm);
         await _fcmService.initializeForProducer(
-          userUid: user.uid,
-          productorId: prodId,
+          onRefreshRequested: () async {
+            final result = await _notificationService.listForProducer(productorId: prodId, userUid: user.uid);
+            if (activeUser?.uid != user.uid || activeProducer?.productorId != prodId) return;
+            _notifications = result.notifications;
+            notifyListeners();
+          },
         );
       }
     } catch (e) {

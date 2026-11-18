@@ -25,13 +25,6 @@ class FcmService {
   bool get isSupportedPlatform =>
       !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 
-  static String topicForProducer(String productorId) {
-    final String safe = productorId
-        .trim()
-        .replaceAll(RegExp(r'[^a-zA-Z0-9\-_.~%]'), '_');
-    return 'productor_$safe';
-  }
-
   Future<String?> fetchDeviceTokenIfSupported() async {
     if (!isSupportedPlatform) {
       return null;
@@ -39,20 +32,16 @@ class FcmService {
     try {
       final FirebaseMessaging messaging = FirebaseMessaging.instance;
       await messaging.requestPermission();
-      final Future<String> tokenFuture = messaging.onRegistered.first;
-      await messaging.register();
-      return await tokenFuture.timeout(const Duration(seconds: 4));
+      return await messaging.getToken().timeout(const Duration(seconds: 4));
     } catch (_) {
       return null;
     }
   }
 
-  /// Suscribe al productor a comunicados institucionales y alertas de su código
-  /// escuchando mensajes FCM entrantes en primer plano (`RF-23`, `CHK-05`).
+  /// Los avisos dirigidos se consultan mediante una sesión autenticada.
   Future<void> initializeForProducer({
-    required String userUid,
-    String? productorId,
     void Function(AppNotificationModel notification)? onNotification,
+    Future<void> Function()? onRefreshRequested,
   }) async {
     if (!isSupportedPlatform) {
       return;
@@ -61,15 +50,12 @@ class FcmService {
       final FirebaseMessaging messaging = FirebaseMessaging.instance;
       await messaging.requestPermission();
       await messaging.subscribeToTopic(broadcastTopic);
-      if (productorId != null && productorId.trim().isNotEmpty) {
-        await messaging.subscribeToTopic(topicForProducer(productorId));
-      }
-      if (userUid.trim().isNotEmpty) {
-        await messaging.subscribeToTopic(topicForProducer(userUid));
-      }
-
       await _onMessageSub?.cancel();
-      _onMessageSub = FirebaseMessaging.onMessage.listen((RemoteMessage msg) {
+      void handle(RemoteMessage msg) {
+        if (msg.data['refrescarAvisos'] == 'true') {
+          unawaited(onRefreshRequested?.call());
+          return;
+        }
         final AppNotificationModel? parsed = parseRemoteMessageData(
           msg.data,
           title: msg.notification?.title,
@@ -79,21 +65,10 @@ class FcmService {
           _foregroundController.add(parsed);
           onNotification?.call(parsed);
         }
-      });
-
+      }
+      _onMessageSub = FirebaseMessaging.onMessage.listen(handle);
       await _onOpenedAppSub?.cancel();
-      _onOpenedAppSub =
-          FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage msg) {
-        final AppNotificationModel? parsed = parseRemoteMessageData(
-          msg.data,
-          title: msg.notification?.title,
-          body: msg.notification?.body,
-        );
-        if (parsed != null) {
-          _foregroundController.add(parsed);
-          onNotification?.call(parsed);
-        }
-      });
+      _onOpenedAppSub = FirebaseMessaging.onMessageOpenedApp.listen(handle);
     } catch (_) {
       // Fallo silencioso en emuladores o dispositivos sin Google Play Services.
     }
