@@ -37,20 +37,35 @@ class ProducerDailySeriesPoint {
 /// y emisor de comunicados institucionales (`RF-24`).
 class ProducerPortalController extends ChangeNotifier {
   ProducerPortalController({
-    required HiveService hiveService,
-    required ProducerService producerService,
-    required ReceptionService receptionService,
-    required RateService rateService,
-    required SettlementService settlementService,
-    required NotificationService notificationService,
+    HiveService? hiveService,
+    ProducerService? producerService,
+    ReceptionService? receptionService,
+    RateService? rateService,
+    SettlementService? settlementService,
+    NotificationService? notificationService,
     FcmService? fcmService,
-  })  : _hiveService = hiveService,
-        _producerService = producerService,
-        _receptionService = receptionService,
-        _rateService = rateService,
-        _settlementService = settlementService,
-        _notificationService = notificationService,
+  })  : _hiveService = hiveService ?? HiveService(),
+        _producerService = producerService ?? ProducerService(),
+        _receptionService = receptionService ?? ReceptionService(),
+        _rateService = rateService ?? RateService(),
+        _settlementService = settlementService ?? SettlementService(),
+        _notificationService = notificationService ?? NotificationService(),
         _fcmService = fcmService ?? FcmService();
+
+  factory ProducerPortalController.createDefault({
+    bool enablePersistence = true,
+  }) {
+    final HiveService hive = HiveService(enablePersistence: enablePersistence);
+    return ProducerPortalController(
+      hiveService: hive,
+      producerService: ProducerService(hiveService: hive),
+      receptionService: ReceptionService(hiveService: hive),
+      rateService: RateService(hiveService: hive),
+      settlementService: SettlementService(hiveService: hive),
+      notificationService: NotificationService(hiveService: hive),
+      fcmService: FcmService(),
+    );
+  }
 
   final HiveService _hiveService;
   final ProducerService _producerService;

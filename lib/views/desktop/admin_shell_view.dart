@@ -5,9 +5,14 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../../controllers/auth_controller.dart';
+import '../../controllers/producer_controller.dart';
+import '../../controllers/producer_portal_controller.dart';
 import '../../controllers/user_controller.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/formatters.dart';
+import '../../models/app_notification_model.dart';
+import '../../models/producer_model.dart';
 import '../../models/user_model.dart';
 import '../shared/widgets/dairy_loader.dart';
 import '../shared/widgets/design_system_widgets.dart';
@@ -247,6 +252,7 @@ class _AdminShellViewState extends State<AdminShellView> {
                   _buildTopBar(
                     isDesktop: isDesktop,
                     isOnline: userCtrl.isOnline,
+                    user: user,
                   ),
                   Expanded(
                     child: AnimatedSwitcher(
@@ -558,9 +564,41 @@ class _AdminShellViewState extends State<AdminShellView> {
     );
   }
 
+  Future<void> _openBroadcastDialog(UserModel user) async {
+    ProducerPortalController? portalCtrl;
+    ProducerController? producerCtrl;
+    bool ownsPortalCtrl = false;
+    try {
+      portalCtrl = context.read<ProducerPortalController>();
+    } on ProviderNotFoundException {
+      portalCtrl = ProducerPortalController.createDefault(
+        enablePersistence: false,
+      );
+      ownsPortalCtrl = true;
+    }
+    try {
+      producerCtrl = context.read<ProducerController>();
+    } on ProviderNotFoundException {
+      producerCtrl = null;
+    }
+
+    await showDialog<void>(
+      context: context,
+      builder: (_) => _BroadcastDialog(
+        actor: user,
+        portalController: portalCtrl!,
+        producers: producerCtrl?.allProducers ?? const <ProducerModel>[],
+      ),
+    );
+    if (ownsPortalCtrl) {
+      portalCtrl.dispose();
+    }
+  }
+
   Widget _buildTopBar({
     required bool isDesktop,
     required bool isOnline,
+    required UserModel user,
   }) {
     final _NavItemMeta meta = _metaFor(_activeSection);
 
@@ -591,12 +629,17 @@ class _AdminShellViewState extends State<AdminShellView> {
             child: Row(
               children: <Widget>[
                 if (isDesktop) ...<Widget>[
-                  Text(
-                    meta.group,
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      color: AppTheme.textMuted,
-                      fontWeight: FontWeight.w500,
+                  Flexible(
+                    flex: 1,
+                    child: Text(
+                      meta.group,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        color: AppTheme.textMuted,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
                   const Padding(
@@ -621,6 +664,7 @@ class _AdminShellViewState extends State<AdminShellView> {
                 ),
                 const SizedBox(width: 9),
                 Flexible(
+                  flex: 2,
                   child: Text(
                     meta.label,
                     maxLines: 1,
@@ -642,6 +686,39 @@ class _AdminShellViewState extends State<AdminShellView> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
+                if (user.isAdmin) ...<Widget>[
+                  if (isDesktop)
+                    OutlinedButton.icon(
+                      onPressed: () => _openBroadcastDialog(user),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(0, 32),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                      ),
+                      icon: const Icon(
+                        Icons.campaign_rounded,
+                        size: 16,
+                        color: AppTheme.warmGold,
+                      ),
+                      label: const Text(
+                        'Comunicados',
+                        style: TextStyle(fontSize: 12.5),
+                      ),
+                    )
+                  else
+                    IconButton(
+                      tooltip: 'Comunicados institucionales',
+                      onPressed: () => _openBroadcastDialog(user),
+                      icon: const Icon(
+                        Icons.campaign_rounded,
+                        size: 20,
+                        color: AppTheme.warmGold,
+                      ),
+                    ),
+                  const SizedBox(width: 8),
+                ],
                 SyncStatusBadge(
                   isSynced: isOnline,
                   syncedLabel: 'En línea',
@@ -1201,6 +1278,327 @@ class _LiveHeaderDateTimeState extends State<_LiveHeaderDateTime> {
         fontWeight: FontWeight.w500,
         color: AppTheme.textSecondary,
       ),
+    );
+  }
+}
+
+/// Diálogo administrativo para emitir comunicados institucionales masivos o dirigidos (`RF-24`, `HU-14`).
+class _BroadcastDialog extends StatefulWidget {
+  const _BroadcastDialog({
+    required this.actor,
+    required this.portalController,
+    required this.producers,
+  });
+
+  final UserModel actor;
+  final ProducerPortalController portalController;
+  final List<ProducerModel> producers;
+
+  @override
+  State<_BroadcastDialog> createState() => _BroadcastDialogState();
+}
+
+class _BroadcastDialogState extends State<_BroadcastDialog> {
+  final TextEditingController _titleCtrl = TextEditingController();
+  final TextEditingController _messageCtrl = TextEditingController();
+  String? _selectedProducerId;
+  String? _feedback;
+  bool _isSuccess = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      widget.portalController.loadAdminNotifications();
+    });
+  }
+
+  @override
+  void dispose() {
+    _titleCtrl.dispose();
+    _messageCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final bool ok = await widget.portalController.sendBroadcast(
+      actor: widget.actor,
+      titulo: _titleCtrl.text,
+      mensaje: _messageCtrl.text,
+      destinoProductorId: _selectedProducerId,
+    );
+    if (!mounted) return;
+    setState(() {
+      _isSuccess = ok;
+      _feedback = ok
+          ? (widget.portalController.feedbackMessage ?? 'Comunicado enviado.')
+          : (widget.portalController.errorMessage ?? 'No se pudo enviar.');
+      if (ok) {
+        _titleCtrl.clear();
+        _messageCtrl.clear();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: widget.portalController,
+      builder: (BuildContext context, _) {
+        final ProducerPortalController ctrl = widget.portalController;
+        final List<AppNotificationModel> history = ctrl.adminNotifications;
+
+        return Dialog(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 620, maxHeight: 680),
+            child: Padding(
+              padding: const EdgeInsets.all(22),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: AppTheme.warmGoldLight,
+                          borderRadius: BorderRadius.circular(9),
+                        ),
+                        child: const Icon(
+                          Icons.campaign_rounded,
+                          color: AppTheme.warmGold,
+                          size: 21,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Text(
+                              'Comunicados Institucionales',
+                              style: AppTheme.serifStyle(fontSize: 19),
+                            ),
+                            const Text(
+                              'Envía avisos push a todos los productores o a un asociado puntual.',
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Cerrar',
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.close_rounded, size: 20),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  DropdownButtonFormField<String?>(
+                    initialValue: _selectedProducerId,
+                    decoration: const InputDecoration(
+                      labelText: 'Destinatario',
+                    ),
+                    items: <DropdownMenuItem<String?>>[
+                      const DropdownMenuItem<String?>(
+                        value: null,
+                        child: Text(
+                          'Todos los productores (Comunicado general)',
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      ...widget.producers
+                          .where((ProducerModel p) => p.isActivo)
+                          .map(
+                            (ProducerModel p) => DropdownMenuItem<String?>(
+                              value: p.productorId,
+                              child: Text(
+                                '${p.codigoAsociado} · ${p.nombreCompleto}',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ),
+                    ],
+                    onChanged: (String? value) {
+                      setState(() => _selectedProducerId = value);
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _titleCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Asunto del comunicado',
+                      hintText: 'Ej. Reunión general de asociados en Susa',
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _messageCtrl,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      labelText: 'Mensaje',
+                      hintText:
+                          'Escribe el aviso que llegará a la bandeja y alertas del productor…',
+                    ),
+                  ),
+                  if (_feedback != null) ...<Widget>[
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _isSuccess
+                            ? AppTheme.primaryGreenLight
+                            : AppTheme.dangerBg,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: _isSuccess
+                              ? AppTheme.primaryGreen.withValues(alpha: 0.35)
+                              : AppTheme.danger.withValues(alpha: 0.35),
+                        ),
+                      ),
+                      child: Text(
+                        _feedback!,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: _isSuccess
+                              ? AppTheme.successText
+                              : AppTheme.dangerText,
+                        ),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: PrimaryActionButton(
+                      label: 'Enviar comunicado',
+                      icon: Icons.send_rounded,
+                      fullWidth: false,
+                      isLoading: ctrl.isSubmitting,
+                      onPressed: _submit,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  const Divider(height: 1),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Historial reciente de avisos y solicitudes (${history.length})',
+                    style: AppTheme.subtitleStyle(),
+                  ),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: ctrl.isLoading && history.isEmpty
+                        ? const Center(
+                            child: DairyLoader(
+                              size: DairyLoaderSize.sm,
+                              label: 'Cargando avisos…',
+                            ),
+                          )
+                        : history.isEmpty
+                            ? const Center(
+                                child: Text(
+                                  'Aún no se han emitido comunicados institucionales.',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: AppTheme.textMuted,
+                                  ),
+                                ),
+                              )
+                            : ListView.separated(
+                                itemCount: history.length,
+                                separatorBuilder: (_, _) =>
+                                    const SizedBox(height: 8),
+                                itemBuilder: (BuildContext ctx, int index) {
+                                  final AppNotificationModel n = history[index];
+                                  return Container(
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.canvasAlt,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border:
+                                          Border.all(color: AppTheme.border),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: <Widget>[
+                                        Row(
+                                          children: <Widget>[
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                horizontal: 7,
+                                                vertical: 2,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: n.tipo == 'RECTIFICACION'
+                                                    ? AppTheme.tealLight
+                                                    : AppTheme.warmGoldLight,
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
+                                              ),
+                                              child: Text(
+                                                n.tipo,
+                                                style: TextStyle(
+                                                  fontSize: 10.5,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: n.tipo == 'RECTIFICACION'
+                                                      ? AppTheme.tealAccent
+                                                      : AppTheme.warmGold,
+                                                ),
+                                              ),
+                                            ),
+                                            const Spacer(),
+                                            Text(
+                                              AppFormatters.formatDateTime(
+                                                n.fechaEnvio,
+                                              ),
+                                              style: AppTheme.monoStyle(
+                                                fontSize: 11,
+                                                color: AppTheme.textMuted,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          n.titulo,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700,
+                                            color: AppTheme.textPrimary,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          n.mensaje,
+                                          style: const TextStyle(
+                                            fontSize: 12.5,
+                                            color: AppTheme.textSecondary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
