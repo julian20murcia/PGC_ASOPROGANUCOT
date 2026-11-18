@@ -5,10 +5,9 @@ import '../constants/app_constants.dart';
 
 /// Servicio central de persistencia local Offline-First sobre Hive.
 class HiveService {
-  HiveService({bool enablePersistence = true})
-      : _enablePersistence = enablePersistence;
+  HiveService({this.enablePersistence = true});
 
-  final bool _enablePersistence;
+  final bool enablePersistence;
   bool _initialized = false;
 
   Box<dynamic>? _usersBox;
@@ -23,7 +22,7 @@ class HiveService {
     if (_initialized) {
       return;
     }
-    if (_enablePersistence) {
+    if (enablePersistence) {
       await Hive.initFlutter('asoproganucot_db');
       _usersBox = await Hive.openBox<dynamic>(AppConstants.usersBox);
       _sessionBox = await Hive.openBox<dynamic>(AppConstants.sessionBox);

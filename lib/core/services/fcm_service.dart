@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -16,7 +17,9 @@ class FcmService {
     try {
       final FirebaseMessaging messaging = FirebaseMessaging.instance;
       await messaging.requestPermission();
-      return await messaging.getToken();
+      final Future<String> tokenFuture = messaging.onRegistered.first;
+      await messaging.register();
+      return await tokenFuture.timeout(const Duration(seconds: 4));
     } catch (_) {
       return null;
     }
