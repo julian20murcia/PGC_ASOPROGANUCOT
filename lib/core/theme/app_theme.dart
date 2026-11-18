@@ -60,23 +60,24 @@ class AppTheme {
     Color color = textPrimary,
     double? height,
   }) {
-    return GoogleFonts.jetBrainsMono(
+    return GoogleFonts.inter(
       fontSize: fontSize,
       fontWeight: fontWeight,
       color: color,
       height: height,
+      letterSpacing: -0.1,
       fontFeatures: const <FontFeature>[FontFeature.tabularFigures()],
     );
   }
 
   static TextStyle serifStyle({
     double fontSize = 22,
-    FontWeight fontWeight = FontWeight.w600,
+    FontWeight fontWeight = FontWeight.w700,
     Color color = textPrimary,
-    double letterSpacing = -0.3,
+    double letterSpacing = -0.35,
     double? height,
   }) {
-    return GoogleFonts.sourceSerif4(
+    return GoogleFonts.inter(
       fontSize: fontSize,
       fontWeight: fontWeight,
       color: color,
@@ -89,33 +90,40 @@ class AppTheme {
     bool isMobile = false,
     Color color = textPrimary,
   }) {
-    return GoogleFonts.sourceSerif4(
-      fontSize: isMobile ? 21 : 23,
-      fontWeight: FontWeight.w600,
-      letterSpacing: -0.35,
+    return GoogleFonts.inter(
+      fontSize: isMobile ? 20 : 22,
+      fontWeight: FontWeight.w700,
+      letterSpacing: -0.4,
       color: color,
     );
   }
 
   static TextStyle subtitleStyle({Color color = textPrimary}) {
-    return GoogleFonts.plusJakartaSans(
+    return GoogleFonts.inter(
       fontSize: 15,
       fontWeight: FontWeight.w600,
+      letterSpacing: -0.2,
       color: color,
     );
   }
 
   static ThemeData lightTheme() {
-    final TextTheme baseTextTheme = GoogleFonts.plusJakartaSansTextTheme().apply(
+    final String? interFamily = GoogleFonts.inter().fontFamily;
+    final TextTheme baseTextTheme = GoogleFonts.interTextTheme(
+      ThemeData.light(useMaterial3: true).textTheme,
+    ).apply(
       bodyColor: textPrimary,
       displayColor: textPrimary,
+      fontFamily: interFamily,
     );
 
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
+      fontFamily: interFamily,
       scaffoldBackgroundColor: canvas,
       textTheme: baseTextTheme,
+      primaryTextTheme: baseTextTheme,
       colorScheme: const ColorScheme.light(
         primary: inkBlack,
         onPrimary: Colors.white,
@@ -149,7 +157,7 @@ class AppTheme {
           horizontal: 12,
           vertical: 11,
         ),
-        hintStyle: GoogleFonts.plusJakartaSans(
+        hintStyle: GoogleFonts.inter(
           fontSize: 13.5,
           color: textMuted,
           fontWeight: FontWeight.w400,
@@ -185,7 +193,7 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(radiusControl),
           ),
-          textStyle: GoogleFonts.plusJakartaSans(
+          textStyle: GoogleFonts.inter(
             fontSize: 13.5,
             fontWeight: FontWeight.w600,
           ),
@@ -202,7 +210,7 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(radiusControl),
           ),
-          textStyle: GoogleFonts.plusJakartaSans(
+          textStyle: GoogleFonts.inter(
             fontSize: 13.5,
             fontWeight: FontWeight.w600,
           ),
@@ -211,6 +219,17 @@ class AppTheme {
       dialogTheme: DialogThemeData(
         backgroundColor: surface,
         elevation: 0,
+        titleTextStyle: GoogleFonts.inter(
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.3,
+          color: textPrimary,
+        ),
+        contentTextStyle: GoogleFonts.inter(
+          fontSize: 14,
+          color: textSecondary,
+          height: 1.45,
+        ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
           side: const BorderSide(color: border, width: 1),

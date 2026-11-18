@@ -334,7 +334,7 @@ class _AdminShellViewState extends State<AdminShellView> {
                                     child: Text(
                                       AppConstants.appName,
                                       maxLines: 1,
-                                      style: GoogleFonts.plusJakartaSans(
+                                      style: GoogleFonts.inter(
                                         fontSize: 12.5,
                                         fontWeight: FontWeight.w700,
                                         letterSpacing: -0.1,
@@ -597,10 +597,10 @@ class _AdminShellViewState extends State<AdminShellView> {
                     meta.label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.sourceSerif4(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: -0.25,
+                    style: GoogleFonts.inter(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.3,
                       color: AppTheme.textPrimary,
                     ),
                   ),
@@ -798,11 +798,11 @@ class _SidebarGroupHeader extends StatelessWidget {
               title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.sourceSerif4(
-                fontSize: 12,
+              style: GoogleFonts.inter(
+                fontSize: 11.5,
                 fontWeight: FontWeight.w600,
-                fontStyle: FontStyle.italic,
-                color: Colors.white.withValues(alpha: 0.82),
+                letterSpacing: 0.2,
+                color: Colors.white.withValues(alpha: 0.80),
               ),
             ),
           ),
@@ -1029,9 +1029,9 @@ class _UserInitialCircle extends StatelessWidget {
       alignment: Alignment.center,
       child: Text(
         initials,
-        style: GoogleFonts.sourceSerif4(
+        style: GoogleFonts.inter(
           fontSize: 12,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w700,
           color: Colors.white,
         ),
       ),

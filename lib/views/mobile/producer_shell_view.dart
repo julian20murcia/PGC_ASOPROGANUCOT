@@ -48,9 +48,10 @@ class _ProducerShellViewState extends State<ProducerShellView> {
                       child: Text(
                         AppConstants.appName,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.plusJakartaSans(
+                        style: GoogleFonts.inter(
                           fontSize: 14,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.2,
                           color: Colors.white,
                         ),
                       ),
@@ -79,9 +80,10 @@ class _ProducerShellViewState extends State<ProducerShellView> {
                       'Hola, ${user.nombreCompleto}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.sourceSerif4(
+                      style: GoogleFonts.inter(
                         fontSize: 20,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.3,
                         color: Colors.white,
                       ),
                     ),

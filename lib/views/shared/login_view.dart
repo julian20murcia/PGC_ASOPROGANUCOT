@@ -264,11 +264,11 @@ class _LoginViewState extends State<LoginView>
                                   Text(
                                     AppConstants.appName,
                                     overflow: TextOverflow.ellipsis,
-                                    style: GoogleFonts.plusJakartaSans(
+                                    style: GoogleFonts.inter(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w700,
                                       color: Colors.white,
-                                      letterSpacing: 0.3,
+                                      letterSpacing: 0.2,
                                     ),
                                   ),
                                   const Text(
@@ -348,7 +348,6 @@ class _LoginViewState extends State<LoginView>
                           animation: _line3Anim,
                           text: 'trazabilidad en campo.',
                           color: const Color(0xFF86EFAC),
-                          italic: true,
                         ),
                         const SizedBox(height: 18),
                         Container(
@@ -430,10 +429,10 @@ class _LoginViewState extends State<LoginView>
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.4,
+                  style: GoogleFonts.inter(
+                    fontSize: 21,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.2,
                     color: Colors.white,
                   ),
                 ),
@@ -490,8 +489,9 @@ class _LoginViewState extends State<LoginView>
         Text(
           'Iniciar sesión',
           style: AppTheme.serifStyle(
-            fontSize: isMobile ? 25 : 29,
-            fontWeight: FontWeight.w600,
+            fontSize: isMobile ? 24 : 27,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.5,
             color: AppTheme.textPrimary,
           ),
         ),
@@ -792,11 +792,11 @@ class _StaggeredLine extends StatelessWidget {
         text,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: GoogleFonts.sourceSerif4(
-          fontSize: 28,
-          height: 1.16,
-          letterSpacing: -0.45,
-          fontWeight: FontWeight.w500,
+        style: GoogleFonts.inter(
+          fontSize: 25,
+          height: 1.22,
+          letterSpacing: -0.5,
+          fontWeight: FontWeight.w700,
           fontStyle: italic ? FontStyle.italic : FontStyle.normal,
           color: color,
         ),

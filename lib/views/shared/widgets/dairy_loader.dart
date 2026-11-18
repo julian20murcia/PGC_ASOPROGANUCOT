@@ -485,10 +485,10 @@ class AsoproganucotCurtain extends StatelessWidget {
                         Text(
                           AppConstants.appName,
                           textAlign: TextAlign.center,
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 27,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.4,
+                          style: GoogleFonts.inter(
+                            fontSize: 26,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.3,
                             color: Colors.white,
                           ),
                         ),
