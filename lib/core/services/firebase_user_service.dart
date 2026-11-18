@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import '../../firebase_options.dart';
 import '../../models/user_model.dart';
 import '../constants/app_constants.dart';
+import 'firebase_callable.dart';
 import 'hive_service.dart';
 
 class UserServiceException implements Exception {
@@ -52,13 +53,23 @@ class FirebaseUserService {
       );
     }
 
-    final String resolvedEmail = await _resolveEmailFromIdentifier(cleanIdentifier);
-
     try {
-      final UserCredential credential = await _auth.signInWithEmailAndPassword(
-        email: resolvedEmail,
-        password: password,
-      );
+      final UserCredential credential;
+      if (cleanIdentifier.contains('@')) {
+        credential = await _auth.signInWithEmailAndPassword(
+          email: cleanIdentifier.toLowerCase(), password: password,
+        );
+      } else {
+        final Map<String, dynamic> result;
+        try {
+          result = await callFirebaseFunction('signInByDocument', <String, dynamic>{
+            'documento': cleanIdentifier, 'password': password,
+          });
+        } catch (_) {
+          throw UserServiceException('No fue posible ingresar con ese documento y contraseña. Verifica tus datos o utiliza tu correo.');
+        }
+        credential = await _auth.signInWithCustomToken(result['token'] as String);
+      }
       final String uid = credential.user?.uid ?? '';
       if (uid.isEmpty) {
         throw UserServiceException(
@@ -66,10 +77,7 @@ class FirebaseUserService {
         );
       }
 
-      UserModel? profile = await getUserProfileByUid(
-        uid,
-        fallbackEmail: resolvedEmail,
-      );
+      UserModel? profile = await getUserProfileByUid(uid);
 
       if (profile == null) {
         await _auth.signOut();
@@ -85,18 +93,11 @@ class FirebaseUserService {
         );
       }
 
-      final DateTime now = DateTime.now().toUtc();
-      profile = profile.copyWith(ultimoAcceso: now);
-
       try {
-        await _firestore
-            .collection(AppConstants.usersCollection)
-            .doc(profile.uid)
-            .update(<String, dynamic>{
-          'ultimoAcceso': now.toIso8601String(),
-        });
+        profile = await recordLogin(profile);
       } catch (_) {
-        // Si está sin conexión temporalmente, se conserva el perfil en caché.
+        await _auth.signOut();
+        throw UserServiceException('No se pudo registrar el acceso de forma segura. Intenta nuevamente.');
       }
 
       await _hiveService.upsertUser(profile);
@@ -106,44 +107,26 @@ class FirebaseUserService {
     }
   }
 
-  Future<String> _resolveEmailFromIdentifier(String identifier) async {
-    if (identifier.contains('@')) {
-      return identifier.toLowerCase();
-    }
-
-    try {
-      final QuerySnapshot<Map<String, dynamic>> query = await _firestore
-          .collection(AppConstants.usersCollection)
-          .where('documento', isEqualTo: identifier)
-          .limit(1)
-          .get();
-
-      if (query.docs.isNotEmpty) {
-        final String email =
-            (query.docs.first.data()['correo'] ?? '').toString().trim();
-        if (email.isNotEmpty) {
-          return email.toLowerCase();
-        }
-      }
-    } catch (_) {
-      // Fallback a caché Hive si hay intermitencia de red.
-    }
-
-    final UserModel? cached =
-        await _hiveService.findCachedUserByDocument(identifier);
-    if (cached != null && cached.correo.isNotEmpty) {
-      return cached.correo.toLowerCase();
-    }
-
-    throw UserServiceException(
-      'No encontramos un usuario registrado con el documento "$identifier".',
-    );
+  Future<UserModel> recordLogin(UserModel user) async {
+    final String id = _uuid.v4();
+    final WriteBatch batch = _firestore.batch();
+    batch.update(_firestore.collection(AppConstants.usersCollection).doc(user.uid), <String, dynamic>{
+      'ultimoAcceso': FieldValue.serverTimestamp(),
+      'ultimoAccesoLogId': id,
+    });
+    batch.set(_firestore.collection(AppConstants.auditLogsCollection).doc(id), <String, dynamic>{
+      'logId': id,
+      'entidadAfectada': AppConstants.usersCollection,
+      'registroId': user.uid,
+      'accion': 'INICIAR_SESION',
+      'usuarioUid': user.uid,
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+    await batch.commit();
+    return user.copyWith(ultimoAcceso: DateTime.now().toUtc());
   }
 
-  Future<UserModel?> getUserProfileByUid(
-    String uid, {
-    String? fallbackEmail,
-  }) async {
+  Future<UserModel?> getUserProfileByUid(String uid) async {
     try {
       final DocumentSnapshot<Map<String, dynamic>> doc = await _firestore
           .collection(AppConstants.usersCollection)
@@ -157,27 +140,10 @@ class FirebaseUserService {
         return user;
       }
 
-      if (fallbackEmail != null && fallbackEmail.isNotEmpty) {
-        final QuerySnapshot<Map<String, dynamic>> byEmail = await _firestore
-            .collection(AppConstants.usersCollection)
-            .where('correo', isEqualTo: fallbackEmail.toLowerCase())
-            .limit(1)
-            .get();
-        if (byEmail.docs.isNotEmpty) {
-          final UserModel user = UserModel.fromMap(
-            byEmail.docs.first.data(),
-            documentId: byEmail.docs.first.id,
-          );
-          await _hiveService.upsertUser(user);
-          return user;
-        }
-      }
     } catch (_) {
       final List<UserModel> cached = await _hiveService.getCachedUsers();
       for (final UserModel user in cached) {
-        if (user.uid == uid ||
-            (fallbackEmail != null &&
-                user.correo.toLowerCase() == fallbackEmail.toLowerCase())) {
+        if (user.uid == uid) {
           return user;
         }
       }

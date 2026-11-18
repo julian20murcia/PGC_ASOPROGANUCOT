@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../models/app_notification_model.dart';
@@ -10,6 +11,8 @@ import '../../models/user_model.dart';
 import '../constants/app_constants.dart';
 import '../utils/formatters.dart';
 import 'hive_service.dart';
+import 'firebase_callable.dart';
+import 'firestore_audit.dart';
 import 'settlement_calculator.dart';
 
 class SettlementServiceException implements Exception {
@@ -78,58 +81,22 @@ class FirestoreSettlementDataSource implements RemoteSettlementDataSource {
     required List<AppNotificationModel> notifications,
     required AuditLogModel auditLog,
   }) async {
-    // Divide escrituras respetando el límite de 500 operaciones por WriteBatch.
-    final List<_BatchOp> ops = <_BatchOp>[];
-
-    for (final SettlementModel settlement in settlements) {
-      ops.add(
-        _BatchOp.set(
-          _db
-              .collection(AppConstants.settlementsCollection)
-              .doc(settlement.liquidacionId),
-          settlement.toMap(),
-        ),
-      );
-      final List<String> recIds =
-          receptionIdsBySettlement[settlement.liquidacionId] ??
-              const <String>[];
-      for (final String recId in recIds) {
-        ops.add(
-          _BatchOp.update(
-            _db.collection(AppConstants.receptionsCollection).doc(recId),
-            <String, dynamic>{'liquidacionId': settlement.liquidacionId},
-          ),
-        );
-      }
+    final String? token = await FirebaseAuth.instance.currentUser?.getIdToken();
+    if (token == null) {
+      throw SettlementServiceException('Inicia sesión para cerrar la quincena.');
     }
-
-    for (final AppNotificationModel n in notifications) {
-      ops.add(
-        _BatchOp.set(
-          _db
-              .collection(AppConstants.notificationsCollection)
-              .doc(n.notificacionId),
-          n.toMap(),
-        ),
-      );
-    }
-
-    ops.add(
-      _BatchOp.set(
-        _db.collection(AppConstants.auditLogsCollection).doc(auditLog.logId),
-        auditLog.toMap(),
-      ),
-    );
-
-    const int chunkSize = 420;
-    for (int i = 0; i < ops.length; i += chunkSize) {
-      final int end =
-          (i + chunkSize < ops.length) ? (i + chunkSize) : ops.length;
-      final WriteBatch batch = _db.batch();
-      for (final _BatchOp op in ops.sublist(i, end)) {
-        op.apply(batch);
-      }
-      await batch.commit();
+    final result = await callFirebaseFunction('closeMilkSettlements', <String, dynamic>{
+      'groups': [
+        for (int i = 0; i < settlements.length; i++)
+          <String, dynamic>{
+            'settlement': settlements[i].toMap(),
+            'receptionIds': receptionIdsBySettlement[settlements[i].liquidacionId],
+            'notification': {'notificacionId': notifications[i].notificacionId},
+          },
+      ],
+    }, idToken: token, timeout: const Duration(seconds: 130));
+    if (result['error'] != null) {
+      throw SettlementServiceException('${result['completed']} de ${settlements.length} liquidaciones confirmadas. ${result['error']}');
     }
   }
 
@@ -139,45 +106,25 @@ class FirestoreSettlementDataSource implements RemoteSettlementDataSource {
     required AppNotificationModel notification,
     required AuditLogModel auditLog,
   }) async {
-    final WriteBatch batch = _db.batch();
-    batch.update(
-      _db
-          .collection(AppConstants.settlementsCollection)
-          .doc(updatedSettlement.liquidacionId),
-      <String, dynamic>{
-        'estadoPago': updatedSettlement.estadoPago,
-        'fechaPago': updatedSettlement.fechaPago?.toUtc().toIso8601String(),
-        'observacionPago': updatedSettlement.observacionPago,
-      },
-    );
-    batch.set(
-      _db
-          .collection(AppConstants.notificationsCollection)
-          .doc(notification.notificacionId),
-      notification.toMap(),
-    );
-    batch.set(
-      _db.collection(AppConstants.auditLogsCollection).doc(auditLog.logId),
-      auditLog.toMap(),
-    );
-    await batch.commit();
-  }
-}
-
-class _BatchOp {
-  _BatchOp.set(this.ref, this.data) : isUpdate = false;
-  _BatchOp.update(this.ref, this.data) : isUpdate = true;
-
-  final DocumentReference<Map<String, dynamic>> ref;
-  final Map<String, dynamic> data;
-  final bool isUpdate;
-
-  void apply(WriteBatch batch) {
-    if (isUpdate) {
-      batch.update(ref, data);
-    } else {
-      batch.set(ref, data);
-    }
+    final record = _db.collection(AppConstants.settlementsCollection)
+        .doc(updatedSettlement.liquidacionId);
+    await _db.runTransaction((Transaction transaction) async {
+      final before = (await transaction.get(record)).data();
+      if (before == null || before['estadoPago'] != 'PENDIENTE') {
+        throw SettlementServiceException('La liquidación ya no está pendiente. Actualiza la lista.');
+      }
+      writeAuditedVersion(db: _db, transaction: transaction, record: record, before: before,
+        after: <String, dynamic>{
+          ...before,
+          'estadoPago': updatedSettlement.estadoPago,
+          'fechaPago': updatedSettlement.fechaPago?.toUtc().toIso8601String(),
+          'observacionPago': updatedSettlement.observacionPago,
+        }, event: auditLog,
+      );
+      transaction.set(_db.collection(AppConstants.notificationsCollection).doc(notification.notificacionId),
+        notification.toMap(),
+      );
+    });
   }
 }
 
@@ -407,9 +354,11 @@ class SettlementService {
         notifications: notifications,
         auditLog: auditLog,
       );
+    } on SettlementServiceException {
+      rethrow;
     } catch (_) {
       throw SettlementServiceException(
-        'No fue posible completar el cierre en la nube. Ningún registro fue alterado.',
+        'No se pudo verificar el cierre completo. Actualiza las liquidaciones antes de reintentar.',
       );
     }
 

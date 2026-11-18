@@ -47,7 +47,6 @@ class AuthController extends ChangeNotifier {
       if (firebaseUser != null && _rememberMe) {
         final UserModel? profile = await _userService.getUserProfileByUid(
           firebaseUser.uid,
-          fallbackEmail: firebaseUser.email,
         );
         if (profile != null && profile.activo) {
           _currentUser = profile;

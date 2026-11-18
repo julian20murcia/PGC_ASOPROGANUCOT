@@ -5,6 +5,8 @@ const { getMessaging } = require('firebase-admin/messaging');
 
 initializeApp();
 
+Object.assign(exports, require('./compliance'));
+
 const SUPPORTED_PUSH_TYPES = new Set([
   'ENTREGA',
   'CIERRE_QUINCENA',
