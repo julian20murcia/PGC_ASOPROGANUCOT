@@ -6,7 +6,9 @@ import 'package:pgc_asoproganucot/controllers/auth_controller.dart';
 import 'package:pgc_asoproganucot/controllers/producer_controller.dart';
 import 'package:pgc_asoproganucot/controllers/rate_controller.dart';
 import 'package:pgc_asoproganucot/controllers/reception_controller.dart';
+import 'package:pgc_asoproganucot/controllers/report_controller.dart';
 import 'package:pgc_asoproganucot/controllers/settlement_controller.dart';
+import 'package:pgc_asoproganucot/controllers/sync_controller.dart';
 import 'package:pgc_asoproganucot/controllers/user_controller.dart';
 import 'package:pgc_asoproganucot/core/constants/app_constants.dart';
 import 'package:pgc_asoproganucot/core/services/fcm_service.dart';
@@ -15,6 +17,7 @@ import 'package:pgc_asoproganucot/core/services/hive_service.dart';
 import 'package:pgc_asoproganucot/core/services/producer_service.dart';
 import 'package:pgc_asoproganucot/core/services/rate_service.dart';
 import 'package:pgc_asoproganucot/core/services/reception_service.dart';
+import 'package:pgc_asoproganucot/core/services/report_service.dart';
 import 'package:pgc_asoproganucot/core/services/settlement_service.dart';
 import 'package:pgc_asoproganucot/core/theme/app_theme.dart';
 import 'package:pgc_asoproganucot/main.dart';
@@ -111,6 +114,12 @@ class _FakeRemoteSettlementDataSource implements RemoteSettlementDataSource {
   }) async {}
 }
 
+class _FakeRemoteAuditDataSource implements RemoteAuditDataSource {
+  @override
+  Future<List<AuditLogModel>> fetchAuditLogs({int limit = 250}) async =>
+      const <AuditLogModel>[];
+}
+
 void main() {
   setUpAll(() {
     GoogleFonts.config.allowRuntimeFetching = false;
@@ -189,14 +198,27 @@ void main() {
     final RateController rateController = RateController(
       rateService: rateService,
     );
+    final SettlementService settlementService = SettlementService(
+      hiveService: memoryHive,
+      remoteDataSource: _FakeRemoteSettlementDataSource(),
+    );
     final SettlementController settlementController = SettlementController(
-      settlementService: SettlementService(
-        hiveService: memoryHive,
-        remoteDataSource: _FakeRemoteSettlementDataSource(),
+      settlementService: settlementService,
+      receptionService: receptionService,
+      producerService: producerService,
+      rateService: rateService,
+    );
+    final SyncController syncController = SyncController(
+      hiveService: memoryHive,
+    );
+    final ReportController reportController = ReportController(
+      reportService: ReportService(
+        remoteAuditDataSource: _FakeRemoteAuditDataSource(),
       ),
       receptionService: receptionService,
       producerService: producerService,
       rateService: rateService,
+      settlementService: settlementService,
     );
 
     await tester.pumpWidget(
@@ -213,6 +235,10 @@ void main() {
           ChangeNotifierProvider<RateController>.value(value: rateController),
           ChangeNotifierProvider<SettlementController>.value(
             value: settlementController,
+          ),
+          ChangeNotifierProvider<SyncController>.value(value: syncController),
+          ChangeNotifierProvider<ReportController>.value(
+            value: reportController,
           ),
         ],
         child: MaterialApp(
@@ -293,6 +319,19 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('Liquidaciones Quincenales'), findsOneWidget);
     expect(find.text('Ejecutar cierre quincenal'), findsOneWidget);
+
+    // Navegar a Inicio (Dashboard) y Reportes y Auditoría
+    await tester.tap(find.text('Inicio').first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Resumen Operativo de Planta'), findsOneWidget);
+    expect(find.text('Litros acopiados hoy'), findsOneWidget);
+
+    await tester.tap(find.text('Reportes y Auditoría').first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Producción por ganadero'), findsOneWidget);
+    expect(find.text('Bitácora de auditoría'), findsOneWidget);
   });
 
   testWidgets(

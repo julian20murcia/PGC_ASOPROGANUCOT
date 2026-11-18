@@ -11,9 +11,11 @@ import '../../core/theme/app_theme.dart';
 import '../../models/user_model.dart';
 import '../shared/widgets/dairy_loader.dart';
 import '../shared/widgets/design_system_widgets.dart';
+import 'dashboard_module_view.dart';
 import 'producers_module_view.dart';
 import 'rates_module_view.dart';
 import 'reception_module_view.dart';
+import 'reports_module_view.dart';
 import 'settlements_module_view.dart';
 import 'users_module_view.dart';
 
@@ -649,6 +651,24 @@ class _AdminShellViewState extends State<AdminShellView> {
   }
 
   Widget _buildActiveSectionBody(UserModel user) {
+    if (_activeSection == AdminSection.dashboard) {
+      return DashboardModuleView(
+        onNavigateSection: (String key) {
+          switch (key) {
+            case 'recepcion':
+              _selectSection(AdminSection.recepcion);
+            case 'productores':
+              _selectSection(AdminSection.productores);
+            case 'liquidaciones':
+              _selectSection(AdminSection.liquidaciones);
+            case 'tarifas':
+              _selectSection(AdminSection.tarifas);
+            case 'reportes':
+              _selectSection(AdminSection.reportes);
+          }
+        },
+      );
+    }
     if (_activeSection == AdminSection.usuarios) {
       return const UsersModuleView();
     }
@@ -663,6 +683,9 @@ class _AdminShellViewState extends State<AdminShellView> {
     }
     if (_activeSection == AdminSection.liquidaciones) {
       return const SettlementsModuleView();
+    }
+    if (_activeSection == AdminSection.reportes) {
+      return const ReportsModuleView();
     }
 
     final _NavItemMeta meta = _metaFor(_activeSection);

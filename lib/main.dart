@@ -6,6 +6,7 @@ import 'controllers/auth_controller.dart';
 import 'controllers/producer_controller.dart';
 import 'controllers/rate_controller.dart';
 import 'controllers/reception_controller.dart';
+import 'controllers/report_controller.dart';
 import 'controllers/settlement_controller.dart';
 import 'controllers/sync_controller.dart';
 import 'controllers/user_controller.dart';
@@ -13,6 +14,7 @@ import 'core/services/hive_service.dart';
 import 'core/services/producer_service.dart';
 import 'core/services/rate_service.dart';
 import 'core/services/reception_service.dart';
+import 'core/services/report_service.dart';
 import 'core/services/settlement_service.dart';
 import 'core/theme/app_theme.dart';
 import 'firebase_options.dart';
@@ -77,6 +79,15 @@ class AsoproganucotApp extends StatelessWidget {
             receptionService: ReceptionService(hiveService: hiveService),
             producerService: ProducerService(hiveService: hiveService),
             rateService: RateService(hiveService: hiveService),
+          ),
+        ),
+        ChangeNotifierProvider<ReportController>(
+          create: (_) => ReportController(
+            reportService: ReportService(),
+            receptionService: ReceptionService(hiveService: hiveService),
+            producerService: ProducerService(hiveService: hiveService),
+            rateService: RateService(hiveService: hiveService),
+            settlementService: SettlementService(hiveService: hiveService),
           ),
         ),
       ],

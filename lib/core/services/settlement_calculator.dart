@@ -97,7 +97,7 @@ class QuincenaPeriod {
       startDate: startIso,
       endDate: endIso,
       label:
-          '${AppFormatters.formatIsoDate(startIso)} – ${AppFormatters.formatIsoDate(endIso)}',
+          '${AppFormatters.formatIsoDate(startIso)} - ${AppFormatters.formatIsoDate(endIso)}',
     );
   }
 
