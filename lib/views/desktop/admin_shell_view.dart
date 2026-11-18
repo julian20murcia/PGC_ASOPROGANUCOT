@@ -31,7 +31,6 @@ class _NavItemMeta {
     required this.group,
     required this.adminOnly,
     required this.description,
-    required this.rfTags,
     this.isFooterGroup = false,
   });
 
@@ -41,7 +40,6 @@ class _NavItemMeta {
   final String group;
   final bool adminOnly;
   final String description;
-  final List<String> rfTags;
   final bool isFooterGroup;
 }
 
@@ -69,8 +67,7 @@ class _AdminShellViewState extends State<AdminShellView> {
       group: 'Principal',
       adminOnly: false,
       description:
-          'Indicadores operativos de litros acopiados por jornada (mañana y tarde), acumulado quincenal y estado de sincronización.',
-      rfTags: <String>['RF-16', 'RNF-03'],
+          'Resumen diario de litros acopiados por jornada (mañana y tarde) y acumulado de la quincena actual.',
     ),
     _NavItemMeta(
       section: AdminSection.recepcion,
@@ -79,8 +76,7 @@ class _AdminShellViewState extends State<AdminShellView> {
       group: 'Operación en planta',
       adminOnly: false,
       description:
-          'Captura rápida 100% teclado en planta (Mañana / Tarde) con persistencia offline-first en Hive y alerta de duplicados.',
-      rfTags: <String>['RF-08', 'RF-09', 'RF-10', 'RF-11'],
+          'Registro ágil en planta por productor y jornada (Mañana / Tarde) con guardado seguro y verificación de duplicados.',
     ),
     _NavItemMeta(
       section: AdminSection.productores,
@@ -89,8 +85,7 @@ class _AdminShellViewState extends State<AdminShellView> {
       group: 'Operación en planta',
       adminOnly: false,
       description:
-          'Padrón de ganaderos asociados en Susa con validación de cédula única, código interno y consentimiento Ley 1581 de 2012.',
-      rfTags: <String>['RF-04', 'RF-05', 'RF-06', 'RF-07'],
+          'Padrón general de ganaderos asociados en Susa, código interno, datos de contacto y autorización de datos.',
     ),
     _NavItemMeta(
       section: AdminSection.liquidaciones,
@@ -99,8 +94,7 @@ class _AdminShellViewState extends State<AdminShellView> {
       group: 'Finanzas y control',
       adminOnly: true,
       description:
-          'Cálculo quincenal exacto, emisión de comprobantes PDF (Ley 527/1999), registro de pagos y notificaciones push.',
-      rfTags: <String>['RF-13', 'RF-14', 'RF-15'],
+          'Cálculo quincenal automático, comprobantes descargables en PDF, control de pagos y avisos a productores.',
     ),
     _NavItemMeta(
       section: AdminSection.tarifas,
@@ -109,8 +103,7 @@ class _AdminShellViewState extends State<AdminShellView> {
       group: 'Finanzas y control',
       adminOnly: true,
       description:
-          'Configuración de precio vigente por litro de leche cruda conservando el histórico para auditorías.',
-      rfTags: <String>['RF-12'],
+          'Configuración del valor vigente por litro de leche cruda e historial de ajustes por período.',
     ),
     _NavItemMeta(
       section: AdminSection.reportes,
@@ -119,8 +112,7 @@ class _AdminShellViewState extends State<AdminShellView> {
       group: 'Finanzas y control',
       adminOnly: true,
       description:
-          'Estadísticas individuales y globales exportables en PDF/CSV y bitácora inmutable de auditoría.',
-      rfTags: <String>['RF-17', 'RF-18', 'RNF-06'],
+          'Estadísticas consolidadas por productor y por período exportables para archivo contable y control interno.',
     ),
     _NavItemMeta(
       section: AdminSection.usuarios,
@@ -129,8 +121,7 @@ class _AdminShellViewState extends State<AdminShellView> {
       group: 'Administración',
       adminOnly: true,
       description:
-          'Gestión de cuentas en Firebase Authentication y asignación de roles diferenciados (ADMIN, OPERARIO, PRODUCTOR).',
-      rfTags: <String>['RF-01', 'RF-02', 'RF-03'],
+          'Administración de cuentas de acceso y perfiles del personal administrativo, operarios de planta y productores.',
       isFooterGroup: true,
     ),
   ];
@@ -194,7 +185,7 @@ class _AdminShellViewState extends State<AdminShellView> {
       drawer: isDesktop
           ? null
           : Drawer(
-              width: 244,
+              width: 248,
               backgroundColor: AppTheme.inkBlack,
               child: SafeArea(
                 child: _buildBlackSidebar(
@@ -215,7 +206,7 @@ class _AdminShellViewState extends State<AdminShellView> {
             AnimatedContainer(
               duration: const Duration(milliseconds: 190),
               curve: Curves.easeOutCubic,
-              width: _sidebarExpanded ? 228 : 62,
+              width: _sidebarExpanded ? 244 : 62,
               child: _buildBlackSidebar(
                 user: user,
                 items: items,
@@ -299,9 +290,9 @@ class _AdminShellViewState extends State<AdminShellView> {
                 // Marca + botón de colapso
                 Padding(
                   padding: EdgeInsets.fromLTRB(
-                    expanded ? 14 : 8,
+                    expanded ? 12 : 8,
                     14,
-                    expanded ? 10 : 8,
+                    8,
                     12,
                   ),
                   child: expanded
@@ -312,20 +303,24 @@ class _AdminShellViewState extends State<AdminShellView> {
                               compact: true,
                               onDark: true,
                             ),
-                            const SizedBox(width: 10),
+                            const SizedBox(width: 9),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 mainAxisSize: MainAxisSize.min,
                                 children: <Widget>[
-                                  Text(
-                                    AppConstants.appName,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: GoogleFonts.plusJakartaSans(
-                                      fontSize: 13.5,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 0.2,
-                                      color: Colors.white,
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      AppConstants.appName,
+                                      maxLines: 1,
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: -0.1,
+                                        color: Colors.white,
+                                      ),
                                     ),
                                   ),
                                   Text(
@@ -603,7 +598,7 @@ class _AdminShellViewState extends State<AdminShellView> {
                 SyncStatusBadge(
                   isSynced: isOnline,
                   syncedLabel: 'En línea',
-                  pendingLabel: 'Offline · Hive',
+                  pendingLabel: 'Sin conexión',
                 ),
                 if (isDesktop) ...<Widget>[
                   Container(
@@ -686,7 +681,7 @@ class _AdminShellViewState extends State<AdminShellView> {
                           ),
                         ),
                         const Text(
-                          'Módulo planificado en la hoja de ruta',
+                          'Módulo operativo de planta',
                           style: TextStyle(
                             fontSize: 12.5,
                             color: AppTheme.textMuted,
@@ -707,16 +702,6 @@ class _AdminShellViewState extends State<AdminShellView> {
                   height: 1.5,
                   color: AppTheme.textSecondary,
                 ),
-              ),
-              const SizedBox(height: 16),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: meta.rfTags
-                    .map(
-                      (String tag) => HeaderPropertyChip(label: tag, value: ''),
-                    )
-                    .toList(),
               ),
               if (user.isAdmin) ...<Widget>[
                 const SizedBox(height: 22),

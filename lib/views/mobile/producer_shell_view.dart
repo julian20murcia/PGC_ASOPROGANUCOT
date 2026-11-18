@@ -79,7 +79,7 @@ class _ProducerShellViewState extends State<ProducerShellView> {
                   'Consulta en tiempo real de tus litros acumulados en la quincena y estimado proyectado.',
               icon: Icons.bar_chart_rounded,
               user: user,
-              rfLabel: 'RF-19 · RF-20',
+              rfLabel: 'Quincena actual',
             ),
             _ProducerTabCard(
               title: 'Mis Entregas Diarias',
@@ -87,15 +87,15 @@ class _ProducerShellViewState extends State<ProducerShellView> {
                   'Historial cronológico de entregas de mañana y tarde registradas en la planta de Susa.',
               icon: Icons.water_drop_outlined,
               user: user,
-              rfLabel: 'RF-21 · Solo lectura',
+              rfLabel: 'Historial de acopio',
             ),
             _ProducerTabCard(
               title: 'Liquidaciones y Avisos',
               subtitle:
-                  'Comprobantes de liquidación quincenal, estado de pago y bandeja de notificaciones push.',
+                  'Comprobantes de liquidación quincenal, estado de pago y avisos de la asociación.',
               icon: Icons.receipt_long_outlined,
               user: user,
-              rfLabel: 'RF-22 · RF-23 · RF-24',
+              rfLabel: 'Pagos y comprobantes',
             ),
           ],
         ),

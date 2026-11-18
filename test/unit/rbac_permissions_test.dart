@@ -172,8 +172,8 @@ void main() {
       final Uint8List raw = glbFile.readAsBytesSync();
       final GlbCowMesh mesh = GlbCowMesh.fromGlbBytes(ByteData.sublistView(raw));
 
-      expect(mesh.vertexCount, 48009);
-      expect(mesh.triangleCount, 93696);
+      expect(mesh.vertexCount, 38999);
+      expect(mesh.triangleCount, 76356);
       expect(mesh.positions.length, mesh.vertexCount * 3);
       expect(mesh.normals.length, mesh.vertexCount * 3);
       expect(mesh.linearRgb.length, mesh.vertexCount * 3);

@@ -204,8 +204,7 @@ class _LoginViewState extends State<LoginView>
                   curve: Curves.easeOut,
                   child: const AsoproganucotCurtain(
                     eyebrow: 'VERIFICANDO ACCESO · SUSA',
-                    statusText:
-                        'Validando credenciales con Firebase Auth y perfil operativo…',
+                    statusText: 'Verificando tus credenciales de acceso…',
                   ),
                 ),
               ),
@@ -272,90 +271,52 @@ class _LoginViewState extends State<LoginView>
                             ),
                           ],
                         ),
-                        // Escenario central 3D Spot Holstein
+                        // Escenario central vaca Holstein
                         Expanded(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: <Widget>[
-                              Expanded(
-                                child: Center(
-                                  child: ConstrainedBox(
-                                    constraints: const BoxConstraints(
-                                      maxWidth: 320,
-                                      maxHeight: 250,
-                                    ),
-                                    child: Stack(
-                                      alignment: Alignment.center,
-                                      children: <Widget>[
-                                        // Halos de escenario sutiles (luz sobre suelo oscuro)
-                                        Container(
-                                          width: 224,
-                                          height: 224,
-                                          decoration: BoxDecoration(
-                                            shape: BoxShape.circle,
-                                            border: Border.all(
-                                              color: Colors.white
-                                                  .withValues(alpha: 0.08),
-                                            ),
-                                            gradient: RadialGradient(
-                                              colors: <Color>[
-                                                Colors.white
-                                                    .withValues(alpha: 0.09),
-                                                AppTheme.primaryGreen
-                                                    .withValues(alpha: 0.04),
-                                                Colors.transparent,
-                                              ],
-                                              stops: const <double>[
-                                                0.0,
-                                                0.55,
-                                                1.0,
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                        Positioned.fill(
-                                          child: Container(
-                                            key: _cowContainerKey,
-                                            alignment: Alignment.center,
-                                            child: CowBalloon3DWidget(
-                                              pointerNormalized:
-                                                  _pointerNormalized,
-                                              showContactShadow: false,
-                                              scaleFactor: 0.38,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
+                          child: Center(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(
+                                maxWidth: 230,
+                                maxHeight: 185,
                               ),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                mainAxisSize: MainAxisSize.min,
+                              child: Stack(
+                                alignment: Alignment.center,
                                 children: <Widget>[
+                                  // Halos de escenario sutiles (luz sobre suelo oscuro)
                                   Container(
-                                    width: 6,
-                                    height: 6,
-                                    decoration: const BoxDecoration(
-                                      color: AppTheme.primaryGreen,
+                                    width: 154,
+                                    height: 154,
+                                    decoration: BoxDecoration(
                                       shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: Colors.white
+                                            .withValues(alpha: 0.08),
+                                      ),
+                                      gradient: RadialGradient(
+                                        colors: <Color>[
+                                          Colors.white.withValues(alpha: 0.09),
+                                          AppTheme.primaryGreen
+                                              .withValues(alpha: 0.04),
+                                          Colors.transparent,
+                                        ],
+                                        stops: const <double>[0.0, 0.55, 1.0],
+                                      ),
                                     ),
                                   ),
-                                  const SizedBox(width: 7),
-                                  const Flexible(
-                                    child: Text(
-                                      'Modelo interactivo · Mueva el puntero o arrastre',
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: Color(0x75FFFFFF),
+                                  Positioned.fill(
+                                    child: Container(
+                                      key: _cowContainerKey,
+                                      alignment: Alignment.center,
+                                      child: CowBalloon3DWidget(
+                                        pointerNormalized: _pointerNormalized,
+                                        showContactShadow: false,
+                                        scaleFactor: 0.26,
                                       ),
                                     ),
                                   ),
                                 ],
                               ),
-                            ],
+                            ),
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -433,7 +394,7 @@ class _LoginViewState extends State<LoginView>
     return Column(
       children: <Widget>[
         Container(
-          height: 215,
+          height: 185,
           width: double.infinity,
           color: AppTheme.inkBlack,
           child: Stack(
@@ -479,7 +440,7 @@ class _LoginViewState extends State<LoginView>
                         child: CowBalloon3DWidget(
                           pointerNormalized: _pointerNormalized,
                           showContactShadow: false,
-                          scaleFactor: 0.40,
+                          scaleFactor: 0.28,
                         ),
                       ),
                     ),
@@ -795,7 +756,7 @@ class _LoginViewState extends State<LoginView>
             SizedBox(width: 7),
             Expanded(
               child: Text(
-                'Acceso validado por rol con respaldo local cifrado Hive.',
+                'Asociación de Productores y Ganaderos · Susa, Cundinamarca.',
                 style: TextStyle(
                   fontSize: 12,
                   color: AppTheme.textMuted,

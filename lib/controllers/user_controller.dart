@@ -223,7 +223,7 @@ class UserController extends ChangeNotifier {
       );
       _users = <UserModel>[created, ..._users];
       _feedbackMessage =
-          'Usuario "${created.nombreCompleto}" creado en Firebase Auth y Firestore.';
+          'Usuario "${created.nombreCompleto}" creado correctamente.';
       _isSaving = false;
       notifyListeners();
       return true;

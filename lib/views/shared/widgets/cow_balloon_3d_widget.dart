@@ -11,15 +11,15 @@ import '../../../core/constants/app_constants.dart';
 import 'dairy_loader.dart';
 
 /// Modelo 3D interactivo de vaca Holstein (`spot_holstein_cow.glb`).
-/// Malla subdividida (93,696 triángulos) con colores horneados e iluminación
-/// direccional suave con seguimiento suavizado al puntero o arrastre táctil.
+/// Malla adaptativa con colores horneados de alta nitidez y seguimiento
+/// suavizado al puntero del mouse o arrastre táctil.
 class CowBalloon3DWidget extends StatefulWidget {
   const CowBalloon3DWidget({
     super.key,
     this.pointerNormalized = Offset.zero,
     this.enableTouchDrag = true,
     this.showContactShadow = true,
-    this.scaleFactor = 0.36,
+    this.scaleFactor = 0.26,
   });
 
   /// Posición normalizada del puntero en [-1, 1] desde el centro del área visual.
@@ -40,10 +40,9 @@ class _CowBalloon3DWidgetState extends State<CowBalloon3DWidget>
   GlbCowMesh? _mesh;
   bool _loadFailed = false;
 
-  double _rotX = 0.14;
-  double _rotY = 0.50;
+  double _rotX = 0.04;
+  double _rotY = 0.0;
   double _rotZ = 0.0;
-  double _elapsedSeconds = 0;
   Duration _lastTick = Duration.zero;
   Offset? _touchOffset;
 
@@ -78,24 +77,26 @@ class _CowBalloon3DWidgetState extends State<CowBalloon3DWidget>
         : ((elapsed - _lastTick).inMicroseconds / 1000000.0)
             .clamp(0.001, 0.05);
     _lastTick = elapsed;
-    _elapsedSeconds += dt;
 
     final Offset pointer = _touchOffset ?? widget.pointerNormalized;
     final double px = pointer.dx.clamp(-1.0, 1.0);
     final double py = pointer.dy.clamp(-1.0, 1.0);
 
-    const double defaultTiltX = 0.14;
-    const double defaultTiltY = 0.50;
+    const double defaultTiltX = 0.04;
+    const double defaultTiltY = 0.0;
     const double defaultTiltZ = 0.0;
 
-    final double floatRotX = math.sin(_elapsedSeconds * 1.4) * 0.03;
-    final double floatRotY = math.cos(_elapsedSeconds * 1.1) * 0.04;
+    final double targetX = (py * math.pi) / 9 + defaultTiltX;
+    final double targetY = (px * math.pi) / 3.8 + defaultTiltY;
+    final double targetZ = (px * math.pi) / 28 + defaultTiltZ;
 
-    final double targetX = (py * math.pi) / 9 + defaultTiltX + floatRotX;
-    final double targetY = (px * math.pi) / 3.8 + defaultTiltY + floatRotY;
-    final double targetZ = (px * math.pi) / 24 + defaultTiltZ;
+    if ((_rotX - targetX).abs() <= 0.0005 &&
+        (_rotY - targetY).abs() <= 0.0005 &&
+        (_rotZ - targetZ).abs() <= 0.0005) {
+      return;
+    }
 
-    final double alpha = 1.0 - math.pow(1.0 - 0.1, dt * 60.0).toDouble();
+    final double alpha = 1.0 - math.pow(1.0 - 0.14, dt * 60.0).toDouble();
 
     setState(() {
       _rotX += (targetX - _rotX) * alpha;
@@ -126,12 +127,12 @@ class _CowBalloon3DWidgetState extends State<CowBalloon3DWidget>
       return const Center(
         child: DairyLoader(
           size: DairyLoaderSize.sm,
-          label: 'Preparando vista 3D…',
+          label: null,
         ),
       );
     }
 
-    final double floatYOffset = math.sin(_elapsedSeconds * 2.0) * 6.0;
+    const double floatYOffset = 0.0;
 
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
@@ -416,7 +417,7 @@ class _CowMeshPainter extends CustomPainter {
     }
 
     final double cx = size.width * 0.5;
-    final double cy = size.height * 0.45 + floatYOffset;
+    final double cy = size.height * 0.48 + floatYOffset;
     final double minDim = math.min(size.width, size.height);
     final double scale = minDim * scaleFactor;
 
@@ -500,7 +501,8 @@ class _CowMeshPainter extends CustomPainter {
 
       final double d1 = math.max(0.0, rnx * l1x + rny * l1y + rnz * l1z);
       final double d2 = math.max(0.0, rnx * l2x + rny * l2y + rnz * l2z);
-      final double rim = math.pow(1.0 - rnz.abs(), 2.4) * 0.16;
+      final double omz = 1.0 - rnz.abs();
+      final double rim = omz * omz * 0.16;
 
       final double shadeR = (0.48 + d1 * 0.62 + d2 * 0.20 + rim).clamp(0.0, 1.15);
       final double shadeG = (0.48 + d1 * 0.60 + d2 * 0.20 + rim).clamp(0.0, 1.15);
@@ -583,7 +585,7 @@ class _CowMeshPainter extends CustomPainter {
 
     final Paint meshPaint = Paint()
       ..color = Colors.white
-      ..isAntiAlias = false;
+      ..isAntiAlias = true;
 
     // Emitir en lotes seguros para respetar el límite de vértices por drawVertices
     for (int startTri = 0; startTri < visibleTris; startTri += _maxTrisPerBatch) {

@@ -370,9 +370,9 @@ class _MilkChurnPainter extends CustomPainter {
   }
 }
 
-/// Fondo animado exclusivo de ASOPROGANUCOT:
-/// curvas topográficas del valle de Susa y estelas lácteas fluidas sobre tinta negra.
-class MilkFlowBackground extends StatefulWidget {
+/// Marcador de fondo limpio para superficies oscuras de ASOPROGANUCOT
+/// sin animaciones ni partículas continuas para mantener máxima fluidez.
+class MilkFlowBackground extends StatelessWidget {
   const MilkFlowBackground({
     super.key,
     this.bottomMasked = false,
@@ -383,139 +383,8 @@ class MilkFlowBackground extends StatefulWidget {
   final double opacity;
 
   @override
-  State<MilkFlowBackground> createState() => _MilkFlowBackgroundState();
-}
-
-class _MilkFlowBackgroundState extends State<MilkFlowBackground>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 18),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final Widget canvasWidget = AnimatedBuilder(
-      animation: _controller,
-      builder: (BuildContext context, _) {
-        return CustomPaint(
-          painter: _MilkFlowPainter(
-            progress: _controller.value,
-            opacity: widget.opacity,
-          ),
-          child: const SizedBox.expand(),
-        );
-      },
-    );
-
-    if (!widget.bottomMasked) {
-      return IgnorePointer(child: canvasWidget);
-    }
-
-    return IgnorePointer(
-      child: ShaderMask(
-        shaderCallback: (Rect bounds) {
-          return const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            stops: <double>[0.0, 0.58, 0.82, 1.0],
-            colors: <Color>[
-              Colors.transparent,
-              Color(0x00000000),
-              Color(0x99FFFFFF),
-              Color(0xFFFFFFFF),
-            ],
-          ).createShader(bounds);
-        },
-        blendMode: BlendMode.dstIn,
-        child: canvasWidget,
-      ),
-    );
-  }
-}
-
-class _MilkFlowPainter extends CustomPainter {
-  _MilkFlowPainter({
-    required this.progress,
-    required this.opacity,
-  });
-
-  final double progress;
-  final double opacity;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (size.width <= 0 || size.height <= 0) return;
-
-    final double t = progress * 2 * math.pi;
-    final List<double> baseFractions = <double>[0.18, 0.34, 0.52, 0.70, 0.86];
-
-    for (int i = 0; i < baseFractions.length; i++) {
-      final bool isEmerald = i == 2 || i == 4;
-      final Color lineColor = isEmerald
-          ? AppTheme.primaryGreen.withValues(alpha: (0.28 - i * 0.02) * opacity)
-          : Colors.white.withValues(alpha: (0.075 + (i % 2) * 0.025) * opacity);
-
-      final Paint linePaint = Paint()
-        ..color = lineColor
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = isEmerald ? 1.2 : 0.9
-        ..strokeCap = StrokeCap.round;
-
-      final Path path = Path();
-      final double yBase = size.height * baseFractions[i];
-      final double amp = 14.0 + i * 5.0;
-      final double phase = t + i * 1.15;
-
-      const int steps = 28;
-      Offset? trackedDot;
-      for (int s = 0; s <= steps; s++) {
-        final double u = s / steps;
-        final double x = u * size.width;
-        final double y = yBase +
-            math.sin(u * math.pi * 2.2 + phase) * amp +
-            math.cos(u * math.pi * 1.3 - phase * 0.7) * (amp * 0.45);
-        if (s == 0) {
-          path.moveTo(x, y);
-        } else {
-          path.lineTo(x, y);
-        }
-
-        final double targetU = (progress + i * 0.27) % 1.0;
-        if ((u - targetU).abs() < (1.0 / steps)) {
-          trackedDot = Offset(x, y);
-        }
-      }
-
-      canvas.drawPath(path, linePaint);
-
-      if (trackedDot != null && (i == 1 || i == 2 || i == 3)) {
-        canvas.drawCircle(
-          trackedDot,
-          i == 2 ? 2.4 : 1.8,
-          Paint()
-            ..color = (i == 2 ? AppTheme.primaryGreen : Colors.white)
-                .withValues(alpha: 0.55 * opacity),
-        );
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _MilkFlowPainter oldDelegate) {
-    return oldDelegate.progress != progress || oldDelegate.opacity != opacity;
+    return const SizedBox.shrink();
   }
 }
 

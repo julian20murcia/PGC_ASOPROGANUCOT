@@ -293,7 +293,7 @@ class SyncStatusBadge extends StatelessWidget {
     super.key,
     required this.isSynced,
     this.syncedLabel = 'Sincronizado',
-    this.pendingLabel = 'Local / Offline',
+    this.pendingLabel = 'Sin conexión',
   });
 
   final bool isSynced;

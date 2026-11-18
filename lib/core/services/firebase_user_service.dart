@@ -62,7 +62,7 @@ class FirebaseUserService {
       final String uid = credential.user?.uid ?? '';
       if (uid.isEmpty) {
         throw UserServiceException(
-          'No se pudo obtener el identificador de sesión en Firebase Auth.',
+          'No se pudo validar tu sesión. Intenta ingresar nuevamente.',
         );
       }
 
@@ -74,7 +74,7 @@ class FirebaseUserService {
       if (profile == null) {
         await _auth.signOut();
         throw UserServiceException(
-          'La cuenta existe en Authentication, pero no tiene perfil asignado en la colección usuarios.',
+          'Tu cuenta aún no tiene un perfil asignado en la plataforma. Comunícate con el administrador.',
         );
       }
 
@@ -261,7 +261,7 @@ class FirebaseUserService {
       final User? createdAuthUser = credential.user;
       if (createdAuthUser == null) {
         throw UserServiceException(
-          'Firebase Auth no devolvió el usuario creado.',
+          'No fue posible registrar las credenciales del usuario.',
         );
       }
 
@@ -487,19 +487,19 @@ class FirebaseUserService {
       case 'invalid-email':
         return 'El formato del correo electrónico no es válido.';
       case 'user-disabled':
-        return 'Esta cuenta ha sido deshabilitada en Firebase Authentication.';
+        return 'Esta cuenta se encuentra deshabilitada.';
       case 'user-not-found':
       case 'wrong-password':
       case 'invalid-credential':
         return 'Credenciales incorrectas. Verifica tu correo/documento y contraseña.';
       case 'email-already-in-use':
-        return 'Ese correo electrónico ya se encuentra registrado en Firebase Auth.';
+        return 'Ese correo electrónico ya se encuentra registrado.';
       case 'weak-password':
         return 'La contraseña es demasiado débil (mínimo 6 caracteres).';
       case 'too-many-requests':
         return 'Demasiados intentos fallidos. Espera unos minutos e inténtalo de nuevo.';
       case 'network-request-failed':
-        return 'Sin conexión a internet para validar las credenciales en Firebase.';
+        return 'Sin conexión a internet para validar tus credenciales.';
       default:
         return e.message ?? 'Error de autenticación (${e.code}).';
     }

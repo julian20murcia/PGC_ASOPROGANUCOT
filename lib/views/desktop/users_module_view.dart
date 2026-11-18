@@ -159,7 +159,7 @@ class _UsersModuleViewState extends State<UsersModuleView> {
                 child: DairyLoader(
                   size: DairyLoaderSize.lg,
                   label: 'Cargando usuarios…',
-                  hint: 'Consultando Firebase Firestore y respaldo local.',
+                  hint: 'Un momento por favor.',
                 ),
               ),
             )
@@ -182,7 +182,7 @@ class _UsersModuleViewState extends State<UsersModuleView> {
         ),
         const SizedBox(height: 4),
         const Text(
-          'Gestiona cuentas de Firebase Auth, roles RBAC y estados de acceso en planta y campo.',
+          'Administra las cuentas del personal de planta y los productores asociados.',
           style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
         ),
       ],
@@ -231,12 +231,6 @@ class _UsersModuleViewState extends State<UsersModuleView> {
         HeaderPropertyChip(
           label: 'Productores',
           value: '${ctrl.productorCount}',
-        ),
-        HeaderPropertyChip(
-          label: ctrl.isFromOfflineCache ? 'Caché Hive' : 'Cloud Firestore',
-          value: '',
-          dotColor:
-              ctrl.isFromOfflineCache ? AppTheme.warning : AppTheme.success,
         ),
       ],
     );
@@ -898,7 +892,7 @@ class _UserFormDialogState extends State<_UserFormDialog> {
                             Text(
                               _isEditing
                                   ? 'Actualiza datos, rol o estado del usuario.'
-                                  : 'Se registrará en Firebase Authentication y Cloud Firestore.',
+                                  : 'Completa los datos para habilitar el acceso al sistema.',
                               style: const TextStyle(
                                 fontSize: 12.5,
                                 color: AppTheme.textSecondary,
@@ -1038,7 +1032,7 @@ class _UserFormDialogState extends State<_UserFormDialog> {
                     ),
                   ],
                   const SizedBox(height: 16),
-                  const _FieldLabel('Rol en el sistema (RBAC)'),
+                  const _FieldLabel('Rol del usuario'),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
