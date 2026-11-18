@@ -122,7 +122,7 @@ class _AdminShellViewState extends State<AdminShellView> {
       adminOnly: true,
       description:
           'Administración de cuentas de acceso y perfiles del personal administrativo, operarios de planta y productores.',
-      isFooterGroup: true,
+      isFooterGroup: false,
     ),
   ];
 
@@ -229,6 +229,19 @@ class _AdminShellViewState extends State<AdminShellView> {
                       duration: const Duration(milliseconds: 210),
                       switchInCurve: Curves.easeOutCubic,
                       switchOutCurve: Curves.easeIn,
+                      layoutBuilder: (
+                        Widget? currentChild,
+                        List<Widget> previousChildren,
+                      ) {
+                        return Stack(
+                          alignment: Alignment.topLeft,
+                          fit: StackFit.expand,
+                          children: <Widget>[
+                            ...previousChildren,
+                            if (currentChild != null) currentChild,
+                          ],
+                        );
+                      },
                       transitionBuilder:
                           (Widget child, Animation<double> anim) {
                         return FadeTransition(
@@ -327,9 +340,9 @@ class _AdminShellViewState extends State<AdminShellView> {
                                     'Planta Susa',
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
-                                      fontSize: 11,
+                                      fontSize: 11.5,
                                       color:
-                                          Colors.white.withValues(alpha: 0.52),
+                                          Colors.white.withValues(alpha: 0.84),
                                     ),
                                   ),
                                 ],
@@ -483,9 +496,9 @@ class _AdminShellViewState extends State<AdminShellView> {
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
-                                      fontSize: 11,
+                                      fontSize: 11.5,
                                       color:
-                                          Colors.white.withValues(alpha: 0.56),
+                                          Colors.white.withValues(alpha: 0.84),
                                     ),
                                   ),
                                 ],
@@ -637,12 +650,15 @@ class _AdminShellViewState extends State<AdminShellView> {
     }
 
     final _NavItemMeta meta = _metaFor(_activeSection);
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 680),
-        child: Container(
-          padding: const EdgeInsets.all(24),
+    return Align(
+      alignment: Alignment.topLeft,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 740),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
             color: AppTheme.surface,
             borderRadius: BorderRadius.circular(AppTheme.radiusCard),
@@ -716,6 +732,7 @@ class _AdminShellViewState extends State<AdminShellView> {
           ),
         ),
       ),
+    ),
     );
   }
 }
@@ -743,9 +760,10 @@ class _SidebarGroupHeader extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.sourceSerif4(
-                fontSize: 11.5,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
                 fontStyle: FontStyle.italic,
-                color: Colors.white.withValues(alpha: 0.50),
+                color: Colors.white.withValues(alpha: 0.82),
               ),
             ),
           ),
@@ -754,7 +772,7 @@ class _SidebarGroupHeader extends StatelessWidget {
             flex: 1,
             child: Container(
               height: 1,
-              color: Colors.white.withValues(alpha: 0.11),
+              color: Colors.white.withValues(alpha: 0.22),
             ),
           ),
         ],
@@ -794,16 +812,16 @@ class _OtepNavTabState extends State<_OtepNavTab> {
         ? AppTheme.inkBlack
         : _hovered
             ? Colors.white
-            : Colors.white.withValues(alpha: 0.78);
+            : const Color(0xFFF8FAFC);
     final Color iconColor = selected
         ? AppTheme.primaryGreen
         : _hovered
             ? Colors.white
-            : Colors.white.withValues(alpha: 0.62);
+            : Colors.white.withValues(alpha: 0.88);
     final Color bg = selected
         ? AppTheme.surface
         : _hovered
-            ? Colors.white.withValues(alpha: 0.08)
+            ? Colors.white.withValues(alpha: 0.12)
             : Colors.transparent;
 
     final BorderRadius radius = showConcave
@@ -850,9 +868,9 @@ class _OtepNavTabState extends State<_OtepNavTab> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: 13,
+                          fontSize: 13.5,
                           fontWeight:
-                              selected ? FontWeight.w600 : FontWeight.w500,
+                              selected ? FontWeight.w700 : FontWeight.w500,
                           color: fg,
                         ),
                       ),
