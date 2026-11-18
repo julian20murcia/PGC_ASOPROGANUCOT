@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'controllers/auth_controller.dart';
+import 'controllers/sync_controller.dart';
 import 'controllers/user_controller.dart';
 import 'core/services/hive_service.dart';
 import 'core/theme/app_theme.dart';
@@ -41,6 +42,9 @@ class AsoproganucotApp extends StatelessWidget {
         ),
         ChangeNotifierProvider<UserController>(
           create: (_) => UserController(),
+        ),
+        ChangeNotifierProvider<SyncController>(
+          create: (_) => SyncController(hiveService: hiveService)..initialize(),
         ),
       ],
       child: MaterialApp(

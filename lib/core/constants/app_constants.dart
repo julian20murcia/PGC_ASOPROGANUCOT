@@ -57,6 +57,17 @@ class AppConstants {
   static const String sessionBox = 'session_box';
   static const String deliveriesBox = 'deliveries_box';
   static const String producersBox = 'producers_box';
+  static const String ratesBox = 'rates_box';
+  static const String settlementsBox = 'settlements_box';
+  static const String notificationsBox = 'notifications_box';
+  static const String hiveEncryptionKeyStorageKey =
+      'asoproganucot_hive_aes_key';
+
+  // Estados de sincronización y jornadas de acopio
+  static const String syncPending = 'PENDIENTE';
+  static const String syncSynced = 'SINCRONIZADO';
+  static const String shiftMorning = 'MANANA';
+  static const String shiftAfternoon = 'TARDE';
 
   // Llaves de sesión en Hive
   static const String sessionRememberMeKey = 'remember_me';
