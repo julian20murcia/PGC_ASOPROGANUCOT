@@ -1,5 +1,5 @@
 name: pgc_asoproganucot
-description: "A new Flutter project."
+description: "Sistema de registro y control de recepción de leche cruda para ASOPROGANUCOT."
 publish_to: 'none'
 version: 0.1.0+1
 
@@ -30,3 +30,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/models/
