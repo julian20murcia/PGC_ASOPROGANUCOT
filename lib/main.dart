@@ -11,6 +11,7 @@ import 'models/user_model.dart';
 import 'views/desktop/admin_shell_view.dart';
 import 'views/mobile/producer_shell_view.dart';
 import 'views/shared/login_view.dart';
+import 'views/shared/widgets/dairy_loader.dart';
 import 'views/shared/widgets/design_system_widgets.dart';
 
 Future<void> main() async {
@@ -44,7 +45,7 @@ class AsoproganucotApp extends StatelessWidget {
         ),
       ],
       child: MaterialApp(
-        title: 'ASOPROGANUCOT',
+        title: 'ASOPROGANUCOTT',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme(),
         home: const AuthGate(),
@@ -53,7 +54,7 @@ class AsoproganucotApp extends StatelessWidget {
   }
 }
 
-/// Enrutador principal por estado de autenticación y rol RBAC (RF-02).
+/// Enrutador principal con transición animada por estado de autenticación y rol RBAC (RF-02).
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
 
@@ -61,35 +62,48 @@ class AuthGate extends StatelessWidget {
   Widget build(BuildContext context) {
     final AuthController auth = context.watch<AuthController>();
 
+    late final Widget target;
     if (auth.isInitializing) {
-      return const Scaffold(
+      target = const Scaffold(
+        key: ValueKey<String>('splash'),
         backgroundColor: AppTheme.canvas,
         body: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              AsoproganucotLogo(size: 110),
-              SizedBox(height: 16),
-              SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(strokeWidth: 2.2),
+              AsoproganucotLogo(size: 112),
+              SizedBox(height: 22),
+              DairyLoader(
+                size: DairyLoaderSize.lg,
+                label: 'Iniciando ASOPROGANUCOTT…',
+                hint: 'Cargando configuración local y sesión segura.',
               ),
             ],
           ),
         ),
       );
+    } else {
+      final UserModel? user = auth.currentUser;
+      if (user == null) {
+        target = const LoginView(key: ValueKey<String>('login'));
+      } else if (user.canAccessDesktopAdmin) {
+        target = const AdminShellView(key: ValueKey<String>('admin_shell'));
+      } else {
+        target = const ProducerShellView(key: ValueKey<String>('producer_shell'));
+      }
     }
 
-    final UserModel? user = auth.currentUser;
-    if (user == null) {
-      return const LoginView();
-    }
-
-    if (user.canAccessDesktopAdmin) {
-      return const AdminShellView();
-    }
-
-    return const ProducerShellView();
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 360),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      transitionBuilder: (Widget child, Animation<double> animation) {
+        return FadeTransition(
+          opacity: animation,
+          child: child,
+        );
+      },
+      child: target,
+    );
   }
 }

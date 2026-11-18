@@ -8,21 +8,25 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart' show rootBundle;
 
 import '../../../core/constants/app_constants.dart';
+import 'dairy_loader.dart';
 
 /// Modelo 3D interactivo de la cabeza de vaca Holstein (`medium__cow-balloon.glb`).
-/// Replica la física, inclinación inicial y seguimiento del puntero de `CowBalloonModel.jsx`.
+/// Conserva la malla original completa (59,474 vértices) con iluminación sRGB
+/// y seguimiento suavizado al puntero del mouse o arrastre táctil.
 class CowBalloon3DWidget extends StatefulWidget {
   const CowBalloon3DWidget({
     super.key,
     this.pointerNormalized = Offset.zero,
     this.enableTouchDrag = true,
     this.showContactShadow = true,
+    this.scaleFactor = 0.25,
   });
 
-  /// Posición normalizada del puntero en [-1, 1] desde el centro de la ventana.
+  /// Posición normalizada del puntero en [-1, 1] desde el centro del área visual.
   final Offset pointerNormalized;
   final bool enableTouchDrag;
   final bool showContactShadow;
+  final double scaleFactor;
 
   @override
   State<CowBalloon3DWidget> createState() => _CowBalloon3DWidgetState();
@@ -36,7 +40,6 @@ class _CowBalloon3DWidgetState extends State<CowBalloon3DWidget>
   GlbCowMesh? _mesh;
   bool _loadFailed = false;
 
-  // Rotación suavizada actual (equivale a group.current.rotation en Three.js)
   double _rotX = -0.35;
   double _rotY = 0.15;
   double _rotZ = 0.15;
@@ -72,7 +75,8 @@ class _CowBalloon3DWidgetState extends State<CowBalloon3DWidget>
   void _onTick(Duration elapsed) {
     final double dt = _lastTick == Duration.zero
         ? 0.016
-        : ((elapsed - _lastTick).inMicroseconds / 1000000.0).clamp(0.001, 0.05);
+        : ((elapsed - _lastTick).inMicroseconds / 1000000.0)
+            .clamp(0.001, 0.05);
     _lastTick = elapsed;
     _elapsedSeconds += dt;
 
@@ -80,19 +84,17 @@ class _CowBalloon3DWidgetState extends State<CowBalloon3DWidget>
     final double px = pointer.dx.clamp(-1.0, 1.0);
     final double py = pointer.dy.clamp(-1.0, 1.0);
 
-    // Constantes equivalentes a CowBalloonModel.jsx (defaultTiltX/Y/Z + Float)
     const double defaultTiltX = -0.35;
     const double defaultTiltY = 0.15;
     const double defaultTiltZ = 0.15;
 
-    final double floatRotX = math.sin(_elapsedSeconds * 1.4) * 0.04;
-    final double floatRotY = math.cos(_elapsedSeconds * 1.1) * 0.05;
+    final double floatRotX = math.sin(_elapsedSeconds * 1.4) * 0.035;
+    final double floatRotY = math.cos(_elapsedSeconds * 1.1) * 0.045;
 
     final double targetX = (py * math.pi) / 4 + defaultTiltX + floatRotX;
     final double targetY = (px * math.pi) / 4 + defaultTiltY + floatRotY;
     final double targetZ = (px * math.pi) / 8 + defaultTiltZ;
 
-    // Lerp independiente de tasa de cuadros (aprox 0.1 a 60Hz)
     final double alpha = 1.0 - math.pow(1.0 - 0.1, dt * 60.0).toDouble();
 
     setState(() {
@@ -114,7 +116,7 @@ class _CowBalloon3DWidgetState extends State<CowBalloon3DWidget>
       return Center(
         child: Image.asset(
           AppConstants.logoAssetPath,
-          width: 200,
+          width: 160,
           fit: BoxFit.contain,
         ),
       );
@@ -122,15 +124,14 @@ class _CowBalloon3DWidgetState extends State<CowBalloon3DWidget>
 
     if (_mesh == null) {
       return const Center(
-        child: SizedBox(
-          width: 28,
-          height: 28,
-          child: CircularProgressIndicator(strokeWidth: 2.2),
+        child: DairyLoader(
+          size: DairyLoaderSize.sm,
+          label: 'Preparando vista 3D…',
         ),
       );
     }
 
-    final double floatYOffset = math.sin(_elapsedSeconds * 2.0) * 8.0;
+    final double floatYOffset = math.sin(_elapsedSeconds * 2.0) * 6.0;
 
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
@@ -166,6 +167,7 @@ class _CowBalloon3DWidgetState extends State<CowBalloon3DWidget>
                 rotZ: _rotZ,
                 floatYOffset: floatYOffset,
                 showContactShadow: widget.showContactShadow,
+                scaleFactor: widget.scaleFactor,
               ),
               child: const SizedBox.expand(),
             ),
@@ -176,14 +178,14 @@ class _CowBalloon3DWidgetState extends State<CowBalloon3DWidget>
   }
 }
 
-/// Representación optimizada en memoria de `medium__cow-balloon.glb`.
+/// Representación en memoria de `medium__cow-balloon.glb` sin pérdida de resolución.
 class GlbCowMesh {
   GlbCowMesh._({
     required this.vertexCount,
     required this.triangleCount,
     required this.positions,
     required this.normals,
-    required this.baseRgb,
+    required this.linearRgb,
     required this.indices,
   });
 
@@ -191,11 +193,9 @@ class GlbCowMesh {
   final int triangleCount;
   final Float32List positions;
   final Float32List normals;
-  final Uint8List baseRgb;
+  final Float32List linearRgb;
   final Uint32List indices;
 
-  /// Parsea el archivo GLB v2 aplicando la matriz del nodo raíz y normalizando
-  /// la escala y el centrado alrededor del origen.
   factory GlbCowMesh.fromGlbBytes(ByteData data) {
     final ByteData bytes = data;
     if (bytes.lengthInBytes < 20) {
@@ -203,7 +203,7 @@ class GlbCowMesh {
     }
 
     final int chunk0Length = bytes.getUint32(12, Endian.little);
-    final int jsonStart = 20;
+    const int jsonStart = 20;
     final Uint8List jsonBytes = bytes.buffer.asUint8List(
       bytes.offsetInBytes + jsonStart,
       chunk0Length,
@@ -223,19 +223,14 @@ class GlbCowMesh {
     final Map<String, dynamic> attributes =
         primitive['attributes'] as Map<String, dynamic>;
 
-    final int posAccIdx = attributes['POSITION'] as int;
-    final int normAccIdx = attributes['NORMAL'] as int;
-    final int colAccIdx = attributes['COLOR_0'] as int;
-    final int idxAccIdx = primitive['indices'] as int;
-
     final Map<String, dynamic> posAcc =
-        accessors[posAccIdx] as Map<String, dynamic>;
+        accessors[attributes['POSITION'] as int] as Map<String, dynamic>;
     final Map<String, dynamic> normAcc =
-        accessors[normAccIdx] as Map<String, dynamic>;
+        accessors[attributes['NORMAL'] as int] as Map<String, dynamic>;
     final Map<String, dynamic> colAcc =
-        accessors[colAccIdx] as Map<String, dynamic>;
+        accessors[attributes['COLOR_0'] as int] as Map<String, dynamic>;
     final Map<String, dynamic> idxAcc =
-        accessors[idxAccIdx] as Map<String, dynamic>;
+        accessors[primitive['indices'] as int] as Map<String, dynamic>;
 
     final int vertexCount = posAcc['count'] as int;
     final int indexCount = idxAcc['count'] as int;
@@ -254,7 +249,6 @@ class GlbCowMesh {
       return (bv['byteStride'] as int?) ?? defaultStride;
     }
 
-    // Extraer matriz de transformación del primer nodo si existe (Z-up -> Y-up)
     List<double> nodeMatrix = <double>[
       1, 0, 0, 0,
       0, 1, 0, 0,
@@ -281,7 +275,7 @@ class GlbCowMesh {
 
     final Float32List rawPos = Float32List(vertexCount * 3);
     final Float32List rawNorm = Float32List(vertexCount * 3);
-    final Uint8List rawRgb = Uint8List(vertexCount * 3);
+    final Float32List rawColor = Float32List(vertexCount * 3);
 
     double minX = double.infinity;
     double minY = double.infinity;
@@ -296,7 +290,6 @@ class GlbCowMesh {
       final double y = bytes.getFloat32(pOff + 4, Endian.little);
       final double z = bytes.getFloat32(pOff + 8, Endian.little);
 
-      // Aplicar matriz glTF (column-major)
       final double tx = nodeMatrix[0] * x +
           nodeMatrix[4] * y +
           nodeMatrix[8] * z +
@@ -343,16 +336,19 @@ class GlbCowMesh {
       rawNorm[i3 + 1] = tny;
       rawNorm[i3 + 2] = tnz;
 
+      // Conversión suave lineal -> perceptual sRGB para conservar contraste nítido.
       final int cOff = colBase + i * colStride;
-      final double r = bytes.getFloat32(cOff, Endian.little);
-      final double g = bytes.getFloat32(cOff + 4, Endian.little);
-      final double b = bytes.getFloat32(cOff + 8, Endian.little);
-      rawRgb[i3] = (r.clamp(0.0, 1.0) * 255).round();
-      rawRgb[i3 + 1] = (g.clamp(0.0, 1.0) * 255).round();
-      rawRgb[i3 + 2] = (b.clamp(0.0, 1.0) * 255).round();
+      final double r = bytes.getFloat32(cOff, Endian.little).clamp(0.0, 1.0);
+      final double g =
+          bytes.getFloat32(cOff + 4, Endian.little).clamp(0.0, 1.0);
+      final double b =
+          bytes.getFloat32(cOff + 8, Endian.little).clamp(0.0, 1.0);
+
+      rawColor[i3] = math.pow(r, 1.0 / 2.2).toDouble();
+      rawColor[i3 + 1] = math.pow(g, 1.0 / 2.2).toDouble();
+      rawColor[i3 + 2] = math.pow(b, 1.0 / 2.2).toDouble();
     }
 
-    // Centrar y normalizar escala a rango [-1, 1]
     final double cx = (minX + maxX) * 0.5;
     final double cy = (minY + maxY) * 0.5;
     final double cz = (minZ + maxZ) * 0.5;
@@ -380,127 +376,13 @@ class GlbCowMesh {
       }
     }
 
-    return _decimateForRealtime(
+    return GlbCowMesh._(
       vertexCount: vertexCount,
+      triangleCount: indexCount ~/ 3,
       positions: rawPos,
       normals: rawNorm,
-      baseRgb: rawRgb,
+      linearRgb: rawColor,
       indices: rawIndices,
-    );
-  }
-
-  /// Agrupa vértices cercanos en una grilla de alta resolución (128^3) para
-  /// preservar el detalle anatómico de la vaca mientras garantiza renderizado fluido.
-  static GlbCowMesh _decimateForRealtime({
-    required int vertexCount,
-    required Float32List positions,
-    required Float32List normals,
-    required Uint8List baseRgb,
-    required Uint32List indices,
-  }) {
-    const int grid = 128;
-    const int grid2 = grid * grid;
-    final Map<int, int> cellToNewIdx = <int, int>{};
-    final Int32List oldToNew = Int32List(vertexCount);
-
-    final List<double> sumPos = <double>[];
-    final List<double> sumNorm = <double>[];
-    final List<double> sumCol = <double>[];
-    final List<int> counts = <int>[];
-
-    int nextIdx = 0;
-    for (int i = 0; i < vertexCount; i++) {
-      final int i3 = i * 3;
-      final double px = positions[i3];
-      final double py = positions[i3 + 1];
-      final double pz = positions[i3 + 2];
-
-      final int gx = (((px + 1.0) * 0.5) * (grid - 1)).round().clamp(0, grid - 1);
-      final int gy = (((py + 1.0) * 0.5) * (grid - 1)).round().clamp(0, grid - 1);
-      final int gz = (((pz + 1.0) * 0.5) * (grid - 1)).round().clamp(0, grid - 1);
-      final int key = gx + gy * grid + gz * grid2;
-
-      int? mapped = cellToNewIdx[key];
-      if (mapped == null) {
-        mapped = nextIdx++;
-        cellToNewIdx[key] = mapped;
-        sumPos.addAll(<double>[px, py, pz]);
-        sumNorm.addAll(<double>[
-          normals[i3],
-          normals[i3 + 1],
-          normals[i3 + 2],
-        ]);
-        sumCol.addAll(<double>[
-          baseRgb[i3].toDouble(),
-          baseRgb[i3 + 1].toDouble(),
-          baseRgb[i3 + 2].toDouble(),
-        ]);
-        counts.add(1);
-      } else {
-        final int m3 = mapped * 3;
-        sumPos[m3] += px;
-        sumPos[m3 + 1] += py;
-        sumPos[m3 + 2] += pz;
-        sumNorm[m3] += normals[i3];
-        sumNorm[m3 + 1] += normals[i3 + 1];
-        sumNorm[m3 + 2] += normals[i3 + 2];
-        sumCol[m3] += baseRgb[i3];
-        sumCol[m3 + 1] += baseRgb[i3 + 1];
-        sumCol[m3 + 2] += baseRgb[i3 + 2];
-        counts[mapped] += 1;
-      }
-      oldToNew[i] = mapped;
-    }
-
-    final int newVertexCount = nextIdx;
-    final Float32List newPos = Float32List(newVertexCount * 3);
-    final Float32List newNorm = Float32List(newVertexCount * 3);
-    final Uint8List newRgb = Uint8List(newVertexCount * 3);
-
-    for (int i = 0; i < newVertexCount; i++) {
-      final int c = counts[i];
-      final int i3 = i * 3;
-      newPos[i3] = sumPos[i3] / c;
-      newPos[i3 + 1] = sumPos[i3 + 1] / c;
-      newPos[i3 + 2] = sumPos[i3 + 2] / c;
-
-      double nx = sumNorm[i3];
-      double ny = sumNorm[i3 + 1];
-      double nz = sumNorm[i3 + 2];
-      final double len = math.sqrt(nx * nx + ny * ny + nz * nz);
-      if (len > 1e-6) {
-        nx /= len;
-        ny /= len;
-        nz /= len;
-      }
-      newNorm[i3] = nx;
-      newNorm[i3 + 1] = ny;
-      newNorm[i3 + 2] = nz;
-
-      newRgb[i3] = (sumCol[i3] / c).round().clamp(0, 255);
-      newRgb[i3 + 1] = (sumCol[i3 + 1] / c).round().clamp(0, 255);
-      newRgb[i3 + 2] = (sumCol[i3 + 2] / c).round().clamp(0, 255);
-    }
-
-    final List<int> keptIndices = <int>[];
-    for (int i = 0; i < indices.length; i += 3) {
-      final int a = oldToNew[indices[i]];
-      final int b = oldToNew[indices[i + 1]];
-      final int c = oldToNew[indices[i + 2]];
-      if (a != b && b != c && a != c) {
-        keptIndices.add(a);
-        keptIndices.add(b);
-        keptIndices.add(c);
-      }
-    }
-
-    return GlbCowMesh._(
-      vertexCount: newVertexCount,
-      triangleCount: keptIndices.length ~/ 3,
-      positions: newPos,
-      normals: newNorm,
-      baseRgb: newRgb,
-      indices: Uint32List.fromList(keptIndices),
     );
   }
 }
@@ -513,6 +395,7 @@ class _CowMeshPainter extends CustomPainter {
     required this.rotZ,
     required this.floatYOffset,
     required this.showContactShadow,
+    required this.scaleFactor,
   });
 
   final GlbCowMesh mesh;
@@ -521,8 +404,10 @@ class _CowMeshPainter extends CustomPainter {
   final double rotZ;
   final double floatYOffset;
   final bool showContactShadow;
+  final double scaleFactor;
 
-  static const int _zBuckets = 72;
+  static const int _zBuckets = 1024;
+  static const int _maxTrisPerBatch = 18000;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -531,29 +416,27 @@ class _CowMeshPainter extends CustomPainter {
     }
 
     final double cx = size.width * 0.5;
-    final double cy = size.height * 0.46 + floatYOffset;
+    final double cy = size.height * 0.45 + floatYOffset;
     final double minDim = math.min(size.width, size.height);
-    final double scale = minDim * 0.44;
+    final double scale = minDim * scaleFactor;
 
-    // Dibujar sombra suave debajo de la cabeza de vaca
     if (showContactShadow) {
-      final double shadowY = size.height * 0.46 + minDim * 0.42;
+      final double shadowY = size.height * 0.45 + scale * 1.15;
       final Rect shadowRect = Rect.fromCenter(
         center: Offset(cx, shadowY),
-        width: minDim * 0.46,
-        height: minDim * 0.08,
+        width: scale * 1.45,
+        height: scale * 0.24,
       );
       final Paint shadowPaint = Paint()
         ..shader = RadialGradient(
           colors: <Color>[
-            const Color(0xFF0F172A).withValues(alpha: 0.22),
+            const Color(0xFF0F172A).withValues(alpha: 0.24),
             const Color(0xFF0F172A).withValues(alpha: 0.0),
           ],
         ).createShader(shadowRect);
       canvas.drawOval(shadowRect, shadowPaint);
     }
 
-    // Matriz Euler XYZ: R = Rx * Ry * Rz
     final double sx = math.sin(rotX);
     final double cxR = math.cos(rotX);
     final double sy = math.sin(rotY);
@@ -581,16 +464,16 @@ class _CowMeshPainter extends CustomPainter {
 
     final Float32List pos = mesh.positions;
     final Float32List norm = mesh.normals;
-    final Uint8List rgb = mesh.baseRgb;
+    final Float32List rgb = mesh.linearRgb;
 
-    // Luz principal cálida (superior derecha frontal) + luz de relleno izquierda
-    const double l1x = 0.56;
-    const double l1y = 0.62;
+    // Iluminación de estudio cálida equivalente a directionalLight + pointLight
+    const double l1x = 0.54;
+    const double l1y = 0.64;
     const double l1z = 0.55;
 
     const double l2x = -0.58;
-    const double l2y = 0.42;
-    const double l2z = -0.35;
+    const double l2y = 0.38;
+    const double l2z = -0.32;
 
     for (int i = 0; i < vCount; i++) {
       final int i3 = i * 3;
@@ -602,8 +485,7 @@ class _CowMeshPainter extends CustomPainter {
       final double ry = m10 * px + m11 * py + m12 * pz;
       final double rz = m20 * px + m21 * py + m22 * pz;
 
-      // Proyección perspectiva suave (cámara a z = 4.5)
-      final double perspective = 4.5 / (4.5 - rz);
+      final double perspective = 5.0 / (5.0 - rz);
       screenX[i] = cx + rx * scale * perspective;
       screenY[i] = cy - ry * scale * perspective;
       depthZ[i] = rz;
@@ -618,19 +500,18 @@ class _CowMeshPainter extends CustomPainter {
 
       final double d1 = math.max(0.0, rnx * l1x + rny * l1y + rnz * l1z);
       final double d2 = math.max(0.0, rnx * l2x + rny * l2y + rnz * l2z);
-      final double rim = math.pow(1.0 - rnz.abs(), 2.2) * 0.14;
+      final double rim = math.pow(1.0 - rnz.abs(), 2.4) * 0.16;
 
-      final double shadeR = (0.44 + d1 * 0.68 + d2 * 0.22 + rim).clamp(0.0, 1.15);
-      final double shadeG = (0.44 + d1 * 0.66 + d2 * 0.22 + rim).clamp(0.0, 1.15);
-      final double shadeB = (0.46 + d1 * 0.62 + d2 * 0.25 + rim).clamp(0.0, 1.15);
+      final double shadeR = (0.48 + d1 * 0.62 + d2 * 0.20 + rim).clamp(0.0, 1.15);
+      final double shadeG = (0.48 + d1 * 0.60 + d2 * 0.20 + rim).clamp(0.0, 1.15);
+      final double shadeB = (0.50 + d1 * 0.56 + d2 * 0.24 + rim).clamp(0.0, 1.15);
 
-      final int cr = (rgb[i3] * shadeR).round().clamp(0, 255);
-      final int cg = (rgb[i3 + 1] * shadeG).round().clamp(0, 255);
-      final int cb = (rgb[i3 + 2] * shadeB).round().clamp(0, 255);
+      final int cr = (rgb[i3] * 255.0 * shadeR).round().clamp(0, 255);
+      final int cg = (rgb[i3 + 1] * 255.0 * shadeG).round().clamp(0, 255);
+      final int cb = (rgb[i3 + 2] * 255.0 * shadeB).round().clamp(0, 255);
       litColors[i] = (0xFF << 24) | (cr << 16) | (cg << 8) | cb;
     }
 
-    // Back-face culling y ordenamiento por cubetas de profundidad (O(N))
     final Uint32List idx = mesh.indices;
     final int triCount = mesh.triangleCount;
     final Int32List bucketCounts = Int32List(_zBuckets);
@@ -649,7 +530,6 @@ class _CowMeshPainter extends CustomPainter {
           (screenX[b] - ax) * (screenY[c] - ay) -
           (screenY[b] - ay) * (screenX[c] - ax);
 
-      // En coordenadas de pantalla (Y hacia abajo), los triángulos frontales tienen cross < 0
       if (cross >= 0) {
         triBuckets[t] = -1;
         continue;
@@ -657,7 +537,7 @@ class _CowMeshPainter extends CustomPainter {
 
       final double avgZ = (depthZ[a] + depthZ[b] + depthZ[c]) / 3.0;
       final int bucket =
-          (((avgZ + 1.3) / 2.6) * (_zBuckets - 1)).round().clamp(0, _zBuckets - 1);
+          (((avgZ + 1.35) / 2.7) * (_zBuckets - 1)).round().clamp(0, _zBuckets - 1);
       triBuckets[t] = bucket;
       bucketCounts[bucket]++;
       visibleTris++;
@@ -701,16 +581,32 @@ class _CowMeshPainter extends CustomPainter {
       triColors[cOut + 2] = litColors[c];
     }
 
-    final ui.Vertices vertices = ui.Vertices.raw(
-      ui.VertexMode.triangles,
-      triPositions,
-      colors: triColors,
-    );
-
     final Paint meshPaint = Paint()
       ..color = Colors.white
-      ..isAntiAlias = true;
-    canvas.drawVertices(vertices, ui.BlendMode.modulate, meshPaint);
+      ..isAntiAlias = false;
+
+    // Emitir en lotes seguros para respetar el límite de vértices por drawVertices
+    for (int startTri = 0; startTri < visibleTris; startTri += _maxTrisPerBatch) {
+      final int batchTris = math.min(_maxTrisPerBatch, visibleTris - startTri);
+      final int posStart = startTri * 6;
+      final int colStart = startTri * 3;
+
+      final ui.Vertices vertices = ui.Vertices.raw(
+        ui.VertexMode.triangles,
+        Float32List.sublistView(
+          triPositions,
+          posStart,
+          posStart + batchTris * 6,
+        ),
+        colors: Int32List.sublistView(
+          triColors,
+          colStart,
+          colStart + batchTris * 3,
+        ),
+      );
+
+      canvas.drawVertices(vertices, ui.BlendMode.modulate, meshPaint);
+    }
   }
 
   @override
@@ -719,6 +615,7 @@ class _CowMeshPainter extends CustomPainter {
         oldDelegate.rotY != rotY ||
         oldDelegate.rotZ != rotZ ||
         oldDelegate.floatYOffset != floatYOffset ||
+        oldDelegate.scaleFactor != scaleFactor ||
         oldDelegate.mesh != mesh;
   }
 }

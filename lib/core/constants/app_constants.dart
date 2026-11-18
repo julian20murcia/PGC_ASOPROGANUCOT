@@ -2,7 +2,7 @@
 class AppConstants {
   AppConstants._();
 
-  static const String appName = 'ASOPROGANUCOT';
+  static const String appName = 'ASOPROGANUCOTT';
   static const String appTagline =
       'Asociación de Productores de Leche · Susa, Cundinamarca';
 

@@ -33,7 +33,6 @@ class AuthController extends ChangeNotifier {
   bool get rememberMe => _rememberMe;
   String get savedIdentifier => _savedIdentifier;
   String? get errorMessage => _errorMessage;
-  bool get isBootstrapSession => _currentUser?.isBootstrapSession == true;
 
   Future<void> initialize() async {
     _isInitializing = true;
@@ -45,7 +44,7 @@ class AuthController extends ChangeNotifier {
       _savedIdentifier = await _hiveService.getLastIdentifier();
 
       final firebaseUser = _userService.currentFirebaseUser;
-      if (firebaseUser != null) {
+      if (firebaseUser != null && _rememberMe) {
         final UserModel? profile = await _userService.getUserProfileByUid(
           firebaseUser.uid,
           fallbackEmail: firebaseUser.email,
@@ -56,8 +55,9 @@ class AuthController extends ChangeNotifier {
           await _userService.signOut();
           _currentUser = null;
         }
-      } else if (_rememberMe && await _hiveService.isBootstrapSessionSaved()) {
-        _currentUser = UserModel.bootstrapAdmin();
+      } else if (firebaseUser != null && !_rememberMe) {
+        await _userService.signOut();
+        _currentUser = null;
       }
     } catch (_) {
       _currentUser = null;
@@ -67,8 +67,7 @@ class AuthController extends ChangeNotifier {
     }
   }
 
-  /// Permite el ingreso directo sin escribir nada (Modo Configuración Inicial)
-  /// o valida credenciales reales contra Firebase Auth + Firestore (`usuarios`).
+  /// Valida credenciales reales contra Firebase Auth + Cloud Firestore (`usuarios`).
   Future<bool> signIn({
     required String identifier,
     required String password,
@@ -78,25 +77,14 @@ class AuthController extends ChangeNotifier {
     _rememberMe = rememberMe;
 
     final String cleanIdentifier = identifier.trim();
-    final String cleanPassword = password.trim();
-
-    // Acceso directo sin escribir credenciales para configurar usuarios iniciales.
-    if (cleanIdentifier.isEmpty && cleanPassword.isEmpty) {
-      final UserModel bootstrap = UserModel.bootstrapAdmin();
-      _currentUser = bootstrap;
-      await _hiveService.saveSessionState(
-        rememberMe: rememberMe,
-        lastIdentifier: _savedIdentifier,
-        bootstrapMode: true,
-        cachedUser: bootstrap,
-      );
+    if (cleanIdentifier.isEmpty) {
+      _errorMessage = 'Ingresa tu correo electrónico o número de documento.';
       notifyListeners();
-      return true;
+      return false;
     }
 
-    if (cleanIdentifier.isEmpty || cleanPassword.isEmpty) {
-      _errorMessage =
-          'Ingresa tu correo o documento y contraseña, o deja ambos campos vacíos para entrar al modo de configuración inicial.';
+    if (password.isEmpty) {
+      _errorMessage = 'Ingresa tu contraseña para continuar.';
       notifyListeners();
       return false;
     }

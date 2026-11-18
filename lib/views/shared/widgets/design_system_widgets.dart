@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_theme.dart';
+import 'dairy_loader.dart';
 
 /// Emblema oficial de ASOPROGANUCOT (variante completa o compacta para sidebar).
 class AsoproganucotLogo extends StatelessWidget {
@@ -25,6 +26,7 @@ class AsoproganucotLogo extends StatelessWidget {
         width: size,
         height: size,
         fit: BoxFit.contain,
+        filterQuality: FilterQuality.high,
         errorBuilder: (_, _, _) => Container(
           width: size,
           height: size,
@@ -47,10 +49,10 @@ class AsoproganucotLogo extends StatelessWidget {
   }
 }
 
-/// Patrón sutil de manchas orgánicas estilo vaca Holstein sobre fondo claro.
+/// Patrón orgánico sutil estilo vaca Holstein sobre fondo claro.
 class CowSpotPatternPainter extends CustomPainter {
   const CowSpotPatternPainter({
-    this.spotColor = const Color(0x0914161D),
+    this.spotColor = const Color(0x0D14161D),
   });
 
   final Color spotColor;
@@ -61,61 +63,67 @@ class CowSpotPatternPainter extends CustomPainter {
       ..color = spotColor
       ..style = PaintingStyle.fill;
 
-    // Mancha orgánica superior izquierda
     final Path topLeft = Path()
       ..moveTo(0, 0)
-      ..lineTo(size.width * 0.24, 0)
+      ..lineTo(size.width * 0.28, 0)
       ..cubicTo(
-        size.width * 0.26,
-        size.height * 0.10,
-        size.width * 0.14,
+        size.width * 0.30,
+        size.height * 0.11,
+        size.width * 0.16,
         size.height * 0.14,
-        size.width * 0.12,
-        size.height * 0.22,
+        size.width * 0.13,
+        size.height * 0.24,
       )
       ..cubicTo(
-        size.width * 0.09,
-        size.height * 0.30,
+        size.width * 0.10,
+        size.height * 0.33,
         0,
-        size.height * 0.26,
+        size.height * 0.28,
         0,
-        size.height * 0.16,
+        size.height * 0.18,
       )
       ..close();
     canvas.drawPath(topLeft, paint);
 
-    // Pequeña mancha secundaria arriba
     canvas.drawOval(
       Rect.fromCenter(
-        center: Offset(size.width * 0.28, size.height * 0.14),
-        width: 36,
-        height: 22,
+        center: Offset(size.width * 0.31, size.height * 0.14),
+        width: 40,
+        height: 24,
       ),
       paint,
     );
 
-    // Mancha orgánica inferior derecha
     final Path bottomRight = Path()
       ..moveTo(size.width, size.height)
-      ..lineTo(size.width * 0.72, size.height)
+      ..lineTo(size.width * 0.68, size.height)
       ..cubicTo(
-        size.width * 0.70,
-        size.height * 0.88,
-        size.width * 0.82,
-        size.height * 0.84,
-        size.width * 0.85,
-        size.height * 0.74,
+        size.width * 0.66,
+        size.height * 0.87,
+        size.width * 0.80,
+        size.height * 0.83,
+        size.width * 0.84,
+        size.height * 0.72,
       )
       ..cubicTo(
         size.width * 0.88,
+        size.height * 0.64,
+        size.width,
         size.height * 0.66,
         size.width,
-        size.height * 0.68,
-        size.width,
-        size.height * 0.80,
+        size.height * 0.78,
       )
       ..close();
     canvas.drawPath(bottomRight, paint);
+
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(size.width * 0.72, size.height * 0.78),
+        width: 28,
+        height: 18,
+      ),
+      paint,
+    );
   }
 
   @override
@@ -123,7 +131,66 @@ class CowSpotPatternPainter extends CustomPainter {
       oldDelegate.spotColor != spotColor;
 }
 
-/// Tarjeta métrica KPI del Design System (`ui-design-system`).
+/// Píldora compacta de propiedad estadística (reemplaza cards genéricas en cabeceras).
+class HeaderPropertyChip extends StatelessWidget {
+  const HeaderPropertyChip({
+    super.key,
+    required this.label,
+    required this.value,
+    this.valueColor,
+    this.dotColor,
+  });
+
+  final String label;
+  final String value;
+  final Color? valueColor;
+  final Color? dotColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceMuted,
+        borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          if (dotColor != null) ...<Widget>[
+            Container(
+              width: 7,
+              height: 7,
+              decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 6),
+          ],
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12.5,
+              color: AppTheme.textSecondary,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          if (value.isNotEmpty) ...<Widget>[
+            const SizedBox(width: 6),
+            Text(
+              value,
+              style: AppTheme.monoStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: valueColor ?? AppTheme.textPrimary,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Tarjeta métrica KPI del Design System (`ui-design-system`) para dashboards operativos.
 class AppKpiCard extends StatelessWidget {
   const AppKpiCard({
     super.key,
@@ -202,7 +269,7 @@ class AppKpiCard extends StatelessWidget {
   }
 }
 
-/// Indicador visual de estado de sincronización o estado operativo.
+/// Indicador visual compacto de estado de sincronización o red.
 class SyncStatusBadge extends StatelessWidget {
   const SyncStatusBadge({
     super.key,
@@ -225,7 +292,7 @@ class SyncStatusBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(AppTheme.radiusBadge),
+        borderRadius: BorderRadius.circular(AppTheme.radiusPill),
         border: Border.all(color: dot.withValues(alpha: 0.25)),
       ),
       child: Row(
@@ -251,7 +318,7 @@ class SyncStatusBadge extends StatelessWidget {
   }
 }
 
-/// Botón primario con altura fija y estado de carga integrado (`ui-design-system`).
+/// Botón primario estilo píldora con `DairyLoader` integrado en carga.
 class PrimaryActionButton extends StatelessWidget {
   const PrimaryActionButton({
     super.key,
@@ -272,42 +339,40 @@ class PrimaryActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Widget button = SizedBox(
-      height: isMobile ? 52 : 48,
+    return SizedBox(
+      height: isMobile ? 50 : 40,
       width: fullWidth ? double.infinity : null,
       child: ElevatedButton(
         onPressed: isLoading ? null : onPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor: AppTheme.cowBlack,
           foregroundColor: Colors.white,
-          disabledBackgroundColor: AppTheme.cowBlack.withValues(alpha: 0.65),
+          disabledBackgroundColor: AppTheme.cowBlack.withValues(alpha: 0.72),
           disabledForegroundColor: Colors.white,
           elevation: 0,
+          padding: const EdgeInsets.symmetric(horizontal: 18),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTheme.radiusControl),
+            borderRadius: BorderRadius.circular(AppTheme.radiusPill),
           ),
         ),
         child: isLoading
-            ? const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.2,
-                  color: Colors.white,
-                ),
+            ? const DairyLoader(
+                size: DairyLoaderSize.xs,
+                label: '',
+                color: Colors.white,
               )
             : Row(
                 mainAxisSize: fullWidth ? MainAxisSize.max : MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: <Widget>[
                   if (icon != null) ...<Widget>[
-                    Icon(icon, size: 18),
-                    const SizedBox(width: 8),
+                    Icon(icon, size: 17),
+                    const SizedBox(width: 7),
                   ],
                   Text(
                     label,
                     style: const TextStyle(
-                      fontSize: 14,
+                      fontSize: 13.5,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -315,7 +380,6 @@ class PrimaryActionButton extends StatelessWidget {
               ),
       ),
     );
-    return button;
   }
 }
 
@@ -334,7 +398,7 @@ class CleanTableColumn {
   final VoidCallback? onSort;
 }
 
-/// Tabla administrativa limpia (`ui-design-system`).
+/// Tabla administrativa limpia de ancho completo.
 class CleanDataTable extends StatelessWidget {
   const CleanDataTable({
     super.key,
@@ -348,78 +412,88 @@ class CleanDataTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      width: double.infinity,
       decoration: BoxDecoration(
         color: AppTheme.surface,
         borderRadius: BorderRadius.circular(AppTheme.radiusCard),
         border: Border.all(color: AppTheme.border),
       ),
       clipBehavior: Clip.antiAlias,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-          headingRowHeight: 44,
-          dataRowMinHeight: 56,
-          dataRowMaxHeight: 64,
-          horizontalMargin: 20,
-          columnSpacing: 24,
-          headingRowColor: WidgetStateProperty.all(AppTheme.canvasAlt),
-          dividerThickness: 1,
-          columns: columns.map((CleanTableColumn col) {
-            return DataColumn(
-              numeric: col.numeric,
-              label: InkWell(
-                onTap: col.onSort,
-                borderRadius: BorderRadius.circular(4),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      Text(
-                        col.label.toUpperCase(),
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.4,
-                          color: AppTheme.textSecondary,
+      child: LayoutBuilder(
+        builder: (BuildContext context, BoxConstraints constraints) {
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minWidth: constraints.maxWidth),
+              child: DataTable(
+                headingRowHeight: 42,
+                dataRowMinHeight: 56,
+                dataRowMaxHeight: 62,
+                horizontalMargin: 18,
+                columnSpacing: 24,
+                headingRowColor: WidgetStateProperty.all(AppTheme.surfaceMuted),
+                dividerThickness: 1,
+                columns: columns.map((CleanTableColumn col) {
+                  return DataColumn(
+                    numeric: col.numeric,
+                    label: InkWell(
+                      onTap: col.onSort,
+                      borderRadius: BorderRadius.circular(6),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 4,
+                          horizontal: 2,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            Text(
+                              col.label,
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
+                            if (col.onSort != null) ...<Widget>[
+                              const SizedBox(width: 4),
+                              Icon(
+                                col.sortAscending == null
+                                    ? Icons.unfold_more_rounded
+                                    : col.sortAscending!
+                                        ? Icons.keyboard_arrow_up_rounded
+                                        : Icons.keyboard_arrow_down_rounded,
+                                size: 15,
+                                color: col.sortAscending == null
+                                    ? AppTheme.textMuted
+                                    : AppTheme.cowBlack,
+                              ),
+                            ],
+                          ],
                         ),
                       ),
-                      if (col.onSort != null) ...<Widget>[
-                        const SizedBox(width: 4),
-                        Icon(
-                          col.sortAscending == null
-                              ? Icons.unfold_more_rounded
-                              : col.sortAscending!
-                                  ? Icons.keyboard_arrow_up_rounded
-                                  : Icons.keyboard_arrow_down_rounded,
-                          size: 16,
-                          color: col.sortAscending == null
-                              ? AppTheme.textMuted
-                              : AppTheme.cowBlack,
+                    ),
+                  );
+                }).toList(),
+                rows: rows
+                    .map(
+                      (List<Widget> cells) => DataRow(
+                        color: WidgetStateProperty.resolveWith<Color?>(
+                          (Set<WidgetState> states) {
+                            if (states.contains(WidgetState.hovered)) {
+                              return AppTheme.canvasAlt;
+                            }
+                            return null;
+                          },
                         ),
-                      ],
-                    ],
-                  ),
-                ),
+                        cells: cells.map((Widget w) => DataCell(w)).toList(),
+                      ),
+                    )
+                    .toList(),
               ),
-            );
-          }).toList(),
-          rows: rows
-              .map(
-                (List<Widget> cells) => DataRow(
-                  color: WidgetStateProperty.resolveWith<Color?>(
-                    (Set<WidgetState> states) {
-                      if (states.contains(WidgetState.hovered)) {
-                        return AppTheme.surfaceMuted;
-                      }
-                      return null;
-                    },
-                  ),
-                  cells: cells.map((Widget w) => DataCell(w)).toList(),
-                ),
-              )
-              .toList(),
-        ),
+            ),
+          );
+        },
       ),
     );
   }

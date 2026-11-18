@@ -7,11 +7,11 @@ import '../../controllers/user_controller.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/user_model.dart';
+import '../shared/widgets/dairy_loader.dart';
 import '../shared/widgets/design_system_widgets.dart';
 
-/// Módulo administrativo completo de Usuarios (RF-01, RF-02, RF-03).
-/// Permite listar, buscar, filtrar, crear en Firebase Auth + Firestore, editar,
-/// activar/suspender y enviar restablecimiento de contraseña.
+/// Módulo administrativo de Usuarios estilo Houston + Holstein (`UsersPage.jsx`).
+/// Cabecera limpia con píldoras de propiedades, barra de herramientas integrada y tabla completa.
 class UsersModuleView extends StatefulWidget {
   const UsersModuleView({super.key});
 
@@ -47,7 +47,7 @@ class _UsersModuleViewState extends State<UsersModuleView> {
       context: context,
       barrierDismissible: false,
       builder: (_) => _UserFormDialog(
-        actorUid: auth.currentUser?.uid ?? 'bootstrap-admin',
+        actorUid: auth.currentUser?.uid ?? 'admin',
       ),
     );
     if (created == true && mounted) {
@@ -64,7 +64,7 @@ class _UsersModuleViewState extends State<UsersModuleView> {
       context: context,
       barrierDismissible: false,
       builder: (_) => _UserFormDialog(
-        actorUid: auth.currentUser?.uid ?? 'bootstrap-admin',
+        actorUid: auth.currentUser?.uid ?? 'admin',
         existingUser: user,
       ),
     );
@@ -78,7 +78,7 @@ class _UsersModuleViewState extends State<UsersModuleView> {
     final UserController userCtrl = context.read<UserController>();
     final bool ok = await userCtrl.toggleUserStatus(
       user: user,
-      actorUid: auth.currentUser?.uid ?? 'bootstrap-admin',
+      actorUid: auth.currentUser?.uid ?? 'admin',
     );
     if (!mounted) return;
     _showToast(
@@ -141,21 +141,26 @@ class _UsersModuleViewState extends State<UsersModuleView> {
     final bool isNarrow = MediaQuery.of(context).size.width < 760;
 
     return SingleChildScrollView(
-      padding: EdgeInsets.all(isNarrow ? 16 : 24),
+      padding: EdgeInsets.symmetric(
+        horizontal: isNarrow ? 16 : 32,
+        vertical: isNarrow ? 18 : 26,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          _buildHeader(ctrl, isNarrow),
-          const SizedBox(height: 20),
-          _buildKpis(ctrl),
-          const SizedBox(height: 20),
-          _buildFilterToolbar(ctrl, isNarrow),
-          const SizedBox(height: 16),
+          _buildHoustonHeader(ctrl, isNarrow),
+          const SizedBox(height: 22),
+          _buildToolbar(ctrl, isNarrow),
+          const SizedBox(height: 12),
           if (ctrl.isLoading && ctrl.allUsers.isEmpty)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.all(48),
-                child: CircularProgressIndicator(),
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 64),
+              child: Center(
+                child: DairyLoader(
+                  size: DairyLoaderSize.lg,
+                  label: 'Cargando usuarios…',
+                  hint: 'Consultando Firebase Firestore y respaldo local.',
+                ),
               ),
             )
           else if (ctrl.filteredUsers.isEmpty)
@@ -167,261 +172,249 @@ class _UsersModuleViewState extends State<UsersModuleView> {
     );
   }
 
-  Widget _buildHeader(UserController ctrl, bool isNarrow) {
+  Widget _buildHoustonHeader(UserController ctrl, bool isNarrow) {
     final Widget titleBlock = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Wrap(
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: 12,
-          runSpacing: 8,
-          children: <Widget>[
-            Text(
-              'Gestión de Usuarios',
-              style: AppTheme.titleStyle(isMobile: isNarrow),
-            ),
-            SyncStatusBadge(
-              isSynced: !ctrl.isFromOfflineCache,
-              syncedLabel: 'Sincronizado (Cloud)',
-              pendingLabel: 'Caché local (Hive)',
-            ),
-          ],
+        Text(
+          'Usuarios',
+          style: AppTheme.titleStyle(isMobile: isNarrow),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 4),
         const Text(
-          'Administra cuentas de acceso en Firebase Auth y sus roles RBAC (Administrador, Operario y Productor).',
+          'Gestiona cuentas de Firebase Auth, roles RBAC y estados de acceso en planta y campo.',
           style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
         ),
       ],
     );
 
     final Widget actions = Wrap(
-      spacing: 10,
-      runSpacing: 10,
+      spacing: 8,
+      runSpacing: 8,
       children: <Widget>[
         OutlinedButton.icon(
           onPressed: ctrl.isLoading ? null : ctrl.loadUsers,
-          icon: const Icon(Icons.refresh_rounded, size: 18),
+          icon: const Icon(Icons.refresh_rounded, size: 17),
           label: const Text('Actualizar'),
         ),
         PrimaryActionButton(
           label: 'Nuevo usuario',
-          icon: Icons.person_add_alt_1_rounded,
+          icon: Icons.add_rounded,
           fullWidth: false,
           onPressed: _openCreateDialog,
         ),
       ],
     );
 
+    final Widget propertyPills = Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: <Widget>[
+        HeaderPropertyChip(
+          label: 'Total',
+          value: '${ctrl.totalCount}',
+        ),
+        HeaderPropertyChip(
+          label: 'Activos',
+          value: '${ctrl.activeCount}',
+          valueColor: AppTheme.successText,
+          dotColor: AppTheme.success,
+        ),
+        HeaderPropertyChip(
+          label: 'Administradores',
+          value: '${ctrl.adminCount}',
+        ),
+        HeaderPropertyChip(
+          label: 'Operarios',
+          value: '${ctrl.operarioCount}',
+        ),
+        HeaderPropertyChip(
+          label: 'Productores',
+          value: '${ctrl.productorCount}',
+        ),
+        HeaderPropertyChip(
+          label: ctrl.isFromOfflineCache ? 'Caché Hive' : 'Cloud Firestore',
+          value: '',
+          dotColor:
+              ctrl.isFromOfflineCache ? AppTheme.warning : AppTheme.success,
+        ),
+      ],
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        if (isNarrow) ...<Widget>[
+          titleBlock,
+          const SizedBox(height: 14),
+          actions,
+        ] else
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Expanded(child: titleBlock),
+              const SizedBox(width: 16),
+              actions,
+            ],
+          ),
+        const SizedBox(height: 16),
+        propertyPills,
+      ],
+    );
+  }
+
+  Widget _buildToolbar(UserController ctrl, bool isNarrow) {
+    final String countText = ctrl.filteredUsers.length == ctrl.allUsers.length
+        ? '${ctrl.allUsers.length} ${ctrl.allUsers.length == 1 ? 'usuario' : 'usuarios'}'
+        : '${ctrl.filteredUsers.length} de ${ctrl.allUsers.length}';
+
+    final Widget searchField = SizedBox(
+      height: 38,
+      child: TextField(
+        controller: _searchCtrl,
+        onChanged: ctrl.setSearchQuery,
+        decoration: InputDecoration(
+          hintText: 'Buscar por nombre, documento o correo…',
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          prefixIcon: const Icon(Icons.search_rounded, size: 18),
+          suffixIcon: ctrl.searchQuery.isNotEmpty
+              ? IconButton(
+                  onPressed: () {
+                    _searchCtrl.clear();
+                    ctrl.setSearchQuery('');
+                  },
+                  icon: const Icon(Icons.close_rounded, size: 16),
+                )
+              : null,
+        ),
+      ),
+    );
+
+    final Widget roleDropdown = SizedBox(
+      height: 38,
+      child: DropdownButtonFormField<String>(
+        initialValue: ctrl.roleFilter,
+        isExpanded: true,
+        decoration: const InputDecoration(
+          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        ),
+        items: const <DropdownMenuItem<String>>[
+          DropdownMenuItem<String>(
+            value: 'ALL',
+            child: Text('Todos los roles', overflow: TextOverflow.ellipsis),
+          ),
+          DropdownMenuItem<String>(
+            value: AppConstants.roleAdmin,
+            child: Text('Administrador', overflow: TextOverflow.ellipsis),
+          ),
+          DropdownMenuItem<String>(
+            value: AppConstants.roleOperario,
+            child: Text('Operario', overflow: TextOverflow.ellipsis),
+          ),
+          DropdownMenuItem<String>(
+            value: AppConstants.roleProductor,
+            child: Text('Productor', overflow: TextOverflow.ellipsis),
+          ),
+        ],
+        onChanged: (String? value) {
+          if (value != null) ctrl.setRoleFilter(value);
+        },
+      ),
+    );
+
+    final Widget statusDropdown = SizedBox(
+      height: 38,
+      child: DropdownButtonFormField<String>(
+        initialValue: ctrl.statusFilter,
+        isExpanded: true,
+        decoration: const InputDecoration(
+          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        ),
+        items: const <DropdownMenuItem<String>>[
+          DropdownMenuItem<String>(
+            value: 'ALL',
+            child: Text('Todos los estados', overflow: TextOverflow.ellipsis),
+          ),
+          DropdownMenuItem<String>(
+            value: 'ACTIVE',
+            child: Text('Activos', overflow: TextOverflow.ellipsis),
+          ),
+          DropdownMenuItem<String>(
+            value: 'INACTIVE',
+            child: Text('Suspendidos', overflow: TextOverflow.ellipsis),
+          ),
+        ],
+        onChanged: (String? value) {
+          if (value != null) ctrl.setStatusFilter(value);
+        },
+      ),
+    );
+
     if (isNarrow) {
       return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          titleBlock,
-          const SizedBox(height: 16),
-          actions,
+          searchField,
+          const SizedBox(height: 10),
+          Row(
+            children: <Widget>[
+              Expanded(child: roleDropdown),
+              const SizedBox(width: 10),
+              Expanded(child: statusDropdown),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: <Widget>[
+              Text(
+                countText,
+                style: AppTheme.monoStyle(
+                  fontSize: 12,
+                  color: AppTheme.textMuted,
+                ),
+              ),
+              if (ctrl.hasActiveFilters)
+                TextButton(
+                  onPressed: () {
+                    _searchCtrl.clear();
+                    ctrl.clearFilters();
+                  },
+                  child: const Text('Limpiar filtros'),
+                ),
+            ],
+          ),
         ],
       );
     }
 
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Expanded(child: titleBlock),
-        const SizedBox(width: 16),
-        actions,
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 340),
+          child: searchField,
+        ),
+        const Spacer(),
+        Text(
+          countText,
+          style: AppTheme.monoStyle(fontSize: 12, color: AppTheme.textMuted),
+        ),
+        const SizedBox(width: 12),
+        SizedBox(width: 175, child: roleDropdown),
+        const SizedBox(width: 8),
+        SizedBox(width: 170, child: statusDropdown),
+        if (ctrl.hasActiveFilters) ...<Widget>[
+          const SizedBox(width: 6),
+          TextButton(
+            onPressed: () {
+              _searchCtrl.clear();
+              ctrl.clearFilters();
+            },
+            child: const Text('Limpiar'),
+          ),
+        ],
       ],
-    );
-  }
-
-  Widget _buildKpis(UserController ctrl) {
-    return LayoutBuilder(
-      builder: (BuildContext context, BoxConstraints constraints) {
-        final double width = constraints.maxWidth;
-        final int columns = width >= 1000
-            ? 4
-            : width >= 560
-                ? 2
-                : 1;
-        final double spacing = 12;
-        final double cardWidth =
-            (width - (columns - 1) * spacing) / columns;
-
-        return Wrap(
-          spacing: spacing,
-          runSpacing: spacing,
-          children: <Widget>[
-            SizedBox(
-              width: cardWidth,
-              child: AppKpiCard(
-                title: 'Total usuarios',
-                value: '${ctrl.totalCount}',
-                subtitle: '${ctrl.activeCount} cuentas activas',
-                icon: Icons.groups_2_outlined,
-              ),
-            ),
-            SizedBox(
-              width: cardWidth,
-              child: AppKpiCard(
-                title: 'Administradores',
-                value: '${ctrl.adminCount}',
-                subtitle: 'Control total en planta',
-                icon: Icons.admin_panel_settings_outlined,
-              ),
-            ),
-            SizedBox(
-              width: cardWidth,
-              child: AppKpiCard(
-                title: 'Operarios',
-                value: '${ctrl.operarioCount}',
-                subtitle: 'Recepción diaria de leche',
-                icon: Icons.inventory_2_outlined,
-                accentColor: AppTheme.primaryGreen,
-              ),
-            ),
-            SizedBox(
-              width: cardWidth,
-              child: AppKpiCard(
-                title: 'Productores',
-                value: '${ctrl.productorCount}',
-                subtitle: 'Acceso app móvil de consulta',
-                icon: Icons.agriculture_outlined,
-                accentColor: AppTheme.primaryGreen,
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildFilterToolbar(UserController ctrl, bool isNarrow) {
-    final Widget searchField = TextField(
-      controller: _searchCtrl,
-      onChanged: ctrl.setSearchQuery,
-      decoration: InputDecoration(
-        hintText: 'Buscar por nombre, documento, correo o teléfono...',
-        prefixIcon: const Icon(Icons.search_rounded, size: 19),
-        suffixIcon: ctrl.searchQuery.isNotEmpty
-            ? IconButton(
-                onPressed: () {
-                  _searchCtrl.clear();
-                  ctrl.setSearchQuery('');
-                },
-                icon: const Icon(Icons.close_rounded, size: 18),
-              )
-            : null,
-      ),
-    );
-
-    final Widget roleDropdown = DropdownButtonFormField<String>(
-      initialValue: ctrl.roleFilter,
-      isExpanded: true,
-      decoration: const InputDecoration(
-        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      ),
-      items: const <DropdownMenuItem<String>>[
-        DropdownMenuItem<String>(
-          value: 'ALL',
-          child: Text('Todos los roles', overflow: TextOverflow.ellipsis),
-        ),
-        DropdownMenuItem<String>(
-          value: AppConstants.roleAdmin,
-          child: Text('Administrador', overflow: TextOverflow.ellipsis),
-        ),
-        DropdownMenuItem<String>(
-          value: AppConstants.roleOperario,
-          child: Text('Operario', overflow: TextOverflow.ellipsis),
-        ),
-        DropdownMenuItem<String>(
-          value: AppConstants.roleProductor,
-          child: Text('Productor', overflow: TextOverflow.ellipsis),
-        ),
-      ],
-      onChanged: (String? value) {
-        if (value != null) ctrl.setRoleFilter(value);
-      },
-    );
-
-    final Widget statusDropdown = DropdownButtonFormField<String>(
-      initialValue: ctrl.statusFilter,
-      isExpanded: true,
-      decoration: const InputDecoration(
-        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      ),
-      items: const <DropdownMenuItem<String>>[
-        DropdownMenuItem<String>(
-          value: 'ALL',
-          child: Text('Todos los estados', overflow: TextOverflow.ellipsis),
-        ),
-        DropdownMenuItem<String>(
-          value: 'ACTIVE',
-          child: Text('Activos', overflow: TextOverflow.ellipsis),
-        ),
-        DropdownMenuItem<String>(
-          value: 'INACTIVE',
-          child: Text('Suspendidos', overflow: TextOverflow.ellipsis),
-        ),
-      ],
-      onChanged: (String? value) {
-        if (value != null) ctrl.setStatusFilter(value);
-      },
-    );
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radiusCard),
-        border: Border.all(color: AppTheme.border),
-      ),
-      child: isNarrow
-          ? Column(
-              children: <Widget>[
-                searchField,
-                const SizedBox(height: 12),
-                Row(
-                  children: <Widget>[
-                    Expanded(child: roleDropdown),
-                    const SizedBox(width: 12),
-                    Expanded(child: statusDropdown),
-                  ],
-                ),
-                if (ctrl.hasActiveFilters) ...<Widget>[
-                  const SizedBox(height: 10),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton.icon(
-                      onPressed: () {
-                        _searchCtrl.clear();
-                        ctrl.clearFilters();
-                      },
-                      icon: const Icon(Icons.filter_alt_off_outlined, size: 17),
-                      label: const Text('Limpiar filtros'),
-                    ),
-                  ),
-                ],
-              ],
-            )
-          : Row(
-              children: <Widget>[
-                Expanded(flex: 3, child: searchField),
-                const SizedBox(width: 12),
-                SizedBox(width: 190, child: roleDropdown),
-                const SizedBox(width: 12),
-                SizedBox(width: 180, child: statusDropdown),
-                if (ctrl.hasActiveFilters) ...<Widget>[
-                  const SizedBox(width: 8),
-                  TextButton(
-                    onPressed: () {
-                      _searchCtrl.clear();
-                      ctrl.clearFilters();
-                    },
-                    child: const Text('Limpiar'),
-                  ),
-                ],
-              ],
-            ),
     );
   }
 
@@ -430,27 +423,19 @@ class _UsersModuleViewState extends State<UsersModuleView> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
       decoration: BoxDecoration(
-        color: AppTheme.surface,
+        color: AppTheme.canvasAlt,
         borderRadius: BorderRadius.circular(AppTheme.radiusCard),
         border: Border.all(color: AppTheme.border),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: AppTheme.surfaceMuted,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.person_search_outlined,
-              size: 26,
-              color: AppTheme.cowBlack,
-            ),
+          const Icon(
+            Icons.person_search_outlined,
+            size: 32,
+            color: AppTheme.cowBlack,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           Text(
             ctrl.hasActiveFilters
                 ? 'No hay usuarios que coincidan con los filtros'
@@ -462,11 +447,12 @@ class _UsersModuleViewState extends State<UsersModuleView> {
           Text(
             ctrl.hasActiveFilters
                 ? 'Prueba con otro documento, nombre o limpia los filtros activos.'
-                : 'Crea el primer Administrador, Operario o Productor para usar el inicio de sesión con credenciales reales.',
-            style: const TextStyle(fontSize: 13.5, color: AppTheme.textSecondary),
+                : 'Crea el primer Administrador, Operario o Productor para gestionar el sistema.',
+            style:
+                const TextStyle(fontSize: 13.5, color: AppTheme.textSecondary),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 18),
           if (ctrl.hasActiveFilters)
             OutlinedButton(
               onPressed: () {
@@ -477,8 +463,8 @@ class _UsersModuleViewState extends State<UsersModuleView> {
             )
           else
             PrimaryActionButton(
-              label: 'Crear primer usuario',
-              icon: Icons.person_add_alt_1_rounded,
+              label: 'Crear usuario',
+              icon: Icons.add_rounded,
               fullWidth: false,
               onPressed: _openCreateDialog,
             ),
@@ -524,7 +510,7 @@ class _UsersModuleViewState extends State<UsersModuleView> {
               onSort: () => ctrl.toggleSort(UserSortColumn.activo),
             ),
             CleanTableColumn(
-              label: 'Creación',
+              label: 'Registro',
               sortAscending: sortIndicator(UserSortColumn.fechaCreacion),
               onSort: () => ctrl.toggleSort(UserSortColumn.fechaCreacion),
             ),
@@ -536,13 +522,13 @@ class _UsersModuleViewState extends State<UsersModuleView> {
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
                   CircleAvatar(
-                    radius: 17,
+                    radius: 16,
                     backgroundColor:
                         user.isAdmin ? AppTheme.cowBlack : AppTheme.surfaceMuted,
                     child: Text(
                       user.initials,
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 11.5,
                         fontWeight: FontWeight.w700,
                         color: user.isAdmin ? Colors.white : AppTheme.cowBlack,
                       ),
@@ -585,17 +571,10 @@ class _UsersModuleViewState extends State<UsersModuleView> {
                 ),
               ),
               _RoleBadge(rol: user.rol),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Switch(
-                    value: user.activo,
-                    activeThumbColor: AppTheme.cowBlack,
-                    onChanged: (_) => _toggleStatus(user),
-                  ),
-                  const SizedBox(width: 4),
-                  _StatusBadge(active: user.activo),
-                ],
+              InkWell(
+                onTap: () => _toggleStatus(user),
+                borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+                child: _StatusPillButton(active: user.activo),
               ),
               Text(
                 _dateFormat.format(user.fechaCreacion.toLocal()),
@@ -609,11 +588,13 @@ class _UsersModuleViewState extends State<UsersModuleView> {
                 children: <Widget>[
                   IconButton(
                     tooltip: 'Editar usuario',
+                    visualDensity: VisualDensity.compact,
                     onPressed: () => _openEditDialog(user),
                     icon: const Icon(Icons.edit_outlined, size: 18),
                   ),
                   IconButton(
                     tooltip: 'Enviar recuperación de contraseña',
+                    visualDensity: VisualDensity.compact,
                     onPressed: () => _sendPasswordReset(user),
                     icon: const Icon(Icons.lock_reset_outlined, size: 19),
                   ),
@@ -630,7 +611,8 @@ class _UsersModuleViewState extends State<UsersModuleView> {
 
   Widget _buildPaginationBar(UserController ctrl) {
     final int total = ctrl.filteredUsers.length;
-    final int start = total == 0 ? 0 : ((ctrl.currentPage - 1) * ctrl.itemsPerPage) + 1;
+    final int start =
+        total == 0 ? 0 : ((ctrl.currentPage - 1) * ctrl.itemsPerPage) + 1;
     final int end = (ctrl.currentPage * ctrl.itemsPerPage).clamp(0, total);
 
     return Wrap(
@@ -654,7 +636,7 @@ class _UsersModuleViewState extends State<UsersModuleView> {
                     (int size) => DropdownMenuItem<int>(
                       value: size,
                       child: Text(
-                        '$size / pág.',
+                        '$size por página',
                         style: const TextStyle(fontSize: 13),
                       ),
                     ),
@@ -721,7 +703,7 @@ class _RoleBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(AppTheme.radiusBadge),
+        borderRadius: BorderRadius.circular(AppTheme.radiusPill),
         border: Border.all(color: border),
       ),
       child: Text(
@@ -736,25 +718,43 @@ class _RoleBadge extends StatelessWidget {
   }
 }
 
-class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({required this.active});
+class _StatusPillButton extends StatelessWidget {
+  const _StatusPillButton({required this.active});
 
   final bool active;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: active ? AppTheme.successBg : AppTheme.dangerBg,
-        borderRadius: BorderRadius.circular(AppTheme.radiusBadge),
-      ),
-      child: Text(
-        active ? 'Activo' : 'Suspendido',
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: active ? AppTheme.successText : AppTheme.dangerText,
+    final Color bg = active ? AppTheme.successBg : AppTheme.dangerBg;
+    final Color fg = active ? AppTheme.successText : AppTheme.dangerText;
+    final Color dot = active ? AppTheme.success : AppTheme.danger;
+
+    return Tooltip(
+      message: active ? 'Clic para suspender' : 'Clic para activar',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Container(
+              width: 7,
+              height: 7,
+              decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              active ? 'Activo' : 'Suspendido',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: fg,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -887,7 +887,7 @@ class _UserFormDialogState extends State<_UserFormDialog> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: <Widget>[
                             Text(
-                              _isEditing ? 'Editar usuario' : 'Crear nuevo usuario',
+                              _isEditing ? 'Editar usuario' : 'Nuevo usuario',
                               style: AppTheme.subtitleStyle(),
                             ),
                             Text(
@@ -932,7 +932,7 @@ class _UserFormDialogState extends State<_UserFormDialog> {
                     ),
                     const SizedBox(height: 16),
                   ],
-                  _FieldLabel('Nombre completo'),
+                  const _FieldLabel('Nombre completo'),
                   TextFormField(
                     controller: _nameCtrl,
                     enabled: !userCtrl.isSaving,
@@ -952,7 +952,7 @@ class _UserFormDialogState extends State<_UserFormDialog> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: <Widget>[
-                            _FieldLabel('Cédula / Documento'),
+                            const _FieldLabel('Cédula / Documento'),
                             TextFormField(
                               controller: _docCtrl,
                               enabled: !userCtrl.isSaving,
@@ -974,7 +974,7 @@ class _UserFormDialogState extends State<_UserFormDialog> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: <Widget>[
-                            _FieldLabel('Teléfono'),
+                            const _FieldLabel('Teléfono'),
                             TextFormField(
                               controller: _phoneCtrl,
                               enabled: !userCtrl.isSaving,
@@ -990,7 +990,7 @@ class _UserFormDialogState extends State<_UserFormDialog> {
                     ],
                   ),
                   const SizedBox(height: 14),
-                  _FieldLabel('Correo electrónico'),
+                  const _FieldLabel('Correo electrónico'),
                   TextFormField(
                     controller: _emailCtrl,
                     enabled: !_isEditing && !userCtrl.isSaving,
@@ -1007,7 +1007,7 @@ class _UserFormDialogState extends State<_UserFormDialog> {
                   ),
                   if (!_isEditing) ...<Widget>[
                     const SizedBox(height: 14),
-                    _FieldLabel('Contraseña de acceso'),
+                    const _FieldLabel('Contraseña de acceso'),
                     TextFormField(
                       controller: _passwordCtrl,
                       enabled: !userCtrl.isSaving,
@@ -1033,7 +1033,7 @@ class _UserFormDialogState extends State<_UserFormDialog> {
                     ),
                   ],
                   const SizedBox(height: 16),
-                  _FieldLabel('Rol en el sistema (RBAC)'),
+                  const _FieldLabel('Rol en el sistema (RBAC)'),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
@@ -1050,7 +1050,8 @@ class _UserFormDialogState extends State<_UserFormDialog> {
                           color: selected ? Colors.white : AppTheme.textPrimary,
                         ),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius:
+                              BorderRadius.circular(AppTheme.radiusPill),
                           side: BorderSide(
                             color: selected
                                 ? AppTheme.cowBlack
@@ -1072,7 +1073,7 @@ class _UserFormDialogState extends State<_UserFormDialog> {
                     ),
                     decoration: BoxDecoration(
                       color: AppTheme.canvasAlt,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: AppTheme.border),
                     ),
                     child: Row(
@@ -1118,7 +1119,7 @@ class _UserFormDialogState extends State<_UserFormDialog> {
                             : () => Navigator.of(context).pop(false),
                         child: const Text('Cancelar'),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 10),
                       PrimaryActionButton(
                         label: _isEditing ? 'Guardar cambios' : 'Crear usuario',
                         icon: Icons.check_rounded,

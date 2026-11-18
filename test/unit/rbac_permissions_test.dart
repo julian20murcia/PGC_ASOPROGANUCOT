@@ -86,7 +86,7 @@ void main() {
     });
   });
 
-  group('AuthController acceso inicial y autenticación', () {
+  group('AuthController validación estricta y login real', () {
     late _MockFirebaseUserService mockUserService;
     late _MockFcmService mockFcmService;
     late HiveService memoryHive;
@@ -103,18 +103,24 @@ void main() {
       );
     });
 
-    test('Permite ingresar con campos vacíos en modo configuración inicial ADMIN', () async {
-      final bool ok = await controller.signIn(
+    test('Rechaza ingreso si campos están vacíos o incompletos', () async {
+      final bool emptyBoth = await controller.signIn(
         identifier: '',
         password: '',
         rememberMe: true,
       );
+      expect(emptyBoth, isFalse);
+      expect(controller.isAuthenticated, isFalse);
+      expect(controller.errorMessage, isNotNull);
 
-      expect(ok, isTrue);
-      expect(controller.isAuthenticated, isTrue);
-      expect(controller.isBootstrapSession, isTrue);
-      expect(controller.currentUser?.isAdmin, isTrue);
-      expect(controller.currentUser?.canManageUsers, isTrue);
+      final bool missingPass = await controller.signIn(
+        identifier: 'admin@asoproganucot.com',
+        password: '',
+        rememberMe: false,
+      );
+      expect(missingPass, isFalse);
+      expect(controller.isAuthenticated, isFalse);
+
       verifyNever(
         () => mockUserService.signInWithIdentifier(
           identifier: any(named: 'identifier'),
@@ -123,32 +129,54 @@ void main() {
       );
     });
 
-    test('Rechaza ingreso si solo se llena uno de los dos campos', () async {
-      final bool ok = await controller.signIn(
-        identifier: 'admin@asoproganucot.com',
-        password: '',
-        rememberMe: false,
+    test('Inicia sesión correctamente con credenciales válidas de ADMIN', () async {
+      final UserModel admin = UserModel(
+        uid: 'u-admin',
+        nombreCompleto: 'Administrador Principal',
+        documento: '1073500100',
+        correo: 'admin@asoproganucot.com',
+        telefono: '3100000000',
+        rol: AppConstants.roleAdmin,
+        activo: true,
+        fcmTokens: const <String>[],
+        fechaCreacion: DateTime.utc(2026, 11, 17),
       );
 
-      expect(ok, isFalse);
-      expect(controller.isAuthenticated, isFalse);
-      expect(controller.errorMessage, isNotNull);
+      when(
+        () => mockUserService.signInWithIdentifier(
+          identifier: 'admin@asoproganucot.com',
+          password: 'SecretPassword123',
+        ),
+      ).thenAnswer((_) async => admin);
+      when(() => mockFcmService.fetchDeviceTokenIfSupported())
+          .thenAnswer((_) async => null);
+
+      final bool ok = await controller.signIn(
+        identifier: 'admin@asoproganucot.com',
+        password: 'SecretPassword123',
+        rememberMe: true,
+      );
+
+      expect(ok, isTrue);
+      expect(controller.isAuthenticated, isTrue);
+      expect(controller.currentUser?.uid, 'u-admin');
+      expect(controller.currentUser?.isAdmin, isTrue);
     });
   });
 
   group('Modelo 3D GLB de la cabeza de vaca', () {
-    test('Parsea correctamente assets/models/medium__cow-balloon.glb', () {
+    test('Parsea la malla completa sin decimación de medium__cow-balloon.glb', () {
       final File glbFile = File('assets/models/medium__cow-balloon.glb');
       expect(glbFile.existsSync(), isTrue);
 
       final Uint8List raw = glbFile.readAsBytesSync();
       final GlbCowMesh mesh = GlbCowMesh.fromGlbBytes(ByteData.sublistView(raw));
 
-      expect(mesh.vertexCount, greaterThan(1000));
-      expect(mesh.triangleCount, greaterThan(1000));
+      expect(mesh.vertexCount, 59474);
+      expect(mesh.triangleCount, 118940);
       expect(mesh.positions.length, mesh.vertexCount * 3);
       expect(mesh.normals.length, mesh.vertexCount * 3);
-      expect(mesh.baseRgb.length, mesh.vertexCount * 3);
+      expect(mesh.linearRgb.length, mesh.vertexCount * 3);
     });
   });
 }
