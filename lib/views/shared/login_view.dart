@@ -347,7 +347,7 @@ class _LoginViewState extends State<LoginView>
                         _StaggeredLine(
                           animation: _line3Anim,
                           text: 'trazabilidad en campo.',
-                          color: const Color(0xFFA7F3D0),
+                          color: const Color(0xFF86EFAC),
                           italic: true,
                         ),
                         const SizedBox(height: 18),

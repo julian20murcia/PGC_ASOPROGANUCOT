@@ -92,7 +92,7 @@ class _ProducerShellViewState extends State<ProducerShellView> {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 12.5,
-                        color: Color(0xFFA7F3D0),
+                        color: Color(0xFFD1FAE5),
                         fontWeight: FontWeight.w500,
                       ),
                     ),

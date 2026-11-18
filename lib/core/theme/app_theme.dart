@@ -1,44 +1,49 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// Sistema de diseño oficial de ASOPROGANUCOT.
-/// Estética editorial de alto contraste: menú lateral en tinta negra `#0E1117`,
-/// hoja principal en blanco puro `#FFFFFF`, acento esmeralda `#0D7A5F` y bordes `#E4E6EB`.
+/// Sistema de diseño oficial de ASOPROGANUCOTT.
+/// Paleta extraída del emblema oficial de Susa, Cundinamarca:
+/// verde bosque profundo `#0C3B24`, verde pradera `#168A3E`, azul cielo andino `#0284C7`,
+/// dorado cálido `#D97706` y superficies frescas en verde menta `#F6FAF7` / `#FFFFFF`.
 class AppTheme {
   AppTheme._();
 
-  // Superficies principales y neutros editoriales
-  static const Color inkBlack = Color(0xFF0E1117);
-  static const Color canvas = Color(0xFFFFFFFF);
-  static const Color canvasAlt = Color(0xFFF9FAFB);
+  // Superficies principales y neutros inspirados en el campo de Susa
+  static const Color inkBlack = Color(0xFF0C3B24);
+  static const Color canvas = Color(0xFFF6FAF7);
+  static const Color canvasAlt = Color(0xFFEFF6F1);
   static const Color surface = Color(0xFFFFFFFF);
-  static const Color surfaceMuted = Color(0xFFF5F6F8);
-  static const Color border = Color(0xFFE4E6EB);
-  static const Color dividerLight = Color(0xFFECEEF2);
-  static const Color inputBorder = Color(0xFFD3D7DF);
+  static const Color surfaceMuted = Color(0xFFECF3EE);
+  static const Color border = Color(0xFFD5E4DA);
+  static const Color dividerLight = Color(0xFFE3EEE7);
+  static const Color inputBorder = Color(0xFFC1D6C8);
 
-  // Alias de marca oscura para acciones principales y navegación activa
+  // Variantes de verde bosque para controles primarios y navegación activa
   static const Color cowBlack = inkBlack;
-  static const Color cowBlackHover = Color(0xFF1A1F29);
-  static const Color cowCharcoal = Color(0xFF171B24);
+  static const Color cowBlackHover = Color(0xFF134E31);
+  static const Color cowCharcoal = Color(0xFF103322);
 
-  // Verde pradera institucional
-  static const Color primaryGreen = Color(0xFF0D7A5F);
-  static const Color primaryGreenLight = Color(0xFFE8F6F1);
+  // Colores cromáticos del escudo oficial de ASOPROGANUCOTT
+  static const Color primaryGreen = Color(0xFF168A3E);
+  static const Color primaryGreenLight = Color(0xFFE7F7EC);
+  static const Color skyBlue = Color(0xFF0284C7);
+  static const Color skyBlueLight = Color(0xFFE0F2FE);
+  static const Color warmGold = Color(0xFFD97706);
+  static const Color warmGoldLight = Color(0xFFFEF3C7);
 
-  // Tipografía de alto contraste
-  static const Color textPrimary = Color(0xFF0E1117);
-  static const Color textSecondary = Color(0xFF475162);
-  static const Color textMuted = Color(0xFF7B8494);
+  // Tipografía de alto contraste sobre fondos claros
+  static const Color textPrimary = Color(0xFF0B2619);
+  static const Color textSecondary = Color(0xFF395445);
+  static const Color textMuted = Color(0xFF678072);
 
   // Estados semánticos
-  static const Color success = Color(0xFF10B981);
-  static const Color successText = Color(0xFF065F46);
-  static const Color successBg = Color(0xFFECFDF5);
+  static const Color success = Color(0xFF168A3E);
+  static const Color successText = Color(0xFF0C3B24);
+  static const Color successBg = Color(0xFFE7F7EC);
 
   static const Color warning = Color(0xFFD97706);
   static const Color warningText = Color(0xFF92400E);
-  static const Color warningBg = Color(0xFFFFFBEB);
+  static const Color warningBg = Color(0xFFFEF3C7);
 
   static const Color danger = Color(0xFFDC2626);
   static const Color dangerText = Color(0xFF991B1B);

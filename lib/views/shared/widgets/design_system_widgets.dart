@@ -20,13 +20,11 @@ class AsoproganucotLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool useDarkDieCutLogo = onDark && !compact;
-    final String assetPath = compact
-        ? AppConstants.iconAssetPath
-        : (useDarkDieCutLogo
-            ? AppConstants.darkLogoAssetPath
-            : AppConstants.logoAssetPath);
-    final Widget image = Image.asset(
+    final String assetPath = onDark
+        ? AppConstants.darkLogoAssetPath
+        : AppConstants.logoAssetPath;
+
+    return Image.asset(
       assetPath,
       width: size,
       height: size,
@@ -37,7 +35,7 @@ class AsoproganucotLogo extends StatelessWidget {
         height: size,
         decoration: BoxDecoration(
           color: onDark ? Colors.white : AppTheme.inkBlack,
-          borderRadius: BorderRadius.circular(compact ? 7 : 10),
+          shape: BoxShape.circle,
         ),
         alignment: Alignment.center,
         child: Text(
@@ -45,32 +43,9 @@ class AsoproganucotLogo extends StatelessWidget {
           style: TextStyle(
             color: onDark ? AppTheme.inkBlack : Colors.white,
             fontWeight: FontWeight.w700,
-            fontSize: size * 0.36,
+            fontSize: size * 0.34,
           ),
         ),
-      ),
-    );
-
-    if (useDarkDieCutLogo || !onDark) {
-      return compact
-          ? ClipRRect(
-              borderRadius: BorderRadius.circular(7),
-              child: image,
-            )
-          : image;
-    }
-
-    return Container(
-      width: size,
-      height: size,
-      padding: EdgeInsets.all(compact ? 2.5 : 4),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(compact ? 8 : 11),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(compact ? 6 : 8),
-        child: image,
       ),
     );
   }

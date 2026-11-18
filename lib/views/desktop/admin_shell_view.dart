@@ -858,7 +858,7 @@ class _OtepNavTabState extends State<_OtepNavTab> {
             ? Colors.white
             : Colors.white.withValues(alpha: 0.88);
     final Color bg = selected
-        ? AppTheme.surface
+        ? AppTheme.canvas
         : _hovered
             ? Colors.white.withValues(alpha: 0.12)
             : Colors.transparent;
@@ -964,7 +964,7 @@ class _OtepNavTabState extends State<_OtepNavTab> {
   }
 }
 
-/// Dibuja las esquinas cóncavas blancas de 8px de la pestaña activa contra la barra negra.
+/// Dibuja las esquinas cóncavas de 8px de la pestaña activa contra la barra lateral.
 class _ConcaveFilletPainter extends CustomPainter {
   _ConcaveFilletPainter({required this.isTop});
 
@@ -974,7 +974,7 @@ class _ConcaveFilletPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final double r = size.width;
     final Paint paint = Paint()
-      ..color = AppTheme.surface
+      ..color = AppTheme.canvas
       ..style = PaintingStyle.fill;
 
     final Path path = Path();

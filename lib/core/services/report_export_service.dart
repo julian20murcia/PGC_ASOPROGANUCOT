@@ -22,11 +22,11 @@ class ReportExportService {
 
   static const CsvEncoder _excelCsvEncoder = CsvEncoder(addBom: true);
 
-  static const PdfColor _inkBlack = PdfColor.fromInt(0xFF0E1117);
-  static const PdfColor _emerald = PdfColor.fromInt(0xFF0D7A5F);
-  static const PdfColor _mutedBg = PdfColor.fromInt(0xFFF5F6F8);
-  static const PdfColor _border = PdfColor.fromInt(0xFFD9DEE7);
-  static const PdfColor _textSecondary = PdfColor.fromInt(0xFF475162);
+  static const PdfColor _inkBlack = PdfColor.fromInt(0xFF0C3B24);
+  static const PdfColor _emerald = PdfColor.fromInt(0xFF168A3E);
+  static const PdfColor _mutedBg = PdfColor.fromInt(0xFFECF3EE);
+  static const PdfColor _border = PdfColor.fromInt(0xFFD5E4DA);
+  static const PdfColor _textSecondary = PdfColor.fromInt(0xFF395445);
 
   /// Genera CSV UTF-8 con BOM para Excel con el resumen de producción por ganadero (`RF-17`, `RF-18`).
   static String buildProducerSummaryCsv(
@@ -163,7 +163,8 @@ class ReportExportService {
 
   static Future<Uint8List?> _tryLoadLogoBytes() async {
     try {
-      final ByteData data = await rootBundle.load(AppConstants.logoAssetPath);
+      final ByteData data =
+          await rootBundle.load(AppConstants.darkLogoAssetPath);
       return data.buffer.asUint8List();
     } catch (_) {
       return null;
@@ -302,14 +303,9 @@ class ReportExportService {
       child: pw.Row(
         children: <pw.Widget>[
           if (logoImage != null) ...<pw.Widget>[
-            pw.Container(
-              width: 42,
-              height: 42,
-              padding: const pw.EdgeInsets.all(3),
-              decoration: pw.BoxDecoration(
-                color: PdfColors.white,
-                borderRadius: pw.BorderRadius.circular(6),
-              ),
+            pw.SizedBox(
+              width: 44,
+              height: 44,
               child: pw.Image(logoImage, fit: pw.BoxFit.contain),
             ),
             pw.SizedBox(width: 12),
@@ -340,7 +336,7 @@ class ReportExportService {
                     'Filtro de productor: $producerFilterLabel',
                     style: const pw.TextStyle(
                       fontSize: 9,
-                      color: PdfColor.fromInt(0xFFA7F3D0),
+                      color: PdfColor.fromInt(0xFFD1FAE5),
                     ),
                   ),
               ],
@@ -414,7 +410,7 @@ class ReportExportService {
           child: pw.Container(
             padding: const pw.EdgeInsets.all(9),
             decoration: pw.BoxDecoration(
-              color: const PdfColor.fromInt(0xFFE8F6F1),
+              color: const PdfColor.fromInt(0xFFE7F7EC),
               border: pw.Border.all(color: _emerald),
               borderRadius: pw.BorderRadius.circular(5),
             ),

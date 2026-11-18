@@ -3,9 +3,9 @@
     "short_name": "ASOPROGANUCOTT",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#0C3B24",
+    "theme_color": "#0C3B24",
+    "description": "Sistema de registro y control de recepción de leche cruda para ASOPROGANUCOTT (Susa, Cundinamarca).",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
