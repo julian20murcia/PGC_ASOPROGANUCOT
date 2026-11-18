@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../core/services/producer_service.dart';
 import '../models/producer_model.dart';
+import '../models/privacy_notice.dart';
 
 enum ProducerSortColumn {
   codigo,
@@ -182,6 +183,8 @@ class ProducerController extends ChangeNotifier {
     required String estado,
     required bool aceptoHabeasData,
     required String actorUid,
+    PrivacyNotice? privacyNotice,
+    String? authorizationReference,
     bool createMobileAccount = false,
     String? mobileEmail,
     String? mobilePassword,
@@ -203,6 +206,8 @@ class ProducerController extends ChangeNotifier {
         estado: estado,
         aceptoHabeasData: aceptoHabeasData,
         actorUid: actorUid,
+        privacyNotice: privacyNotice,
+        authorizationReference: authorizationReference,
         createMobileAccount: createMobileAccount,
         mobileEmail: mobileEmail,
         mobilePassword: mobilePassword,
