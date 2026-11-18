@@ -77,6 +77,8 @@ class AppConstants {
 
   // Assets oficiales
   static const String logoAssetPath = 'assets/images/logo_asoproganucot.png';
+  static const String darkLogoAssetPath =
+      'assets/images/logo_asoproganucot_dark.png';
   static const String iconAssetPath = 'assets/images/app_icon.png';
   static const String cowModelAssetPath =
       'assets/models/spot_holstein_cow.glb';

@@ -20,38 +20,44 @@ class AsoproganucotLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String assetPath =
-        compact ? AppConstants.iconAssetPath : AppConstants.logoAssetPath;
-    final Widget image = ClipRRect(
-      borderRadius: BorderRadius.circular(compact ? 7 : 10),
-      child: Image.asset(
-        assetPath,
+    final bool useDarkDieCutLogo = onDark && !compact;
+    final String assetPath = compact
+        ? AppConstants.iconAssetPath
+        : (useDarkDieCutLogo
+            ? AppConstants.darkLogoAssetPath
+            : AppConstants.logoAssetPath);
+    final Widget image = Image.asset(
+      assetPath,
+      width: size,
+      height: size,
+      fit: BoxFit.contain,
+      filterQuality: FilterQuality.high,
+      errorBuilder: (_, _, _) => Container(
         width: size,
         height: size,
-        fit: BoxFit.contain,
-        filterQuality: FilterQuality.high,
-        errorBuilder: (_, _, _) => Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            color: onDark ? Colors.white : AppTheme.inkBlack,
-            borderRadius: BorderRadius.circular(compact ? 7 : 10),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            'AS',
-            style: TextStyle(
-              color: onDark ? AppTheme.inkBlack : Colors.white,
-              fontWeight: FontWeight.w700,
-              fontSize: size * 0.36,
-            ),
+        decoration: BoxDecoration(
+          color: onDark ? Colors.white : AppTheme.inkBlack,
+          borderRadius: BorderRadius.circular(compact ? 7 : 10),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          'AS',
+          style: TextStyle(
+            color: onDark ? AppTheme.inkBlack : Colors.white,
+            fontWeight: FontWeight.w700,
+            fontSize: size * 0.36,
           ),
         ),
       ),
     );
 
-    if (!onDark) {
-      return image;
+    if (useDarkDieCutLogo || !onDark) {
+      return compact
+          ? ClipRRect(
+              borderRadius: BorderRadius.circular(7),
+              child: image,
+            )
+          : image;
     }
 
     return Container(
@@ -62,7 +68,10 @@ class AsoproganucotLogo extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(compact ? 8 : 11),
       ),
-      child: image,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(compact ? 6 : 8),
+        child: image,
+      ),
     );
   }
 }
@@ -531,15 +540,14 @@ class CleanDataTable extends StatelessWidget {
 }
 
 /// Cabecera móvil moderna con fondo en tinta negra `#0E1117`, barra de estado clara
-/// y una franja de ondas contenida exclusivamente en los últimos `30px` inferiores
-/// para nunca tapar ni cruzar el contenido del encabezado.
+/// y una sola onda pronunciada en un único color para empalmar con el cuerpo blanco.
 class ModernWaveHeader extends StatelessWidget {
   const ModernWaveHeader({
     super.key,
     required this.height,
     required this.child,
     this.bottomSurfaceColor = AppTheme.surface,
-    this.padding = const EdgeInsets.only(bottom: 42),
+    this.padding = const EdgeInsets.only(bottom: 64),
   });
 
   final double height;
@@ -589,89 +597,29 @@ class _ModernWavePainter extends CustomPainter {
     final double w = size.width;
     final double h = size.height;
 
-    // Fondo principal oscuro totalmente despejado en la zona de contenido
+    // Fondo sólido de un solo color en tinta negra
     canvas.drawRect(
       Rect.fromLTWH(0, 0, w, h),
       Paint()..color = AppTheme.inkBlack,
     );
 
-    // Anillos geométricos muy sutiles arriba a la derecha (nunca tapan el texto)
-    canvas.drawCircle(
-      Offset(w * 0.90, h * 0.14),
-      w * 0.22,
-      Paint()
-        ..color = Colors.white.withValues(alpha: 0.04)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.0,
-    );
-    canvas.drawCircle(
-      Offset(w * 0.90, h * 0.14),
-      w * 0.34,
-      Paint()
-        ..color = AppTheme.primaryGreen.withValues(alpha: 0.06)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.0,
-    );
-
-    // Franja de ondas estrictamente confinada a [h - 30, h]
-    final double waveBase = (h - 30).clamp(0.0, h);
-    final double waveSpan = h - waveBase;
-    double wy(double fraction) => waveBase + (waveSpan * fraction);
-
-    // Onda trasera en tono esmeralda marca
-    final Path emeraldWave = Path()
-      ..moveTo(0, wy(0.26))
-      ..cubicTo(
-        w * 0.28,
-        wy(0.0),
-        w * 0.64,
-        wy(0.80),
-        w,
-        wy(0.20),
-      )
-      ..lineTo(w, h)
-      ..lineTo(0, h)
-      ..close();
-    canvas.drawPath(
-      emeraldWave,
-      Paint()..color = AppTheme.primaryGreen.withValues(alpha: 0.88),
-    );
-
-    // Onda intermedia cruzada sutil en esmeralda translúcido
-    final Path softEmeraldWave = Path()
-      ..moveTo(0, wy(0.40))
-      ..cubicTo(
-        w * 0.34,
-        wy(0.92),
-        w * 0.68,
-        wy(0.04),
-        w,
-        wy(0.42),
-      )
-      ..lineTo(w, h)
-      ..lineTo(0, h)
-      ..close();
-    canvas.drawPath(
-      softEmeraldWave,
-      Paint()..color = AppTheme.primaryGreen.withValues(alpha: 0.38),
-    );
-
-    // Corte frontal limpio en el color de la superficie inferior para empalme perfecto
-    final Path surfaceWave = Path()
-      ..moveTo(0, wy(0.56))
+    // Una sola onda amplia y pronunciada en el color de la hoja inferior
+    final Path singleWave = Path()
+      ..moveTo(0, h - 44)
       ..cubicTo(
         w * 0.30,
-        wy(0.16),
-        w * 0.66,
-        wy(0.96),
+        h - 96,
+        w * 0.68,
+        h + 26,
         w,
-        wy(0.50),
+        h - 32,
       )
       ..lineTo(w, h + 1)
       ..lineTo(0, h + 1)
       ..close();
+
     canvas.drawPath(
-      surfaceWave,
+      singleWave,
       Paint()..color = bottomSurfaceColor,
     );
   }

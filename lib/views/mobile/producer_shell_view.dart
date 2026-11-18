@@ -30,8 +30,8 @@ class _ProducerShellViewState extends State<ProducerShellView> {
       body: Column(
         children: <Widget>[
           ModernWaveHeader(
-            height: 178 + topInset,
-            padding: EdgeInsets.fromLTRB(20, topInset + 14, 20, 42),
+            height: 196 + topInset,
+            padding: EdgeInsets.fromLTRB(20, topInset + 14, 20, 62),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.spaceBetween,

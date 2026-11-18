@@ -407,96 +407,47 @@ class _LoginViewState extends State<LoginView>
     final MediaQueryData media = MediaQuery.of(context);
     final double topInset = media.padding.top;
     final double headerHeight =
-        (media.size.height * 0.33).clamp(224.0, 268.0) + topInset;
+        (media.size.height * 0.38).clamp(268.0, 324.0) + topInset;
 
     return SingleChildScrollView(
       child: Column(
         children: <Widget>[
           ModernWaveHeader(
             height: headerHeight,
-            padding: EdgeInsets.fromLTRB(24, topInset + 16, 24, 44),
+            padding: EdgeInsets.fromLTRB(24, topInset + 18, 24, 64),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: <Widget>[
-                    const AsoproganucotLogo(
-                      size: 46,
-                      compact: false,
-                      onDark: true,
-                    ),
-                    Flexible(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 11,
-                          vertical: 5,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.12),
-                          borderRadius:
-                              BorderRadius.circular(AppTheme.radiusPill),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.18),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: <Widget>[
-                            Container(
-                              width: 6,
-                              height: 6,
-                              decoration: const BoxDecoration(
-                                color: AppTheme.primaryGreen,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 7),
-                            const Flexible(
-                              child: Text(
-                                'Susa · Cundinamarca',
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
+                const AsoproganucotLogo(
+                  size: 86,
+                  compact: false,
+                  onDark: true,
                 ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    Text(
-                      AppConstants.appName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.3,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Recepción láctea y consulta de productores',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.sourceSerif4(
-                        fontSize: 15.5,
-                        fontStyle: FontStyle.italic,
-                        color: const Color(0xFFA7F3D0),
-                      ),
-                    ),
-                  ],
+                const SizedBox(height: 10),
+                Text(
+                  AppConstants.appName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.4,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Recepción láctea y consulta de productores',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white70,
+                  ),
                 ),
               ],
             ),
@@ -504,7 +455,7 @@ class _LoginViewState extends State<LoginView>
           Container(
             width: double.infinity,
             color: AppTheme.surface,
-            padding: const EdgeInsets.fromLTRB(24, 10, 24, 28),
+            padding: const EdgeInsets.fromLTRB(24, 6, 24, 28),
             child: Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 420),
@@ -524,16 +475,18 @@ class _LoginViewState extends State<LoginView>
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
-        const Text(
-          'ACCESO AL SISTEMA',
-          style: TextStyle(
-            fontSize: 11,
-            letterSpacing: 1.5,
-            fontWeight: FontWeight.w700,
-            color: AppTheme.primaryGreen,
+        if (!isMobile) ...<Widget>[
+          const Text(
+            'ACCESO AL SISTEMA',
+            style: TextStyle(
+              fontSize: 11,
+              letterSpacing: 1.5,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.primaryGreen,
+            ),
           ),
-        ),
-        const SizedBox(height: 6),
+          const SizedBox(height: 6),
+        ],
         Text(
           'Iniciar sesión',
           style: AppTheme.serifStyle(
