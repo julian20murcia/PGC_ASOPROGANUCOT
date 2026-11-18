@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class PrivacyNotice {
-  PrivacyNotice._(this.data);
+  PrivacyNotice._(this.data, this.policyUri);
 
   static const List<String> fields = <String>[
     'version',
@@ -15,6 +15,7 @@ class PrivacyNotice {
   ];
 
   final Map<String, String> data;
+  final Uri policyUri;
 
   factory PrivacyNotice.fromMap(Map<String, dynamic> map) {
     final values = <String, String>{};
@@ -31,7 +32,7 @@ class PrivacyNotice {
         'La política de tratamiento requiere una dirección HTTPS.',
       );
     }
-    return PrivacyNotice._(Map<String, String>.unmodifiable(values));
+    return PrivacyNotice._(Map<String, String>.unmodifiable(values), policy);
   }
 
   static Future<PrivacyNotice> load() async {

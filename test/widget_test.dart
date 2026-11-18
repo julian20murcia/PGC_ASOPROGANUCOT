@@ -317,6 +317,7 @@ void main() {
     expect(tester.widget<PrimaryActionButton>(saveProducer).onPressed, isNull);
     expect(find.textContaining('registrar entregas de leche'), findsOneWidget);
     expect(find.textContaining('configuracion/privacidad'), findsOneWidget);
+    expect(find.text('Ver formato para aprobación (PDF)'), findsOneWidget);
     expect(find.text('Referencia del soporte firmado o electrónico'), findsNothing);
 
     await tester.tap(find.text('Reintentar'));
@@ -339,6 +340,7 @@ void main() {
     }));
     await tester.pump();
     expect(find.text('Versión 1.0 de prueba'), findsOneWidget);
+    expect(find.text('Ver política de tratamiento'), findsOneWidget);
     expect(find.textContaining('privacidad@example.com'), findsOneWidget);
     expect(tester.widget<PrimaryActionButton>(saveProducer).onPressed, isNull);
 

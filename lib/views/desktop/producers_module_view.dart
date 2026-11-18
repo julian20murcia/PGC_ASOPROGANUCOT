@@ -1,5 +1,7 @@
 import 'package:firebase_core/firebase_core.dart' show FirebaseException;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
+import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 
 import '../../controllers/auth_controller.dart';
@@ -973,6 +975,35 @@ class _ProducerFormDialogState extends State<_ProducerFormDialog> {
     return 'No se pudo consultar el aviso institucional. Verifica la conexión y reintenta.';
   }
 
+  Future<void> _showPolicyTemplate() => showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Política y aviso para aprobación'),
+      content: SizedBox(
+        width: 680,
+        height: MediaQuery.sizeOf(context).height * 0.65,
+        child: PdfPreview(
+          build: (_) async {
+            final pdf = await rootBundle.load(
+              'docs/privacidad/politica-y-aviso-asoproganucot.pdf',
+            );
+            return pdf.buffer.asUint8List(pdf.offsetInBytes, pdf.lengthInBytes);
+          },
+          canChangeOrientation: false,
+          canChangePageFormat: false,
+          canDebug: false,
+          pdfFileName: 'politica-y-aviso-asoproganucot.pdf',
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cerrar'),
+        ),
+      ],
+    ),
+  );
+
   Future<void> _submit() async {
     if (!_acceptedHabeasData || (!_isEditing && _notice == null)) return;
     if (!(_formKey.currentState?.validate() ?? false)) return;
@@ -1141,6 +1172,11 @@ class _ProducerFormDialogState extends State<_ProducerFormDialog> {
                                 const LinearProgressIndicator(),
                               ] else ...<Widget>[
                                 Text(_noticeError(snapshot.error)),
+                                TextButton.icon(
+                                  onPressed: _showPolicyTemplate,
+                                  icon: const Icon(Icons.picture_as_pdf_outlined),
+                                  label: const Text('Ver formato para aprobación (PDF)'),
+                                ),
                                 TextButton(
                                   onPressed: _retryNotice,
                                   child: const Text('Reintentar'),
