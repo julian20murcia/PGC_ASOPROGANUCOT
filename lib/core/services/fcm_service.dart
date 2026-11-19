@@ -158,6 +158,9 @@ class FcmService {
         final bool shouldRefresh =
             msg.data['refrescarAvisos'] == 'true' ||
             tipo == 'ENTREGA' ||
+            tipo == 'CORRECCION' ||
+            tipo == 'ANULACION' ||
+            tipo == 'TARIFA' ||
             tipo == 'CIERRE_QUINCENA' ||
             tipo == 'LIQUIDACION' ||
             tipo == 'PAGO';

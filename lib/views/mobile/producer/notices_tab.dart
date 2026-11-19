@@ -17,6 +17,12 @@ import 'mobile_kit.dart';
       return (icon: Icons.payments_rounded, tone: MTone.success, label: 'Pago');
     case 'COMUNICADO':
       return (icon: Icons.campaign_rounded, tone: MTone.info, label: 'Comunicado');
+    case 'CORRECCION':
+      return (icon: Icons.edit_note_rounded, tone: MTone.warning, label: 'Entrega corregida');
+    case 'ANULACION':
+      return (icon: Icons.block_rounded, tone: MTone.warning, label: 'Entrega anulada');
+    case 'TARIFA':
+      return (icon: Icons.sell_rounded, tone: MTone.accent, label: 'Precio de la leche');
     case 'RECTIFICACION':
       return (icon: Icons.manage_accounts_rounded, tone: MTone.warning, label: 'Solicitud de datos');
     default:

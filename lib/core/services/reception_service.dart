@@ -96,6 +96,35 @@ class FirestoreReceptionDataSource implements RemoteReceptionDataSource {
     'La bitácora de entregas se guarda en la misma transacción.',
   );
 
+  /// Aviso para el productor cuando se corrige o anula una de sus entregas.
+  static Map<String, dynamic> correctionNotice({
+    required String logId,
+    required Map<String, dynamic> before,
+    required Map<String, dynamic> changes,
+    String? motivo,
+  }) {
+    final bool annulled = changes['anulado'] == true;
+    final String fecha = (before['fechaEntrega'] ?? '').toString();
+    final String jornada =
+        (before['jornada'] ?? '').toString().toUpperCase() == AppConstants.shiftAfternoon ? 'tarde' : 'mañana';
+    final num oldL = (before['litros'] as num?) ?? 0;
+    final num newL = (changes['litros'] as num?) ?? oldL;
+    String l(num v) => v.toStringAsFixed(1).replaceAll('.', ',');
+    final String reason = (motivo ?? '').trim();
+    final String tail = reason.isEmpty ? '' : ' Motivo: $reason.';
+    return <String, dynamic>{
+      'notificacionId': 'notif_correccion_$logId',
+      'titulo': annulled ? 'Entrega anulada' : 'Entrega corregida',
+      'mensaje': annulled
+          ? 'Se anuló tu entrega del $fecha ($jornada) de ${l(oldL)} L.$tail'
+          : 'Se corrigió tu entrega del $fecha ($jornada): ${l(oldL)} L → ${l(newL)} L.$tail',
+      'tipo': annulled ? 'ANULACION' : 'CORRECCION',
+      'destinoProductorId': (before['productorId'] ?? '').toString(),
+      'fechaEnvio': DateTime.now().toUtc().toIso8601String(),
+      'leida': false,
+    };
+  }
+
   Future<MilkReceptionModel> correctReception(
     MilkReceptionModel expected,
     Map<String, dynamic> changes,
@@ -119,6 +148,17 @@ class FirestoreReceptionDataSource implements RemoteReceptionDataSource {
         before: before,
         after: <String, dynamic>{...before, ...changes},
         event: event,
+      );
+      // Aviso (y push) al productor: su entrega fue corregida o anulada.
+      final Map<String, dynamic> notice = correctionNotice(
+        logId: event.logId,
+        before: before,
+        changes: changes,
+        motivo: event.motivo,
+      );
+      transaction.set(
+        _db.collection(AppConstants.notificationsCollection).doc(notice['notificacionId'] as String),
+        notice,
       );
       return MilkReceptionModel.fromMap(<String, dynamic>{
         ...before,

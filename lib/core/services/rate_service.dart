@@ -55,6 +55,24 @@ class FirestoreRateDataSource implements RemoteRateDataSource {
     await batch.commit();
   }
 
+  /// Aviso general (y push a todos los productores) por cambio de precio.
+  Future<void> publishRateNotice({required MilkRateModel rate, MilkRateModel? previous}) async {
+    String money(double v) => AppFormatters.formatCurrency(v);
+    final String since = AppFormatters.formatDate(rate.fechaInicioVigencia);
+    final String id = 'notif_tarifa_${rate.tarifaId}';
+    await _db.collection(AppConstants.notificationsCollection).doc(id).set(<String, dynamic>{
+      'notificacionId': id,
+      'titulo': 'Nuevo precio de la leche',
+      'mensaje': previous == null
+          ? 'Desde el $since el precio por litro es ${money(rate.precioPorLitro)}.'
+          : 'Desde el $since el precio por litro pasa de ${money(previous.precioPorLitro)} a ${money(rate.precioPorLitro)}.',
+      'tipo': 'TARIFA',
+      'destinoProductorId': null,
+      'fechaEnvio': DateTime.now().toUtc().toIso8601String(),
+      'leida': false,
+    });
+  }
+
   @override
   Future<void> appendAuditLog(AuditLogModel log) async {
     try {
@@ -196,6 +214,15 @@ class RateService {
 
     for (final MilkRateModel rate in toSave) {
       await _hiveService.upsertMilkRate(rate);
+    }
+
+    final RemoteRateDataSource remote = _remoteDataSource;
+    if (remote is FirestoreRateDataSource) {
+      try {
+        await remote.publishRateNotice(rate: created, previous: previousActive);
+      } catch (_) {
+        // La tarifa ya quedó guardada; el aviso no debe revertirla.
+      }
     }
 
     await _remoteDataSource.appendAuditLog(

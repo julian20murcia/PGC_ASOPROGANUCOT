@@ -19,7 +19,13 @@ const SUPPORTED_PUSH_TYPES = new Set([
   'LIQUIDACION',
   'PAGO',
   'COMUNICADO',
+  'CORRECCION',
+  'ANULACION',
+  'TARIFA',
 ]);
+
+// Avisos que se envían a TODOS los productores (tópico) cuando no tienen destino.
+const BROADCAST_TYPES = new Set(['COMUNICADO', 'TARIFA']);
 
 /**
  * Envía alertas push automáticas mediante FCM HTTP v1 ante los eventos:
@@ -72,7 +78,7 @@ exports.onNotificationCreated = onDocumentCreated(
 
     // Comunicado general masivo a todos los productores suscritos.
     if (!destinoProductorId) {
-      if (tipo !== 'COMUNICADO') return null;
+      if (!BROADCAST_TYPES.has(tipo)) return null;
       return messaging.send({
         topic: 'asoproganucott_comunicados',
         notification: notificationBlock,

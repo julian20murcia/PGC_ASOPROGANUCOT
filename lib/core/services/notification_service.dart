@@ -65,7 +65,7 @@ class FirestoreNotificationDataSource
     // respetando reglas estrictas de aislamiento en `firestore.rules`.
     final List<Future<QuerySnapshot<Map<String, dynamic>>>> queries =
         <Future<QuerySnapshot<Map<String, dynamic>>>>[
-      col.where('destinoProductorId', isNull: true).where('tipo', isEqualTo: 'COMUNICADO').get(),
+      col.where('destinoProductorId', isNull: true).where('tipo', whereIn: <String>['COMUNICADO', 'TARIFA']).get(),
       if (productorId != null && productorId.trim().isNotEmpty)
         col.where('destinoProductorId', isEqualTo: productorId.trim()).get(),
       if (userUid != null &&

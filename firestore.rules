@@ -221,7 +221,7 @@ service cloud.firestore {
       }
 
       allow read: if isStaff() || belongsToProducer() ||
-        (isProducer() && resource.data.destinoProductorId == null && resource.data.tipo == 'COMUNICADO');
+        (isProducer() && resource.data.destinoProductorId == null && resource.data.tipo in ['COMUNICADO', 'TARIFA']);
       allow create: if (isStaff() && (request.resource.data.tipo != 'COMUNICADO' ||
           can('comunicados', 'crear'))) || (
         request.resource.data.tipo == 'RECTIFICACION' && request.resource.data.leida == false &&
