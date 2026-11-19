@@ -14,6 +14,7 @@ import '../../models/settlement_model.dart';
 import '../shared/widgets/app_select.dart';
 import '../shared/widgets/dairy_loader.dart';
 import '../shared/widgets/design_system_widgets.dart';
+import '../shared/widgets/ui_kit.dart';
 
 /// Módulo administrativo de Reportes Individuales por Ganadero, Exportación PDF/CSV
 /// y consulta en solo lectura de la bitácora de auditoría (`RF-17`, `RF-18`, `RNF-07`).
@@ -100,16 +101,19 @@ class _ReportsModuleViewState extends State<ReportsModuleView> {
       late final String csvContent;
       late final String fileName;
       if (kind == 'entregas') {
-        csvContent =
-            ReportExportService.buildReceptionsCsv(ctrl.filteredReceptions);
+        csvContent = ReportExportService.buildReceptionsCsv(
+          ctrl.filteredReceptions,
+        );
         fileName = 'Entregas_${period.startDate}_${period.endDate}.csv';
       } else if (kind == 'liquidaciones') {
-        csvContent =
-            ReportExportService.buildSettlementsCsv(ctrl.filteredSettlements);
+        csvContent = ReportExportService.buildSettlementsCsv(
+          ctrl.filteredSettlements,
+        );
         fileName = 'Liquidaciones_${period.startDate}_${period.endDate}.csv';
       } else {
-        csvContent =
-            ReportExportService.buildProducerSummaryCsv(ctrl.producerSummaries);
+        csvContent = ReportExportService.buildProducerSummaryCsv(
+          ctrl.producerSummaries,
+        );
         fileName =
             'Produccion_Productores_${period.startDate}_${period.endDate}.csv';
       }
@@ -220,11 +224,7 @@ class _ReportsModuleViewState extends State<ReportsModuleView> {
     if (isNarrow) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          titleBlock,
-          const SizedBox(height: 12),
-          actions,
-        ],
+        children: <Widget>[titleBlock, const SizedBox(height: 12), actions],
       );
     }
 
@@ -238,29 +238,33 @@ class _ReportsModuleViewState extends State<ReportsModuleView> {
   }
 
   Widget _buildTabSelector(bool isNarrow) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: <Widget>[
-        _TabChip(
-          label: 'Producción por ganadero',
-          icon: Icons.agriculture_outlined,
-          selected: _tabIndex == 0,
-          onTap: () => setState(() => _tabIndex = 0),
+    const List<({IconData icon, String label})> tabs =
+        <({IconData icon, String label})>[
+          (icon: Icons.agriculture_outlined, label: 'Producción por ganadero'),
+          (
+            icon: Icons.receipt_long_outlined,
+            label: 'Consolidado de liquidaciones',
+          ),
+          (icon: Icons.shield_outlined, label: 'Bitácora de auditoría'),
+        ];
+    return Container(
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: AppTheme.border)),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: <Widget>[
+            for (int i = 0; i < tabs.length; i++)
+              _ReportTab(
+                icon: tabs[i].icon,
+                label: tabs[i].label,
+                selected: _tabIndex == i,
+                onTap: () => setState(() => _tabIndex = i),
+              ),
+          ],
         ),
-        _TabChip(
-          label: 'Consolidado de liquidaciones',
-          icon: Icons.receipt_long_outlined,
-          selected: _tabIndex == 1,
-          onTap: () => setState(() => _tabIndex = 1),
-        ),
-        _TabChip(
-          label: 'Bitácora de auditoría',
-          icon: Icons.shield_outlined,
-          selected: _tabIndex == 2,
-          onTap: () => setState(() => _tabIndex = 2),
-        ),
-      ],
+      ),
     );
   }
 
@@ -289,32 +293,44 @@ class _ReportsModuleViewState extends State<ReportsModuleView> {
       onChanged: ctrl.setSelectedProducer,
     );
 
+    final bool custom = ctrl.rangeType == ReportRangeType.custom;
     final Widget periodChips = Wrap(
-      spacing: 6,
-      runSpacing: 6,
+      spacing: 8,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: <Widget>[
-        _FilterChip(
-          label: 'Diario (hoy)',
-          selected: ctrl.rangeType == ReportRangeType.daily,
-          onTap: () => ctrl.setRangeType(ReportRangeType.daily),
-        ),
-        _FilterChip(
-          label: 'Quincenal',
-          selected: ctrl.rangeType == ReportRangeType.quincenal,
-          onTap: () => ctrl.setRangeType(ReportRangeType.quincenal),
-        ),
-        _FilterChip(
-          label: 'Mensual',
-          selected: ctrl.rangeType == ReportRangeType.monthly,
-          onTap: () => ctrl.setRangeType(ReportRangeType.monthly),
+        AppSegmentedControl<ReportRangeType>(
+          height: 38,
+          selected: ctrl.rangeType,
+          onChanged: ctrl.setRangeType,
+          segments: const <AppSegment<ReportRangeType>>[
+            AppSegment<ReportRangeType>(
+              value: ReportRangeType.daily,
+              label: 'Diario (hoy)',
+              icon: Icons.today_rounded,
+            ),
+            AppSegment<ReportRangeType>(
+              value: ReportRangeType.quincenal,
+              label: 'Quincenal',
+            ),
+            AppSegment<ReportRangeType>(
+              value: ReportRangeType.monthly,
+              label: 'Mensual',
+            ),
+          ],
         ),
         OutlinedButton.icon(
           onPressed: () => _pickCustomRange(ctrl),
+          style: custom
+              ? OutlinedButton.styleFrom(
+                  backgroundColor: AppTheme.inkBlack,
+                  foregroundColor: Colors.white,
+                  side: const BorderSide(color: AppTheme.inkBlack),
+                )
+              : null,
           icon: const Icon(Icons.date_range_outlined, size: 16),
           label: Text(
-            ctrl.rangeType == ReportRangeType.custom
-                ? ctrl.selectedPeriod.label
-                : 'Rango personalizado',
+            custom ? ctrl.selectedPeriod.label : 'Rango personalizado',
           ),
         ),
       ],
@@ -324,8 +340,15 @@ class _ReportsModuleViewState extends State<ReportsModuleView> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+        borderRadius: BorderRadius.circular(AppTheme.radiusCard + 2),
         border: Border.all(color: AppTheme.border),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0x0A0C3B24),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -342,14 +365,40 @@ class _ReportsModuleViewState extends State<ReportsModuleView> {
                 Expanded(flex: 2, child: producerDropdown),
               ],
             ),
-          const SizedBox(height: 10),
-          Text(
-            'Período activo: ${ctrl.selectedPeriod.label} (${AppFormatters.formatIsoDate(ctrl.selectedPeriod.startDate)} al ${AppFormatters.formatIsoDate(ctrl.selectedPeriod.endDate)})',
-            style: const TextStyle(
-              fontSize: 12.5,
-              color: AppTheme.textSecondary,
-              fontWeight: FontWeight.w500,
-            ),
+          const SizedBox(height: 12),
+          Row(
+            children: <Widget>[
+              const Icon(
+                Icons.event_note_outlined,
+                size: 15,
+                color: AppTheme.primaryGreen,
+              ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text.rich(
+                  TextSpan(
+                    children: <InlineSpan>[
+                      const TextSpan(text: 'Período activo: '),
+                      TextSpan(
+                        text: ctrl.selectedPeriod.label,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                      TextSpan(
+                        text:
+                            '  ·  ${AppFormatters.formatIsoDate(ctrl.selectedPeriod.startDate)} → ${AppFormatters.formatIsoDate(ctrl.selectedPeriod.endDate)}',
+                      ),
+                    ],
+                  ),
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -361,21 +410,21 @@ class _ReportsModuleViewState extends State<ReportsModuleView> {
     final List<MilkReceptionModel> detailReceptions = ctrl.filteredReceptions;
 
     final List<Widget> kpis = <Widget>[
-      AppKpiCard(
+      AppMetricTile(
         title: 'Total litros del rango',
         value: AppFormatters.formatLiters(ctrl.totalRangeLiters),
         subtitle: '${ctrl.totalRangeDeliveries} entrega(s) válidas',
         icon: Icons.water_drop_outlined,
         accentColor: AppTheme.primaryGreen,
       ),
-      AppKpiCard(
+      AppMetricTile(
         title: 'Promedio diario',
         value: AppFormatters.formatLiters(ctrl.averageDailyPerProducer),
         subtitle: 'Media por productor y día entregado',
         icon: Icons.analytics_outlined,
         accentColor: AppTheme.skyBlue,
       ),
-      AppKpiCard(
+      AppMetricTile(
         title: 'Productores incluidos',
         value: '${summaries.length}',
         subtitle: ctrl.selectedProducerId == null
@@ -384,7 +433,7 @@ class _ReportsModuleViewState extends State<ReportsModuleView> {
         icon: Icons.people_outline,
         accentColor: AppTheme.warmGold,
       ),
-      AppKpiCard(
+      AppMetricTile(
         title: 'Valor total liquidado / est.',
         value: AppFormatters.formatCurrency(ctrl.totalRangeValue),
         subtitle: ctrl.effectivePricePerLiter > 0
@@ -402,14 +451,23 @@ class _ReportsModuleViewState extends State<ReportsModuleView> {
         const SizedBox(height: 14),
         if (isNarrow)
           Column(
-            children: kpis
-                .map(
-                  (Widget c) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: c,
-                  ),
-                )
-                .toList(),
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  Expanded(child: kpis[0]),
+                  const SizedBox(width: 10),
+                  Expanded(child: kpis[1]),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: <Widget>[
+                  Expanded(child: kpis[2]),
+                  const SizedBox(width: 10),
+                  Expanded(child: kpis[3]),
+                ],
+              ),
+            ],
           )
         else
           Row(
@@ -421,11 +479,10 @@ class _ReportsModuleViewState extends State<ReportsModuleView> {
             ],
           ),
         const SizedBox(height: 14),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          alignment: WrapAlignment.end,
-          children: <Widget>[
+        _ExportBar(
+          title: 'Producción por productor',
+          count: summaries.length,
+          actions: <Widget>[
             OutlinedButton.icon(
               onPressed: ctrl.isExporting
                   ? null
@@ -461,44 +518,66 @@ class _ReportsModuleViewState extends State<ReportsModuleView> {
             ],
             rows: summaries.map((ProducerProductionSummary s) {
               return <Widget>[
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
+                Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: <Widget>[
-                    Text(
-                      s.nombreProductor,
-                      style: const TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    _InitialsAvatar(name: s.nombreProductor),
+                    const SizedBox(width: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: <Widget>[
+                        Text(
+                          s.nombreProductor,
+                          style: const TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          '${s.codigoAsociado} · C.C. ${s.cedula}',
+                          style: AppTheme.monoStyle(
+                            fontSize: 11.5,
+                            color: AppTheme.textMuted,
+                          ),
+                        ),
+                      ],
                     ),
+                  ],
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    const Icon(
+                      Icons.place_outlined,
+                      size: 13,
+                      color: AppTheme.textMuted,
+                    ),
+                    const SizedBox(width: 4),
                     Text(
-                      '${s.codigoAsociado} · C.C. ${s.cedula}',
+                      s.vereda,
                       style: const TextStyle(
-                        fontSize: 12,
+                        fontSize: 12.5,
                         color: AppTheme.textSecondary,
                       ),
                     ),
                   ],
                 ),
-                Text(
-                  s.vereda,
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    color: AppTheme.textSecondary,
+                Tooltip(
+                  message: '${s.activeDaysCount} día(s) con entrega',
+                  child: AppCountPill(
+                    text: '${s.deliveryCount} · ${s.activeDaysCount}d',
                   ),
                 ),
-                Text(
-                  '${s.deliveryCount} (${s.activeDaysCount}d)',
-                  style: AppTheme.monoStyle(fontSize: 12.5),
+                _ShiftLiters(
+                  liters: s.morningLiters,
+                  icon: Icons.wb_sunny_outlined,
+                  color: AppTheme.warningText,
                 ),
-                Text(
-                  AppFormatters.formatLiters(s.morningLiters),
-                  style: AppTheme.monoStyle(fontSize: 12.5),
-                ),
-                Text(
-                  AppFormatters.formatLiters(s.afternoonLiters),
-                  style: AppTheme.monoStyle(fontSize: 12.5),
+                _ShiftLiters(
+                  liters: s.afternoonLiters,
+                  icon: Icons.wb_twilight_rounded,
+                  color: AppTheme.indigoAccent,
                 ),
                 Text(
                   AppFormatters.formatLiters(s.totalLiters),
@@ -528,9 +607,23 @@ class _ReportsModuleViewState extends State<ReportsModuleView> {
         if (ctrl.selectedProducerId != null &&
             detailReceptions.isNotEmpty) ...<Widget>[
           const SizedBox(height: 20),
-          Text(
-            'Detalle diario del ganadero seleccionado (${detailReceptions.length} entrega(s))',
-            style: AppTheme.serifStyle(fontSize: 17),
+          Row(
+            children: <Widget>[
+              const Icon(
+                Icons.calendar_view_day_outlined,
+                size: 18,
+                color: AppTheme.textSecondary,
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  'Detalle diario del ganadero seleccionado',
+                  style: AppTheme.subtitleStyle(),
+                ),
+              ),
+              const SizedBox(width: 10),
+              AppCountPill(text: '${detailReceptions.length}'),
+            ],
           ),
           const SizedBox(height: 10),
           CleanDataTable(
@@ -549,13 +642,7 @@ class _ReportsModuleViewState extends State<ReportsModuleView> {
                   style: AppTheme.monoStyle(fontSize: 12.5),
                 ),
                 Text(r.horaEntrega, style: AppTheme.monoStyle(fontSize: 12.5)),
-                Text(
-                  isMorning ? 'Mañana' : 'Tarde',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                _ShiftBadge(isMorning: isMorning),
                 Text(
                   AppFormatters.formatLiters(r.litros),
                   style: AppTheme.monoStyle(
@@ -564,9 +651,9 @@ class _ReportsModuleViewState extends State<ReportsModuleView> {
                     color: AppTheme.primaryGreen,
                   ),
                 ),
-                SyncStatusBadge(
-                  isSynced: r.isLiquidada,
-                  syncedLabel: 'Liquidada',
+                _StateBadge(
+                  ok: r.isLiquidada,
+                  okLabel: 'Liquidada',
                   pendingLabel: 'Por liquidar',
                 ),
               ];
@@ -585,15 +672,18 @@ class _ReportsModuleViewState extends State<ReportsModuleView> {
       children: <Widget>[
         _buildFilterPanel(ctrl, isNarrow),
         const SizedBox(height: 12),
-        Align(
-          alignment: Alignment.centerRight,
-          child: OutlinedButton.icon(
-            onPressed: ctrl.isExporting
-                ? null
-                : () => _exportCsv(ctrl, kind: 'liquidaciones'),
-            icon: const Icon(Icons.table_view_outlined, size: 17),
-            label: const Text('Exportar CSV Liquidaciones'),
-          ),
+        _ExportBar(
+          title: 'Comprobantes del período',
+          count: items.length,
+          actions: <Widget>[
+            OutlinedButton.icon(
+              onPressed: ctrl.isExporting
+                  ? null
+                  : () => _exportCsv(ctrl, kind: 'liquidaciones'),
+              icon: const Icon(Icons.table_view_outlined, size: 17),
+              label: const Text('Exportar CSV Liquidaciones'),
+            ),
+          ],
         ),
         const SizedBox(height: 12),
         if (items.isEmpty)
@@ -653,9 +743,9 @@ class _ReportsModuleViewState extends State<ReportsModuleView> {
                     color: AppTheme.primaryGreen,
                   ),
                 ),
-                SyncStatusBadge(
-                  isSynced: s.isPagada,
-                  syncedLabel: 'Pagada',
+                _StateBadge(
+                  ok: s.isPagada,
+                  okLabel: 'Pagada',
                   pendingLabel: 'Pendiente',
                 ),
               ];
@@ -671,29 +761,12 @@ class _ReportsModuleViewState extends State<ReportsModuleView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-          decoration: BoxDecoration(
-            color: AppTheme.surfaceMuted,
-            borderRadius: BorderRadius.circular(AppTheme.radiusCard),
-            border: Border.all(color: AppTheme.border),
-          ),
-          child: const Row(
-            children: <Widget>[
-              Icon(
-                Icons.verified_user_outlined,
-                size: 18,
-                color: AppTheme.primaryGreen,
-              ),
-              SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Bitácora inmutable de solo lectura: conserva el historial completo de altas, correcciones, cierres quincenales y pagos.',
-                  style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
-                ),
-              ),
-            ],
-          ),
+        const AppInlineNotice(
+          icon: Icons.verified_user_outlined,
+          background: AppTheme.primaryGreenLight,
+          foreground: AppTheme.successText,
+          message:
+              'Bitácora inmutable de solo lectura: conserva el historial completo de altas, correcciones, cierres quincenales y pagos.',
         ),
         const SizedBox(height: 14),
         if (isNarrow)
@@ -710,7 +783,7 @@ class _ReportsModuleViewState extends State<ReportsModuleView> {
             children: <Widget>[
               Expanded(child: _buildAuditSearchField(ctrl)),
               const SizedBox(width: 12),
-              _buildAuditEntityChips(ctrl),
+              Flexible(child: _buildAuditEntityChips(ctrl)),
             ],
           ),
         const SizedBox(height: 14),
@@ -731,26 +804,44 @@ class _ReportsModuleViewState extends State<ReportsModuleView> {
                   AppFormatters.formatDateTime(log.timestamp),
                   style: AppTheme.monoStyle(fontSize: 12),
                 ),
-                Text(
-                  _friendlyEntityName(log.entidadAfectada),
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Icon(
+                      _entityIcon(log.entidadAfectada),
+                      size: 15,
+                      color: AppTheme.textSecondary,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      _friendlyEntityName(log.entidadAfectada),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
-                HeaderPropertyChip(
-                  label: log.accion,
-                  value: '',
-                  dotColor: log.accion == 'ANULAR'
-                      ? AppTheme.danger
-                      : AppTheme.primaryGreen,
-                ),
+                _AuditActionBadge(action: log.accion),
                 ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 160),
-                  child: TextButton(
-                    onPressed: () => _showRecordHistory(ctrl, log.registroId),
-                    child: Text(log.registroId, overflow: TextOverflow.ellipsis,
-                        style: AppTheme.monoStyle(fontSize: 11.5)),
+                  constraints: const BoxConstraints(maxWidth: 170),
+                  child: Tooltip(
+                    message: 'Ver historial del registro',
+                    child: TextButton.icon(
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppTheme.skyBlue,
+                      ),
+                      onPressed: () => _showRecordHistory(ctrl, log.registroId),
+                      icon: const Icon(Icons.history_rounded, size: 14),
+                      label: Text(
+                        log.registroId,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTheme.monoStyle(
+                          fontSize: 11.5,
+                          color: AppTheme.skyBlue,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
                 ConstrainedBox(
@@ -781,9 +872,11 @@ class _ReportsModuleViewState extends State<ReportsModuleView> {
         prefixIcon: const Icon(Icons.search_rounded, size: 18),
         suffixIcon: IconButton(
           tooltip: 'Consultar historial por ID exacto',
-          onPressed: _auditSearchCtrl.text.trim().isEmpty ? null : () {
-            _showRecordHistory(ctrl, _auditSearchCtrl.text.trim());
-          },
+          onPressed: _auditSearchCtrl.text.trim().isEmpty
+              ? null
+              : () {
+                  _showRecordHistory(ctrl, _auditSearchCtrl.text.trim());
+                },
           icon: const Icon(Icons.history_rounded, size: 19),
         ),
       ),
@@ -794,72 +887,206 @@ class _ReportsModuleViewState extends State<ReportsModuleView> {
     final history = ctrl.loadRecordHistory(id);
     return showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Historial del registro'),
-        content: SizedBox(
-          width: 620,
-          child: FutureBuilder<List<AuditLogModel>>(
-            future: history,
-            builder: (context, snapshot) {
-              if (snapshot.hasError) return const Text('No se pudo consultar la bitácora.');
-              final logs = snapshot.data;
-              if (logs == null) return const LinearProgressIndicator();
-              if (logs.isEmpty) return const Text('El ID indicado no tiene eventos registrados.');
-              return SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SelectableText(id),
-                    for (final log in logs)
-                      ExpansionTile(
-                        title: Text('${log.accion} · ${AppFormatters.formatDateTime(log.timestamp)}'),
-                        subtitle: SelectableText('Usuario ${log.usuarioUid}${log.motivo == null ? '' : '\n${log.motivo}'}'),
-                        expandedCrossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (log.valorAnterior != null)
-                            SelectableText('Versión anterior\n${_formatAuditVersion(log.valorAnterior!)}'),
-                          if (log.valorNuevo != null)
-                            SelectableText('Versión registrada\n${_formatAuditVersion(log.valorNuevo!)}'),
-                        ],
-                      ),
-                  ],
+      builder: (context) => Dialog(
+        insetPadding: const EdgeInsets.all(20),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: 660,
+            maxHeight: MediaQuery.of(context).size.height * 0.85,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(22),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                AppDialogHeader(
+                  icon: Icons.manage_history_rounded,
+                  color: AppTheme.skyBlue,
+                  title: 'Historial del registro',
+                  subtitle: 'Eventos de auditoría asociados al identificador.',
+                  onClose: () => Navigator.pop(context),
                 ),
-              );
-            },
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppTheme.canvasAlt,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusControl),
+                    border: Border.all(color: AppTheme.border),
+                  ),
+                  child: Row(
+                    children: <Widget>[
+                      const Icon(
+                        Icons.fingerprint_rounded,
+                        size: 16,
+                        color: AppTheme.textMuted,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: SelectableText(
+                          id,
+                          style: AppTheme.monoStyle(fontSize: 12.5),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Flexible(
+                  child: FutureBuilder<List<AuditLogModel>>(
+                    future: history,
+                    builder: (context, snapshot) {
+                      if (snapshot.hasError) {
+                        return const AppInlineNotice.danger(
+                          message: 'No se pudo consultar la bitácora.',
+                        );
+                      }
+                      final logs = snapshot.data;
+                      if (logs == null) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 18),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.all(Radius.circular(4)),
+                            child: LinearProgressIndicator(minHeight: 4),
+                          ),
+                        );
+                      }
+                      if (logs.isEmpty) {
+                        return const AppInlineNotice(
+                          icon: Icons.search_off_rounded,
+                          message:
+                              'El ID indicado no tiene eventos registrados.',
+                        );
+                      }
+                      return SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: <Widget>[
+                            for (final log in logs)
+                              Container(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.surface,
+                                  borderRadius: BorderRadius.circular(
+                                    AppTheme.radiusCard,
+                                  ),
+                                  border: Border.all(color: AppTheme.border),
+                                ),
+                                clipBehavior: Clip.antiAlias,
+                                child: Material(
+                                  type: MaterialType.transparency,
+                                  child: ExpansionTile(
+                                    shape: const Border(),
+                                    collapsedShape: const Border(),
+                                    leading: _AuditActionBadge(
+                                      action: log.accion,
+                                    ),
+                                    title: Text(
+                                      AppFormatters.formatDateTime(
+                                        log.timestamp,
+                                      ),
+                                      style: AppTheme.monoStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    subtitle: SelectableText(
+                                      'Usuario ${log.usuarioUid}${log.motivo == null ? '' : '\n${log.motivo}'}',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: AppTheme.textSecondary,
+                                      ),
+                                    ),
+                                    expandedCrossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    childrenPadding: const EdgeInsets.fromLTRB(
+                                      14,
+                                      0,
+                                      14,
+                                      12,
+                                    ),
+                                    children: <Widget>[
+                                      if (log.valorAnterior != null)
+                                        _VersionBox(
+                                          title: 'Versión anterior',
+                                          color: AppTheme.danger,
+                                          body: _formatAuditVersion(
+                                            log.valorAnterior!,
+                                          ),
+                                        ),
+                                      if (log.valorNuevo != null)
+                                        _VersionBox(
+                                          title: 'Versión registrada',
+                                          color: AppTheme.primaryGreen,
+                                          body: _formatAuditVersion(
+                                            log.valorNuevo!,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar'))],
       ),
     );
   }
 
-  String _formatAuditVersion(Map<String, dynamic> version) =>
-      version.entries.map((entry) => '${entry.key} · ${entry.value}').join('\n');
+  String _formatAuditVersion(Map<String, dynamic> version) => version.entries
+      .map((entry) => '${entry.key} · ${entry.value}')
+      .join('\n');
 
   Widget _buildAuditEntityChips(ReportController ctrl) {
     final List<({String value, String label})> filters =
         <({String value, String label})>[
-      (value: 'TODOS', label: 'Todos'),
-      (value: AppConstants.receptionsCollection, label: 'Recepciones'),
-      (value: AppConstants.settlementsCollection, label: 'Liquidaciones'),
-      (value: AppConstants.ratesCollection, label: 'Tarifas'),
-      (value: AppConstants.producersCollection, label: 'Productores'),
-      (value: AppConstants.usersCollection, label: 'Usuarios'),
-    ];
+          (value: 'TODOS', label: 'Todos'),
+          (value: AppConstants.receptionsCollection, label: 'Recepciones'),
+          (value: AppConstants.settlementsCollection, label: 'Liquidaciones'),
+          (value: AppConstants.ratesCollection, label: 'Tarifas'),
+          (value: AppConstants.producersCollection, label: 'Productores'),
+          (value: AppConstants.usersCollection, label: 'Usuarios'),
+        ];
 
-    return Wrap(
-      spacing: 6,
-      runSpacing: 6,
-      children: filters
-          .map(
-            (f) => _FilterChip(
-              label: f.label,
-              selected: ctrl.auditEntityFilter == f.value,
-              onTap: () => ctrl.setAuditEntityFilter(f.value),
-            ),
-          )
-          .toList(),
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: AppSegmentedControl<String>(
+        height: 40,
+        selected: ctrl.auditEntityFilter,
+        onChanged: ctrl.setAuditEntityFilter,
+        segments: filters
+            .map((f) => AppSegment<String>(value: f.value, label: f.label))
+            .toList(),
+      ),
     );
+  }
+
+  IconData _entityIcon(String raw) {
+    switch (raw) {
+      case AppConstants.receptionsCollection:
+        return Icons.water_drop_outlined;
+      case AppConstants.settlementsCollection:
+        return Icons.receipt_long_outlined;
+      case AppConstants.ratesCollection:
+        return Icons.payments_outlined;
+      case AppConstants.producersCollection:
+        return Icons.agriculture_outlined;
+      case AppConstants.usersCollection:
+        return Icons.people_outline_rounded;
+      default:
+        return Icons.description_outlined;
+    }
   }
 
   String _friendlyEntityName(String raw) {
@@ -897,98 +1124,388 @@ class _ReportsModuleViewState extends State<ReportsModuleView> {
         borderRadius: BorderRadius.circular(AppTheme.radiusCard),
         border: Border.all(color: AppTheme.border),
       ),
-      child: Center(
-        child: Text(
-          message,
-          style: const TextStyle(fontSize: 13.5, color: AppTheme.textSecondary),
-          textAlign: TextAlign.center,
-        ),
+      child: Column(
+        children: <Widget>[
+          const AppIconBadge(
+            icon: Icons.insert_chart_outlined_rounded,
+            color: AppTheme.skyBlue,
+            size: 48,
+          ),
+          const SizedBox(height: 10),
+          Text(
+            message,
+            style: const TextStyle(
+              fontSize: 13.5,
+              color: AppTheme.textSecondary,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }
 }
 
-class _TabChip extends StatelessWidget {
-  const _TabChip({
-    required this.label,
+class _ReportTab extends StatefulWidget {
+  const _ReportTab({
     required this.icon,
+    required this.label,
     required this.selected,
     required this.onTap,
   });
 
-  final String label;
   final IconData icon;
+  final String label;
   final bool selected;
   final VoidCallback onTap;
 
   @override
+  State<_ReportTab> createState() => _ReportTabState();
+}
+
+class _ReportTabState extends State<_ReportTab> {
+  bool _hover = false;
+
+  @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppTheme.radiusControl),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-        decoration: BoxDecoration(
-          color: selected ? AppTheme.inkBlack : AppTheme.surface,
-          borderRadius: BorderRadius.circular(AppTheme.radiusControl),
-          border: Border.all(
-            color: selected ? AppTheme.inkBlack : AppTheme.border,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Icon(
-              icon,
-              size: 16,
-              color: selected ? Colors.white : AppTheme.textSecondary,
-            ),
-            const SizedBox(width: 7),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: selected ? Colors.white : AppTheme.textPrimary,
+    final bool sel = widget.selected;
+    final Color fg = sel
+        ? AppTheme.inkBlack
+        : (_hover ? AppTheme.textPrimary : AppTheme.textSecondary);
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+          margin: const EdgeInsets.only(right: 4),
+          decoration: BoxDecoration(
+            color: _hover && !sel ? AppTheme.surfaceMuted : Colors.transparent,
+            border: Border(
+              bottom: BorderSide(
+                color: sel ? AppTheme.primaryGreen : Colors.transparent,
+                width: 2.5,
               ),
             ),
-          ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(
+                widget.icon,
+                size: 17,
+                color: sel ? AppTheme.primaryGreen : fg,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                widget.label,
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: sel ? FontWeight.w700 : FontWeight.w600,
+                  color: fg,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
+/// Cabecera de sección con contador y acciones de exportación.
+class _ExportBar extends StatelessWidget {
+  const _ExportBar({
+    required this.title,
+    required this.count,
+    required this.actions,
   });
 
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
+  final String title;
+  final int count;
+  final List<Widget> actions;
 
   @override
   Widget build(BuildContext context) {
-    return ChoiceChip(
-      label: Text(
-        label,
-        style: TextStyle(
-          fontSize: 12.5,
-          fontWeight: FontWeight.w600,
-          color: selected ? Colors.white : AppTheme.textSecondary,
+    return Wrap(
+      alignment: WrapAlignment.spaceBetween,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 12,
+      runSpacing: 8,
+      children: <Widget>[
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            const Icon(
+              Icons.table_chart_outlined,
+              size: 18,
+              color: AppTheme.textSecondary,
+            ),
+            const SizedBox(width: 8),
+            Text(title, style: AppTheme.subtitleStyle()),
+            const SizedBox(width: 10),
+            AppCountPill(text: '$count'),
+          ],
+        ),
+        Wrap(spacing: 8, runSpacing: 8, children: actions),
+      ],
+    );
+  }
+}
+
+class _InitialsAvatar extends StatelessWidget {
+  const _InitialsAvatar({required this.name});
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    final List<String> parts = name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((String p) => p.isNotEmpty)
+        .toList();
+    final String initials = parts.isEmpty
+        ? '?'
+        : parts.length == 1
+        ? parts.first[0].toUpperCase()
+        : '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    return Container(
+      width: 30,
+      height: 30,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: AppTheme.primaryGreenLight,
+        shape: BoxShape.circle,
+        border: Border.all(color: AppTheme.primaryGreen.withValues(alpha: 0.3)),
+      ),
+      child: Text(
+        initials,
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: AppTheme.primaryGreen,
         ),
       ),
-      selected: selected,
-      selectedColor: AppTheme.inkBlack,
-      backgroundColor: AppTheme.surfaceMuted,
-      side: BorderSide(
-        color: selected ? AppTheme.inkBlack : AppTheme.border,
+    );
+  }
+}
+
+class _ShiftLiters extends StatelessWidget {
+  const _ShiftLiters({
+    required this.liters,
+    required this.icon,
+    required this.color,
+  });
+
+  final double liters;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Icon(icon, size: 13, color: liters > 0 ? color : AppTheme.textMuted),
+        const SizedBox(width: 5),
+        Text(
+          AppFormatters.formatLiters(liters),
+          style: AppTheme.monoStyle(
+            fontSize: 12.5,
+            color: AppTheme.textSecondary,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ShiftBadge extends StatelessWidget {
+  const _ShiftBadge({required this.isMorning});
+
+  final bool isMorning;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color fg = isMorning ? AppTheme.warningText : AppTheme.indigoAccent;
+    final Color bg = isMorning ? AppTheme.warningBg : AppTheme.indigoLight;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(AppTheme.radiusPill),
       ),
-      showCheckmark: false,
-      onSelected: (_) => onTap(),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(
+            isMorning ? Icons.wb_sunny_outlined : Icons.wb_twilight_rounded,
+            size: 13,
+            color: fg,
+          ),
+          const SizedBox(width: 5),
+          Text(
+            isMorning ? 'Mañana' : 'Tarde',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: fg,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StateBadge extends StatelessWidget {
+  const _StateBadge({
+    required this.ok,
+    required this.okLabel,
+    required this.pendingLabel,
+  });
+
+  final bool ok;
+  final String okLabel;
+  final String pendingLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color fg = ok ? AppTheme.successText : AppTheme.warningText;
+    final Color bg = ok ? AppTheme.successBg : AppTheme.warningBg;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+        border: Border.all(color: fg.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(
+            ok ? Icons.task_alt_rounded : Icons.schedule_rounded,
+            size: 13,
+            color: fg,
+          ),
+          const SizedBox(width: 5),
+          Text(
+            ok ? okLabel : pendingLabel,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: fg,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Etiqueta de acción de auditoría con color e ícono por tipo de evento.
+class _AuditActionBadge extends StatelessWidget {
+  const _AuditActionBadge({required this.action});
+
+  final String action;
+
+  @override
+  Widget build(BuildContext context) {
+    late final IconData icon;
+    late final Color color;
+    switch (action) {
+      case 'CREAR':
+        icon = Icons.add_circle_outline_rounded;
+        color = AppTheme.primaryGreen;
+      case 'EDITAR':
+        icon = Icons.edit_outlined;
+        color = AppTheme.skyBlue;
+      case 'ANULAR':
+        icon = Icons.block_rounded;
+        color = AppTheme.danger;
+      case 'LIQUIDAR':
+        icon = Icons.lock_clock_outlined;
+        color = AppTheme.warmGold;
+      case 'SOLICITAR_RECTIFICACION':
+        icon = Icons.rate_review_outlined;
+        color = AppTheme.indigoAccent;
+      default:
+        icon = Icons.bolt_rounded;
+        color = AppTheme.tealAccent;
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 5),
+          Text(
+            action.replaceAll('_', ' '),
+            style: AppTheme.monoStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VersionBox extends StatelessWidget {
+  const _VersionBox({
+    required this.title,
+    required this.color,
+    required this.body,
+  });
+
+  final String title;
+  final Color color;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.05),
+        border: Border(left: BorderSide(color: color, width: 3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 4),
+          SelectableText(
+            body,
+            style: AppTheme.monoStyle(
+              fontSize: 11.5,
+              color: AppTheme.textSecondary,
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
