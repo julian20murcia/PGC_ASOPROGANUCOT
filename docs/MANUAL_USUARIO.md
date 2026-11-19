@@ -432,9 +432,10 @@ El **Asistente IA** (`Ctrl + 9` o botón **Preguntar a la IA**) responde pregunt
 ### 12.2 Dictar por voz
 
 1. Pulse el botón del **micrófono** junto a *Enviar*. La primera vez, el sistema puede pedir permiso para usar el micrófono.
-2. Hable con normalidad. Verá un punto rojo y el tiempo de grabación (máximo 3 minutos).
-3. Pulse **■** para terminar. El texto aparece en el cuadro de pregunta.
-4. Revíselo, corríjalo si hace falta y pulse `Enter` para enviar. Con **✕** descarta la grabación.
+2. Hable con normalidad: **el texto va apareciendo en el cuadro mientras habla**. Verá *Escuchando* y el tiempo (máximo 5 minutos).
+3. ¿Necesita pensar? Pulse el botón rojo del micrófono para **silenciar**: no se envía audio y lo dictado se conserva. Púlselo otra vez para seguir hablando en el mismo mensaje.
+4. Pulse **✓** para terminar. Revise el texto, corríjalo si hace falta y pulse `Enter` para enviar.
+5. Con **✕** descarta lo dictado (el texto que había escrito antes de dictar se conserva).
 
 ### 12.3 Pedir informes (PDF o Excel)
 

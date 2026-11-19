@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../models/assistant_report.dart';
 import 'firebase_callable.dart';
+import 'live_transcription.dart';
 
 /// Mensaje de la conversación con el asistente IA.
 class AssistantMessage {
@@ -86,6 +87,32 @@ class AssistantService {
       rethrow;
     } catch (_) {
       throw AssistantException('No hay conexión con el asistente. Verifica tu internet.');
+    }
+  }
+
+  /// Credenciales temporales para el dictado en vivo (Realtime API).
+  Future<VoiceSessionTicket> createVoiceSession() async {
+    try {
+      final String token = await _token();
+      final Map<String, dynamic> result = await callFirebaseFunction(
+        'createVoiceSession',
+        const <String, dynamic>{},
+        idToken: token,
+        timeout: const Duration(seconds: 25),
+      );
+      final String secret = (result['secret'] ?? '').toString();
+      final String url = (result['url'] ?? '').toString();
+      if (secret.isEmpty || !url.startsWith('wss://')) {
+        throw AssistantException('No se pudo iniciar el dictado. Intenta de nuevo.');
+      }
+      final Object? rate = result['sampleRate'];
+      return VoiceSessionTicket(secret: secret, url: url, sampleRate: rate is num ? rate.toInt() : 24000);
+    } on StateError catch (e) {
+      throw AssistantException(e.message);
+    } on AssistantException {
+      rethrow;
+    } catch (_) {
+      throw AssistantException('No se pudo iniciar el dictado. Verifica tu internet.');
     }
   }
 

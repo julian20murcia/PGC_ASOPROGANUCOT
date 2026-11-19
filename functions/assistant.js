@@ -768,6 +768,51 @@ exports.transcribeAudio = onCall(
   },
 );
 
+// ── Dictado en vivo (Realtime API) ─────────────────────────────────────────
+// La app abre un WebSocket directo con OpenAI usando una clave TEMPORAL (ek_…)
+// que solo sirve para crear una sesión de transcripción en los próximos
+// 2 minutos. La clave real nunca sale del servidor.
+// gpt-live-transcribe: transcripción incremental (palabra a palabra), US$0,017/min.
+const LIVE_TRANSCRIBE_MODEL = 'gpt-live-transcribe';
+
+exports.createVoiceSession = onCall(
+  { secrets: [openaiKey], maxInstances: 2, concurrency: 20, timeoutSeconds: 30, memory: '256MiB' },
+  async ({ auth }) => {
+    const db = getFirestore();
+    await requireAssistantUser(db, auth);
+    await enforceLimits(db, auth.uid, VOICE_LIMITS, 'voz');
+    const res = await fetch(`${OPENAI_URL}/realtime/client_secrets`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${openaiKey.value()}` },
+      body: JSON.stringify({
+        expires_after: { anchor: 'created_at', seconds: 120 },
+        session: {
+          type: 'transcription',
+          audio: {
+            input: {
+              format: { type: 'audio/pcm', rate: 24000 },
+              transcription: { model: LIVE_TRANSCRIBE_MODEL, language: 'es', prompt: VOICE_PROMPT },
+              noise_reduction: { type: 'near_field' },
+              turn_detection: null,
+            },
+          },
+        },
+      }),
+      signal: AbortSignal.timeout(20000),
+    }).catch(() => null);
+    if (!res) throw openAiError(504, null);
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || typeof json?.value !== 'string') throw openAiError(res.status, json);
+    return {
+      secret: json.value,
+      expiresAt: Number(json.expires_at) || null,
+      url: 'wss://api.openai.com/v1/realtime?intent=transcription',
+      sampleRate: 24000,
+      model: LIVE_TRANSCRIBE_MODEL,
+    };
+  },
+);
+
 // Exportado para pruebas unitarias.
 exports._internal = {
   periods,

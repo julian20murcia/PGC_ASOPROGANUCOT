@@ -11,6 +11,7 @@ exports.adminCreateUser = admin.adminCreateUser;
 exports.adminUpdateUser = admin.adminUpdateUser;
 exports.askAssistant = require('./assistant').askAssistant;
 exports.transcribeAudio = require('./assistant').transcribeAudio;
+exports.createVoiceSession = require('./assistant').createVoiceSession;
 
 const SUPPORTED_PUSH_TYPES = new Set([
   'ENTREGA',

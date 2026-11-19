@@ -250,7 +250,8 @@ Node.js 22, `firebase-functions` v2. `index.js` reexporta los módulos.
 | `adminCreateUser` | `admin.js` | `onCall` (máx. 5 instancias) | Crea la cuenta en Auth y el perfil. Requiere `usuarios.crear`; solo un `ADMIN` crea administradores; contraseña 8–64 con letras y números; sanea permisos. |
 | `adminUpdateUser` | `admin.js` | `onCall` (máx. 5 instancias) | Edita datos, rol, estado, permisos o contraseña. Impide cambiar el rol propio o suspenderse, exige que quede un administrador activo y revoca los tokens al suspender. |
 | `askAssistant` | `assistant.js` | `onCall` (300 s) | Asistente IA con herramientas e informes (ver 4.1). |
-| `transcribeAudio` | `assistant.js` | `onCall` (120 s) | Dictado por voz del asistente: audio → texto (ver 4.1). |
+| `transcribeAudio` | `assistant.js` | `onCall` (120 s) | Transcripción de un audio completo (respaldo; ver 4.1). |
+| `createVoiceSession` | `assistant.js` | `onCall` (30 s) | Clave temporal para el dictado en vivo por WebSocket (ver 4.1). |
 | `onNotificationCreated` | `index.js` | `onDocumentCreated` | Envía push FCM HTTP v1 para `ENTREGA`, `CIERRE_QUINCENA`, `LIQUIDACION`, `PAGO` y `COMUNICADO`. Comunicados generales al tópico `asoproganucott_comunicados`; avisos individuales a los tokens del productor activo, con un texto genérico que no expone el contenido. |
 
 ### 4.1 Asistente IA (`askAssistant`, `transcribeAudio`)
@@ -261,7 +262,8 @@ Node.js 22, `firebase-functions` v2. `index.js` reexporta los módulos.
   - `consultar_produccion`: agregados exactos de entregas no anuladas en cualquier rango de hasta 731 días, por productor, día, semana, mes, vereda, jornada o productor-mes, con filtros opcionales de productor y vereda. La consulta a Firestore la hace el servidor.
   - `generar_informe`: el modelo devuelve la estructura del informe (indicadores, gráficas de barras/barras horizontales/líneas/torta, tablas tipadas y texto de análisis). El servidor la sanea y la envía a la app en `report`, y la app la convierte en **PDF** (`pdf`, con gráficas vectoriales) o **Excel** (`.xlsx` con gráficas nativas de Excel) en `lib/core/services/assistant_report_export.dart`.
   - Máximo 6 rondas de herramientas por pregunta.
-- **Dictado por voz (`transcribeAudio`):** la app graba con el paquete `record` (AAC/M4A mono de 16 kHz, o WAV si el equipo no admite AAC) durante máximo 3 minutos y envía el audio en base64. El servidor lo transcribe con `gpt-transcribe` (US$0,0045 por minuto) y, si falla, con `gpt-4o-mini-transcribe`. El texto queda en el cuadro de pregunta para revisarlo antes de enviarlo. Límites: 40 dictados por hora y 200 por día por usuario; 1.200 por día en total; audio de 6 MB como máximo.
+- **Dictado en vivo (`createVoiceSession`):** la función crea una clave temporal de OpenAI (`POST /v1/realtime/client_secrets`, válida 2 minutos para conectar) para una sesión de transcripción con `gpt-live-transcribe` (US$0,017 por minuto), en español, con reducción de ruido y sin detección automática de turnos. La app (`lib/core/services/live_transcription.dart`) abre `wss://api.openai.com/v1/realtime?intent=transcription` con el subprotocolo `openai-insecure-api-key.<clave temporal>`, envía PCM16 mono a 24 kHz desde el micrófono (`record.startStream`) en bloques de 100 ms (`input_audio_buffer.append`) y muestra los eventos `conversation.item.input_audio_transcription.delta` a medida que llegan. Al **silenciar** se envía `input_audio_buffer.commit` y se deja de enviar audio sin cerrar la sesión; al terminar se confirma el último tramo y se espera el evento `.completed`. La clave real nunca llega a la app. Cuenta en los mismos límites de dictado.
+- **Dictado por archivo (`transcribeAudio`, respaldo):** la app graba con el paquete `record` (AAC/M4A mono de 16 kHz, o WAV si el equipo no admite AAC) durante máximo 3 minutos y envía el audio en base64. El servidor lo transcribe con `gpt-transcribe` (US$0,0045 por minuto) y, si falla, con `gpt-4o-mini-transcribe`. El texto queda en el cuadro de pregunta para revisarlo antes de enviarlo. Límites: 40 dictados por hora y 200 por día por usuario; 1.200 por día en total; audio de 6 MB como máximo.
 - **Clave:** secreto `OPENAI_API_KEY` en Secret Manager (`defineSecret`). Nunca viaja a la app.
 - **Acceso:** usuario autenticado, activo y con `asistente.ver`.
 - **Límites:** 30 preguntas por hora y 150 por día por usuario; 900 por día para toda la plataforma (contadores en `ia_uso`, transaccionales, día en hora de Colombia). Pregunta de 1–1.500 caracteres en la app (2.000 en el servidor); últimos 8 mensajes del historial, recortados a 1.500 caracteres.
@@ -276,7 +278,7 @@ Node.js 22, `firebase-functions` v2. `index.js` reexporta los módulos.
 firebase functions:secrets:set OPENAI_API_KEY
 
 # 2. Volver a desplegar las funciones del asistente para que tomen la nueva versión
-firebase deploy --only functions:askAssistant,functions:transcribeAudio
+firebase deploy --only functions:askAssistant,functions:transcribeAudio,functions:createVoiceSession
 
 # 3. (Opcional) Destruir versiones antiguas del secreto y revocar la clave anterior en OpenAI
 firebase functions:secrets:prune

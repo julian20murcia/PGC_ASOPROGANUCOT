@@ -59,6 +59,7 @@ class _AssistantModuleViewState extends State<AssistantModuleView> {
   late final AssistantService _service = widget.service ?? AssistantService();
   final TextEditingController _input = TextEditingController();
   final ScrollController _scroll = ScrollController();
+  final ScrollController _inputScroll = ScrollController();
   late final FocusNode _focus = FocusNode(onKeyEvent: _onKey);
   final List<ChatEntry> _entries = <ChatEntry>[];
   bool _sending = false;
@@ -82,6 +83,7 @@ class _AssistantModuleViewState extends State<AssistantModuleView> {
     _cooldownTimer?.cancel();
     _input.dispose();
     _scroll.dispose();
+    _inputScroll.dispose();
     _focus.dispose();
     super.dispose();
   }
@@ -193,10 +195,17 @@ class _AssistantModuleViewState extends State<AssistantModuleView> {
     showAppToast(context, 'Respuesta copiada al portapapeles.', tone: Tone.success);
   }
 
-  /// Texto dictado: se agrega al cuadro de texto para revisarlo antes de enviar.
+  /// Texto que había en el cuadro al empezar a dictar (se conserva delante).
+  String _dictationPrefix = '';
+
+  void _onDictationStart() => _dictationPrefix = _input.text.trimRight();
+
+  /// Dictado en vivo: el cuadro muestra lo escrito antes + lo que se va diciendo.
   void _onDictated(String text) {
-    final String current = _input.text.trimRight();
-    String next = current.isEmpty ? text : '$current $text';
+    final String spoken = text.trim();
+    String next = _dictationPrefix.isEmpty
+        ? spoken
+        : (spoken.isEmpty ? _dictationPrefix : '$_dictationPrefix $spoken');
     if (next.length > AssistantService.maxQuestionLength) {
       next = next.substring(0, AssistantService.maxQuestionLength);
     }
@@ -204,7 +213,26 @@ class _AssistantModuleViewState extends State<AssistantModuleView> {
       text: next,
       selection: TextSelection.collapsed(offset: next.length),
     );
+    _scrollInputToEnd();
+  }
+
+  void _onDictationDone(String text) {
+    _onDictated(text);
     _focus.requestFocus();
+  }
+
+  void _onDictationCancel() {
+    _input.value = TextEditingValue(
+      text: _dictationPrefix,
+      selection: TextSelection.collapsed(offset: _dictationPrefix.length),
+    );
+    _focus.requestFocus();
+  }
+
+  void _scrollInputToEnd() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_inputScroll.hasClients) _inputScroll.jumpTo(_inputScroll.position.maxScrollExtent);
+    });
   }
 
   void _onVoiceError(String message) {
@@ -405,6 +433,9 @@ class _AssistantModuleViewState extends State<AssistantModuleView> {
                       key: const Key('assistant-input'),
                       controller: _input,
                       focusNode: _focus,
+                      scrollController: _inputScroll,
+                      // Mientras se dicta, el texto lo escribe la voz.
+                      readOnly: _dictating,
                       minLines: 1,
                       maxLines: 6,
                       keyboardType: TextInputType.multiline,
@@ -415,7 +446,7 @@ class _AssistantModuleViewState extends State<AssistantModuleView> {
                         hintText: _coolingDown
                             ? 'Espera $_cooldownLeft s para volver a preguntar…'
                             : _dictating
-                                ? 'Escuchando… toca ■ para terminar'
+                                ? 'Habla con normalidad… el texto aparece aquí'
                                 : 'Escribe o dicta tu pregunta, o pide un informe en PDF/Excel…',
                         border: InputBorder.none,
                         enabledBorder: InputBorder.none,
@@ -432,7 +463,10 @@ class _AssistantModuleViewState extends State<AssistantModuleView> {
                     child: VoiceInputButton(
                       service: _service,
                       enabled: !_sending,
+                      onStart: _onDictationStart,
                       onText: _onDictated,
+                      onDone: _onDictationDone,
+                      onCancel: _onDictationCancel,
                       onError: _onVoiceError,
                       onStateChanged: (VoiceState s) {
                         if (mounted) setState(() => _dictating = s != VoiceState.idle);
