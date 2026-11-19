@@ -203,7 +203,20 @@ class ProducerController extends ChangeNotifier {
       )
       .length;
 
+  // Memo: la tabla lee la lista filtrada en cada build.
+  Object? _filteredKey;
+  List<ProducerModel> _filteredCache = const <ProducerModel>[];
+
   List<ProducerModel> get filteredProducers {
+    final Object key = (_producers, _stats, _statusFilter, _veredaFilter, _searchQuery, _sort);
+    if (key != _filteredKey) {
+      _filteredCache = _computeFilteredProducers();
+      _filteredKey = key;
+    }
+    return _filteredCache;
+  }
+
+  List<ProducerModel> _computeFilteredProducers() {
     final String q = _fold(_searchQuery.trim());
     final List<ProducerModel> filtered = _producers.where((ProducerModel p) {
       if (_statusFilter != 'ALL' && p.estado != _statusFilter) return false;
@@ -229,8 +242,12 @@ class ProducerController extends ChangeNotifier {
     Map<String, ProducerDeliveryStats> stats,
   ) {
     final List<ProducerModel> list = List<ProducerModel>.of(input);
+    // Nombres normalizados una sola vez (antes se normalizaban en cada comparación).
+    final Map<String, String> folded = <String, String>{
+      for (final ProducerModel p in list) p.productorId: _fold(p.nombreCompleto),
+    };
     int byName(ProducerModel a, ProducerModel b) =>
-        _fold(a.nombreCompleto).compareTo(_fold(b.nombreCompleto));
+        (folded[a.productorId] ?? '').compareTo(folded[b.productorId] ?? '');
     double liters(ProducerModel p) => stats[p.productorId]?.liters ?? 0;
 
     list.sort((ProducerModel a, ProducerModel b) {

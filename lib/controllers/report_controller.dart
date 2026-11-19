@@ -73,8 +73,34 @@ class ReportController extends ChangeNotifier {
   List<SettlementModel> get allSettlements => List<SettlementModel>.unmodifiable(_settlements);
   List<AuditLogModel> get auditLogs => List<AuditLogModel>.unmodifiable(_auditLogs);
 
+  // Memos: la pestaña de reportes reconstruía el dataset y los resúmenes en
+  // cada build (y los resúmenes hasta 4 veces por lectura de KPIs).
+  Object? _datasetKey;
+  ReportDataset? _datasetCache;
+  Object? _summariesKey;
+  List<ProducerProductionSummary> _summariesCache = const <ProducerProductionSummary>[];
+
+  Object get _baseKey => (
+        _selectedPeriod.startDate,
+        _selectedPeriod.endDate,
+        _receptions,
+        _producers,
+        _settlements,
+        _selectedProducerId,
+        effectivePricePerLiter,
+      );
+
   /// Datos del reporte seleccionado en el catálogo con los filtros vigentes.
   ReportDataset buildDataset({Map<String, String> userNames = const <String, String>{}}) {
+    final Object key = (_baseKey, _selectedReport, _shiftFilter, _auditLogs, userNames);
+    if (_datasetCache == null || key != _datasetKey) {
+      _datasetCache = _computeDataset(userNames);
+      _datasetKey = key;
+    }
+    return _datasetCache!;
+  }
+
+  ReportDataset _computeDataset(Map<String, String> userNames) {
     switch (_selectedReport) {
       case ReportKind.consolidated:
         return ReportCatalog.consolidated(
@@ -140,8 +166,10 @@ class ReportController extends ChangeNotifier {
     await loadAll();
   }
 
-  List<ProducerProductionSummary> get producerSummaries =>
-      ReportService.buildProducerSummaries(
+  List<ProducerProductionSummary> get producerSummaries {
+    final Object key = _baseKey;
+    if (key != _summariesKey) {
+      _summariesCache = ReportService.buildProducerSummaries(
         period: _selectedPeriod,
         receptions: _receptions,
         producers: _producers,
@@ -149,6 +177,10 @@ class ReportController extends ChangeNotifier {
         activePricePerLiter: effectivePricePerLiter,
         filterProducerId: _selectedProducerId,
       );
+      _summariesKey = key;
+    }
+    return _summariesCache;
+  }
 
   List<MilkReceptionModel> get filteredReceptions =>
       ReportService.filterReceptionsForReport(

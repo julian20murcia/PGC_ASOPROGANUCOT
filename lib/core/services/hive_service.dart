@@ -139,10 +139,14 @@ class HiveService {
   }) async {
     await init();
     if (box != null) {
-      await box.clear();
-      for (final T item in items) {
-        await box.put(keyOf(item), toMap(item));
-      }
+      // Una sola escritura en lote (antes: clear + un put cifrado por registro,
+      // miles de escrituras secuenciales en el hilo de la UI).
+      final Map<String, Map<String, dynamic>> next = <String, Map<String, dynamic>>{
+        for (final T item in items) keyOf(item): toMap(item),
+      };
+      final List<dynamic> stale = box.keys.where((dynamic k) => !next.containsKey(k)).toList();
+      if (stale.isNotEmpty) await box.deleteAll(stale);
+      if (next.isNotEmpty) await box.putAll(next);
       return;
     }
     memoryMap.clear();
@@ -164,6 +168,26 @@ class HiveService {
       return;
     }
     memoryMap[keyOf(item)] = toMap(item);
+  }
+
+  /// Inserta o actualiza varios registros en una sola escritura.
+  Future<void> _upsertMany<T>({
+    required Box<dynamic>? box,
+    required Map<String, Map<String, dynamic>> memoryMap,
+    required Iterable<T> items,
+    required String Function(T) keyOf,
+    required Map<String, dynamic> Function(T) toMap,
+  }) async {
+    await init();
+    final Map<String, Map<String, dynamic>> batch = <String, Map<String, dynamic>>{
+      for (final T item in items) keyOf(item): toMap(item),
+    };
+    if (batch.isEmpty) return;
+    if (box != null) {
+      await box.putAll(batch);
+      return;
+    }
+    memoryMap.addAll(batch);
   }
 
   Future<List<T>> _readCollection<T>({
@@ -345,18 +369,14 @@ class HiveService {
         toMap: (MilkReceptionModel r) => r.toMap(),
       );
 
-  Future<void> cacheProducerReceptions(List<MilkReceptionModel> receptions) async {
-    await init();
-    for (final reception in receptions) {
-      await _upsertItem<MilkReceptionModel>(
+  Future<void> cacheProducerReceptions(List<MilkReceptionModel> receptions) =>
+      _upsertMany<MilkReceptionModel>(
         box: _deliveriesBox,
         memoryMap: _memoryDeliveries,
-        item: reception,
+        items: receptions,
         keyOf: (MilkReceptionModel r) => r.recepcionId,
         toMap: (MilkReceptionModel r) => r.toMap(),
       );
-    }
-  }
 
   Future<List<MilkReceptionModel>> getReceptions() async {
     final List<MilkReceptionModel> items =
@@ -509,15 +529,13 @@ class HiveService {
       pendingToMark.add(existing.copyWith(liquidacionId: liquidacionId));
     }
 
-    for (final MilkReceptionModel updated in pendingToMark) {
-      await _upsertItem<MilkReceptionModel>(
-        box: _deliveriesBox,
-        memoryMap: _memoryDeliveries,
-        item: updated,
-        keyOf: (MilkReceptionModel r) => r.recepcionId,
-        toMap: (MilkReceptionModel r) => r.toMap(),
-      );
-    }
+    await _upsertMany<MilkReceptionModel>(
+      box: _deliveriesBox,
+      memoryMap: _memoryDeliveries,
+      items: pendingToMark,
+      keyOf: (MilkReceptionModel r) => r.recepcionId,
+      toMap: (MilkReceptionModel r) => r.toMap(),
+    );
   }
 
   // ---- Liquidaciones (settlements_box) ----

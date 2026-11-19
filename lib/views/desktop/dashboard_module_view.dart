@@ -1,3 +1,5 @@
+import 'dart:isolate';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -34,6 +36,9 @@ class DashboardModuleView extends StatefulWidget {
   /// Cargador de la configuración financiera (inyectable en pruebas).
   final Future<FinanceConfig> Function()? financeLoader;
 
+  /// Solo pruebas: calcula la proyección en el mismo hilo (sin isolate).
+  static bool debugSyncForecast = false;
+
   @override
   State<DashboardModuleView> createState() => _DashboardModuleViewState();
 }
@@ -50,6 +55,7 @@ class _DashboardModuleViewState extends State<DashboardModuleView> {
   DashboardMetrics? _metrics;
   Object? _forecastKey;
   ForecastResult? _forecast;
+  Object? _forecastPendingKey;
 
   @override
   void initState() {
@@ -105,31 +111,67 @@ class _DashboardModuleViewState extends State<DashboardModuleView> {
     return _metrics!;
   }
 
+  static ForecastResult _runForecast(List<DailyValue> series, DateTime today, FinanceInputs finance) {
+    try {
+      return _forecastService.forecast(series, today: today, finance: finance);
+    } catch (_) {
+      return const ForecastResult(
+        status: ForecastStatus.insufficient,
+        historyDays: 0,
+        minDays: ForecastService.minHistoryDays,
+        message: 'No fue posible calcular la proyección con los datos actuales.',
+      );
+    }
+  }
+
+  // Estático: el cierre enviado al isolate no debe capturar el State.
+  static Future<ForecastResult> _forecastInBackground(
+    List<DailyValue> series,
+    DateTime today,
+    FinanceInputs finance,
+  ) =>
+      Isolate.run(() => _runForecast(series, today, finance));
+
+  /// La proyección (búsqueda de parámetros Holt-Winters + validación) es costosa:
+  /// se calcula en un isolate para no congelar la interfaz. Mientras tanto se
+  /// muestra la última proyección o un indicador de "calculando".
   ForecastResult _forecastFor(List<MilkReceptionModel> receptions, double price, DateTime today) {
     final Object key = Object.hash(identityHashCode(receptions), receptions.length, price,
         _finance.precioVentaLitro, _finance.costoOperativoMensual, AppFormatters.toIsoDate(today));
-    if (_forecast == null || key != _forecastKey) {
-      _forecastKey = key;
-      try {
-        _forecast = _forecastService.forecast(
-          DashboardMetrics.dailySeries(receptions),
-          today: today,
-          finance: FinanceInputs(
-            purchasePricePerLiter: price,
-            salePricePerLiter: _finance.precioVentaLitro,
-            monthlyOperatingCost: _finance.costoOperativoMensual,
-          ),
-        );
-      } catch (_) {
-        _forecast = const ForecastResult(
-          status: ForecastStatus.insufficient,
+    if (_forecast != null && key == _forecastKey) return _forecast!;
+    if (key != _forecastPendingKey) {
+      _forecastPendingKey = key;
+      final List<DailyValue> series = DashboardMetrics.dailySeries(receptions);
+      final FinanceInputs finance = FinanceInputs(
+        purchasePricePerLiter: price,
+        salePricePerLiter: _finance.precioVentaLitro,
+        monthlyOperatingCost: _finance.costoOperativoMensual,
+      );
+      if (DashboardModuleView.debugSyncForecast) {
+        _forecast = _runForecast(series, today, finance);
+        _forecastKey = key;
+        return _forecast!;
+      }
+      _forecastInBackground(series, today, finance).then((ForecastResult r) {
+        if (!mounted || _forecastPendingKey != key) return;
+        setState(() {
+          _forecast = r;
+          _forecastKey = key;
+        });
+      }, onError: (Object _) {
+        if (!mounted || _forecastPendingKey != key) return;
+        setState(() {
+          _forecast = _runForecast(series, today, finance);
+          _forecastKey = key;
+        });
+      });
+    }
+    return _forecast ??
+        const ForecastResult(
+          status: ForecastStatus.computing,
           historyDays: 0,
           minDays: ForecastService.minHistoryDays,
-          message: 'No fue posible calcular la proyección con los datos actuales.',
         );
-      }
-    }
-    return _forecast!;
   }
 
   void _go(String section) => widget.onNavigateSection?.call(section);

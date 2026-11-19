@@ -61,8 +61,8 @@ class UserTable extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
               Container(
-                height: 34,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                constraints: const BoxConstraints(minHeight: 34),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                 decoration: const BoxDecoration(
                   color: AppTheme.surfaceMuted,
                   border: Border(bottom: BorderSide(color: AppTheme.dividerLight)),

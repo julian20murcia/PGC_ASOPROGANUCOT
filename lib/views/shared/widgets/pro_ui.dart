@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -457,8 +459,26 @@ class AppSearchField extends StatefulWidget {
 class _AppSearchFieldState extends State<AppSearchField> {
   late final TextEditingController _c = TextEditingController(text: widget.initialValue);
 
+  /// Espera breve tras la última tecla antes de filtrar: evita recalcular
+  /// tablas grandes con cada pulsación.
+  static const Duration debounce = Duration(milliseconds: 250);
+  Timer? _debounce;
+  late bool _hasText = widget.initialValue.isNotEmpty;
+
+  void _emit(String v, {bool now = false}) {
+    _debounce?.cancel();
+    if (now) {
+      widget.onChanged(v);
+    } else {
+      _debounce = Timer(debounce, () {
+        if (mounted) widget.onChanged(v);
+      });
+    }
+  }
+
   @override
   void dispose() {
+    _debounce?.cancel();
     _c.dispose();
     super.dispose();
   }
@@ -468,9 +488,11 @@ class _AppSearchFieldState extends State<AppSearchField> {
     final Widget field = TextField(
       controller: _c,
       onChanged: (String v) {
-        setState(() {});
-        widget.onChanged(v);
+        // Solo el ícono de limpiar depende del texto: reconstruir si aparece/desaparece.
+        if (v.isNotEmpty != _hasText) setState(() => _hasText = v.isNotEmpty);
+        _emit(v, now: v.isEmpty);
       },
+      onSubmitted: (String v) => _emit(v, now: true),
       inputFormatters: <TextInputFormatter>[LengthLimitingTextInputFormatter(60)],
       style: GoogleFonts.inter(fontSize: 13),
       decoration: InputDecoration(
@@ -484,8 +506,8 @@ class _AppSearchFieldState extends State<AppSearchField> {
                 icon: const Icon(Icons.close_rounded, size: 16),
                 onPressed: () {
                   _c.clear();
-                  setState(() {});
-                  widget.onChanged('');
+                  setState(() => _hasText = false);
+                  _emit('', now: true);
                 },
               ),
       ),
@@ -1021,12 +1043,15 @@ class DataHeaderCell extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
         Flexible(
+          // Los encabezados largos hacen salto de renglón en lugar de cortarse con "…".
           child: Text(
             text.toUpperCase(),
             textAlign: align,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: AppTheme.overlineStyle(color: sortAscending != null ? AppTheme.brand : AppTheme.textMuted),
+            softWrap: true,
+            maxLines: 3,
+            overflow: TextOverflow.visible,
+            style: AppTheme.overlineStyle(color: sortAscending != null ? AppTheme.brand : AppTheme.textMuted)
+                .copyWith(height: 1.25),
           ),
         ),
         if (sortAscending != null)

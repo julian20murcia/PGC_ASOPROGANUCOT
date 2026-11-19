@@ -497,8 +497,8 @@ class _CloseQuincenaWizardState extends State<CloseQuincenaWizard> {
             children: <Widget>[
               Container(
                 color: AppTheme.surfaceMuted,
-                height: 38,
-                padding: const EdgeInsets.only(right: 12),
+                constraints: const BoxConstraints(minHeight: 38),
+                padding: const EdgeInsets.fromLTRB(0, 6, 12, 6),
                 child: Row(
                   children: <Widget>[
                     SizedBox(

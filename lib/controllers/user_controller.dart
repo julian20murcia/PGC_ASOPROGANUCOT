@@ -62,9 +62,20 @@ class UserController extends ChangeNotifier {
   List<UserModel> get allUsers => List<UserModel>.unmodifiable(_users);
 
   /// uid → nombre completo, para traducir la bitácora de auditoría.
-  Map<String, String> get userNamesByUid => <String, String>{
+  // Memo por identidad de la lista: devuelve el mismo mapa mientras no cambien
+  // los usuarios (así los memos que dependen de él siguen siendo válidos).
+  List<UserModel>? _namesSource;
+  Map<String, String> _namesCache = const <String, String>{};
+
+  Map<String, String> get userNamesByUid {
+    if (!identical(_namesSource, _users)) {
+      _namesSource = _users;
+      _namesCache = <String, String>{
         for (final UserModel u in _users) u.uid: u.nombreCompleto,
       };
+    }
+    return _namesCache;
+  }
 
   UserModel? findByUid(String uid) {
     for (final UserModel u in _users) {

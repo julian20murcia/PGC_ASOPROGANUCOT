@@ -316,9 +316,9 @@ class _ProducersTable extends StatelessWidget {
           child: Column(
             children: <Widget>[
               Container(
-                height: 40,
+                constraints: const BoxConstraints(minHeight: 40),
                 color: AppTheme.surfaceMuted,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                 child: const Row(
                   children: <Widget>[
                     SizedBox(width: 68, child: DataHeaderCell('Código')),

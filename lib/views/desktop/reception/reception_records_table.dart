@@ -176,9 +176,9 @@ class _ReceptionRecordsTableState extends State<ReceptionRecordsTable> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         Container(
-          height: 34,
+          constraints: const BoxConstraints(minHeight: 34),
           color: AppTheme.surfaceMuted,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           child: const Row(
             children: <Widget>[
               SizedBox(width: 92, child: DataHeaderCell('Fecha')),

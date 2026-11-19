@@ -82,21 +82,44 @@ class _IdleSessionGuardState extends State<IdleSessionGuard> with WidgetsBinding
     return false;
   }
 
+  /// Se llama con cada movimiento del mouse o tecla: solo anota la hora.
+  /// (Antes cancelaba y creaba un Timer en cada evento.) El temporizador se
+  /// reprograma solo cuando vence y aún no se cumplió la inactividad.
   void _activity() {
     if (!widget.enabled || _fired) return;
     _lastActivity = clock.now();
     if (_warning) {
       setState(() => _warning = false);
+      _restart();
+    } else if (_idleTimer == null) {
+      _restart();
     }
-    _restart();
   }
 
   void _restart() {
     _idleTimer?.cancel();
+    _idleTimer = null;
     _tick?.cancel();
     if (!widget.enabled) return;
+    _schedule();
+  }
+
+  void _schedule() {
     final Duration untilWarning = widget.timeout - widget.warningBefore;
-    _idleTimer = Timer(untilWarning, _startWarning);
+    final Duration idle = clock.now().difference(_lastActivity);
+    final Duration wait = untilWarning - idle;
+    _idleTimer = Timer(wait.isNegative ? Duration.zero : wait, _onIdleTimer);
+  }
+
+  void _onIdleTimer() {
+    _idleTimer = null;
+    if (!mounted || !widget.enabled || _fired) return;
+    final Duration idle = clock.now().difference(_lastActivity);
+    if (idle >= widget.timeout - widget.warningBefore) {
+      _startWarning();
+    } else {
+      _schedule(); // hubo actividad: esperar solo lo que falta
+    }
   }
 
   void _checkElapsed() {

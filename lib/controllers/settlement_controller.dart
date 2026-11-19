@@ -115,10 +115,15 @@ class SettlementController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final settlementsRes = await _settlementService.listSettlements();
-      final receptionsRes = await _receptionService.listReceptions();
-      final producersRes = await _producerService.listProducers();
-      final ratesRes = await _rateService.listRates();
+      // Las cuatro consultas son independientes: en paralelo.
+      final settlementsF = _settlementService.listSettlements();
+      final receptionsF = _receptionService.listReceptions();
+      final producersF = _producerService.listProducers();
+      final ratesF = _rateService.listRates();
+      final settlementsRes = await settlementsF;
+      final receptionsRes = await receptionsF;
+      final producersRes = await producersF;
+      final ratesRes = await ratesF;
 
       _settlements = settlementsRes.settlements;
       _receptions = receptionsRes.receptions;
@@ -314,8 +319,17 @@ class SettlementController extends ChangeNotifier {
   }
 
   /// Quincenas cerradas agrupadas por período, de la más reciente a la más antigua.
-  List<SettlementPeriodGroup> get periodGroups =>
-      SettlementPeriodGroup.groupAll(_settlements);
+  // Memo: agrupar todas las liquidaciones en cada build era costoso.
+  List<SettlementModel>? _groupsSource;
+  List<SettlementPeriodGroup> _groupsCache = const <SettlementPeriodGroup>[];
+
+  List<SettlementPeriodGroup> get periodGroups {
+    if (!identical(_groupsSource, _settlements)) {
+      _groupsSource = _settlements;
+      _groupsCache = SettlementPeriodGroup.groupAll(_settlements);
+    }
+    return _groupsCache;
+  }
 
   /// Liquidaciones ya emitidas que se cruzan con [period].
   List<SettlementModel> settlementsOverlapping(QuincenaPeriod period) => _settlements

@@ -215,6 +215,7 @@ Future<void> _pump(
 }
 
 void main() {
+  DashboardModuleView.debugSyncForecast = true;
   setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
 
   testWidgets('1280×720: dashboard completo sin overflow, con predicción y aviso financiero', (WidgetTester tester) async {

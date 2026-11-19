@@ -535,6 +535,29 @@ class ForecastBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (result.status == ForecastStatus.computing) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                const Icon(Icons.auto_graph_rounded, size: 18, color: AppTheme.brand),
+                const SizedBox(width: 8),
+                Expanded(child: Text('Calculando la proyección…', style: AppTheme.subtitleStyle())),
+              ],
+            ),
+            const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(3),
+              child: const LinearProgressIndicator(minHeight: 6),
+            ),
+          ],
+        ),
+      );
+    }
     if (!result.isOk) {
       final double progress = result.minDays > 0 ? result.historyDays / result.minDays : 0;
       return Padding(
@@ -845,15 +868,21 @@ class _ProjectionTable extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
         Container(
-          height: 30,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
+          constraints: const BoxConstraints(minHeight: 30),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
           decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppTheme.border))),
           child: Row(
             children: <Widget>[
               for (int i = 0; i < cols.length; i++)
                 Expanded(
                   flex: cols[i].flex,
-                  child: Text(cols[i].title, textAlign: cols[i].align, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppTheme.overlineStyle()),
+                  child: Text(
+                    cols[i].title,
+                    textAlign: cols[i].align,
+                    softWrap: true,
+                    maxLines: 3,
+                    style: AppTheme.overlineStyle().copyWith(height: 1.25),
+                  ),
                 ),
             ],
           ),

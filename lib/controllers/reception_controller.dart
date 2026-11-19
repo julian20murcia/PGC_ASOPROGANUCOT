@@ -210,7 +210,38 @@ class ReceptionController extends ChangeNotifier {
     return _matrixFirstHalf && !nowFirstHalf;
   }
 
+  // ── Memo de listas derivadas ─────────────────────────────────────────────
+  // La vista lee matrixRows / filteredReceptions varias veces por build
+  // (paginación, totales, conteos). Se recalculan solo si cambian sus entradas.
+  Object? _matrixKey;
+  List<ReceptionMatrixRow> _matrixCache = const <ReceptionMatrixRow>[];
+  Object? _filteredKey;
+  List<MilkReceptionModel> _filteredCache = const <MilkReceptionModel>[];
+  Object? _rangeKey;
+  List<MilkReceptionModel> _rangeCache = const <MilkReceptionModel>[];
+
+  Object get _rangeIdentity => (_range.start, _range.end);
+
   List<ReceptionMatrixRow> get matrixRows {
+    // Record: las listas/mapas se comparan por identidad (se reasignan al cambiar).
+    final Object key = (
+      _receptions,
+      _activeProducers,
+      _producersById,
+      _matrixYear,
+      _matrixMonth,
+      _matrixFirstHalf,
+      _shiftFilter,
+      _searchQuery,
+    );
+    if (key != _matrixKey) {
+      _matrixCache = _computeMatrixRows();
+      _matrixKey = key;
+    }
+    return _matrixCache;
+  }
+
+  List<ReceptionMatrixRow> _computeMatrixRows() {
     final range = _matrixQuincena;
     final Map<String, Map<String, List<MilkReceptionModel>>> activeByProducer =
         <String, Map<String, List<MilkReceptionModel>>>{};
@@ -402,9 +433,16 @@ class ReceptionController extends ChangeNotifier {
       ReceptionService.currentQuincenaRange(DateTime.now()).label;
 
   /// Todas las entregas (activas y anuladas) cuya fecha está en [range].
-  List<MilkReceptionModel> get rangeReceptions => _receptions
-      .where((MilkReceptionModel r) => _range.containsIso(r.fechaEntrega))
-      .toList();
+  List<MilkReceptionModel> get rangeReceptions {
+    final Object key = (_receptions, _rangeIdentity);
+    if (key != _rangeKey) {
+      _rangeCache = _receptions
+          .where((MilkReceptionModel r) => _range.containsIso(r.fechaEntrega))
+          .toList(growable: false);
+      _rangeKey = key;
+    }
+    return _rangeCache;
+  }
 
   Iterable<MilkReceptionModel> get _rangeActive => _receptions.where(
         (MilkReceptionModel r) =>
@@ -441,6 +479,15 @@ class ReceptionController extends ChangeNotifier {
   /// Entregas del rango con búsqueda y filtros de jornada / estado, de la más
   /// reciente a la más antigua.
   List<MilkReceptionModel> get filteredReceptions {
+    final Object key = (_receptions, _rangeIdentity, _shiftFilter, _statusFilter, _searchQuery);
+    if (key != _filteredKey) {
+      _filteredCache = _computeFilteredReceptions();
+      _filteredKey = key;
+    }
+    return _filteredCache;
+  }
+
+  List<MilkReceptionModel> _computeFilteredReceptions() {
     final String q = _searchQuery.trim().toLowerCase();
     return _receptions.where((MilkReceptionModel r) {
       if (!_range.containsIso(r.fechaEntrega)) {

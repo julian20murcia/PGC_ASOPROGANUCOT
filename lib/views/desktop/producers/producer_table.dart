@@ -274,9 +274,9 @@ class _HeaderRow extends StatelessWidget {
     bool? dir(ProducerSortOption asc, ProducerSortOption desc) =>
         s == asc ? true : (s == desc ? false : null);
     return Container(
-      height: 34,
+      constraints: const BoxConstraints(minHeight: 34),
       color: AppTheme.surfaceMuted,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       child: Row(
         children: <Widget>[
           SizedBox(

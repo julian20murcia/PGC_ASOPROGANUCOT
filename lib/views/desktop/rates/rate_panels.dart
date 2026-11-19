@@ -382,9 +382,9 @@ class _HistoryTable extends StatelessWidget {
     return Column(
       children: <Widget>[
         Container(
-          height: 36,
+          constraints: const BoxConstraints(minHeight: 36),
           color: AppTheme.surfaceMuted,
-          padding: const EdgeInsets.symmetric(horizontal: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           child: const Row(
             children: <Widget>[
               SizedBox(

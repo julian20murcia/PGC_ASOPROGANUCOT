@@ -82,7 +82,10 @@ class ReceptionSpreadsheetState extends State<ReceptionSpreadsheet> {
   GridPos _sel = const GridPos(0, 0);
   bool _editing = false;
   String? _editError;
-  GridPos? _hover;
+
+  /// Celda bajo el mouse. ValueNotifier: el hover solo repinta el fondo de
+  /// las celdas, no reconstruye toda la planilla.
+  final ValueNotifier<GridPos?> _hover = ValueNotifier<GridPos?>(null);
 
   /// Confirmación en línea de anulación.
   ({MilkReceptionModel reception, GridPos pos})? _pendingAnnul;
@@ -144,6 +147,7 @@ class ReceptionSpreadsheetState extends State<ReceptionSpreadsheet> {
     _vCtrl.dispose();
     _hCtrl.dispose();
     _hOffset.dispose();
+    _hover.dispose();
     super.dispose();
   }
 
@@ -935,9 +939,8 @@ class ReceptionSpreadsheetState extends State<ReceptionSpreadsheet> {
       fg = AppTheme.textMuted;
     } else if (future) {
       bg = AppTheme.surfaceSunken.withValues(alpha: 0.6);
-    } else if (_hover == pos) {
-      bg = AppTheme.surfaceMuted;
     }
+    final bool hoverable = bg == null && !selected;
     if (selected && error == null) {
       bg = AppTheme.brandSoft.withValues(alpha: 0.55);
     }
@@ -948,9 +951,9 @@ class ReceptionSpreadsheetState extends State<ReceptionSpreadsheet> {
 
     return MouseRegion(
       cursor: SystemMouseCursors.cell,
-      onEnter: (_) => setState(() => _hover = pos),
+      onEnter: (_) => _hover.value = pos,
       onExit: (_) {
-        if (_hover == pos) setState(() => _hover = null);
+        if (_hover.value == pos) _hover.value = null;
       },
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -960,112 +963,129 @@ class ReceptionSpreadsheetState extends State<ReceptionSpreadsheet> {
         child: Tooltip(
           message: _cellTooltip(row, col),
           waitDuration: const Duration(milliseconds: 600),
-          child: Container(
-            key: ValueKey<String>('planilla-cell-$row-$col'),
-            decoration: BoxDecoration(
-              color: bg,
-              border: selected
-                  ? Border.all(
-                      color: error != null ? AppTheme.danger : AppTheme.brand,
-                      width: 2,
-                    )
-                  : Border(
-                      right: BorderSide(
-                        color: col.isOdd
-                            ? AppTheme.border
-                            : AppTheme.dividerLight,
+          child: _hoverTint(
+            hoverable,
+            pos,
+            Container(
+              key: ValueKey<String>('planilla-cell-$row-$col'),
+              decoration: BoxDecoration(
+                color: bg,
+                border: selected
+                    ? Border.all(
+                        color: error != null ? AppTheme.danger : AppTheme.brand,
+                        width: 2,
+                      )
+                    : Border(
+                        right: BorderSide(
+                          color: col.isOdd
+                              ? AppTheme.border
+                              : AppTheme.dividerLight,
+                        ),
                       ),
-                    ),
-            ),
-            child: Stack(
-              children: <Widget>[
-                Positioned.fill(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          text,
-                          maxLines: 1,
-                          style:
-                              AppTheme.monoStyle(
-                                fontSize: cell.isAnnulledOnly ? 10.5 : 12.5,
-                                fontWeight: readOnly
-                                    ? FontWeight.w500
-                                    : FontWeight.w600,
-                                color: fg,
-                              ).copyWith(
-                                decoration: cell.isAnnulledOnly
-                                    ? TextDecoration.lineThrough
-                                    : null,
-                                fontStyle: cell.isSettled
-                                    ? FontStyle.italic
-                                    : null,
-                              ),
+              ),
+              child: Stack(
+                children: <Widget>[
+                  Positioned.fill(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            text,
+                            maxLines: 1,
+                            style:
+                                AppTheme.monoStyle(
+                                  fontSize: cell.isAnnulledOnly ? 10.5 : 12.5,
+                                  fontWeight: readOnly
+                                      ? FontWeight.w500
+                                      : FontWeight.w600,
+                                  color: fg,
+                                ).copyWith(
+                                  decoration: cell.isAnnulledOnly
+                                      ? TextDecoration.lineThrough
+                                      : null,
+                                  fontStyle: cell.isSettled
+                                      ? FontStyle.italic
+                                      : null,
+                                ),
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-                if (cell.isPending)
-                  Positioned(
-                    left: 4,
-                    top: 4,
-                    child: Container(
-                      key: ValueKey<String>('pending-dot-$row-$col'),
-                      width: 6,
-                      height: 6,
-                      decoration: const BoxDecoration(
-                        color: AppTheme.accent,
-                        shape: BoxShape.circle,
+                  if (cell.isPending)
+                    Positioned(
+                      left: 4,
+                      top: 4,
+                      child: Container(
+                        key: ValueKey<String>('pending-dot-$row-$col'),
+                        width: 6,
+                        height: 6,
+                        decoration: const BoxDecoration(
+                          color: AppTheme.accent,
+                          shape: BoxShape.circle,
+                        ),
                       ),
                     ),
-                  ),
-                if (corrected)
-                  Positioned(
-                    right: 0,
-                    top: 0,
-                    child: CustomPaint(
-                      size: const Size(7, 7),
-                      painter: _CornerMarkPainter(AppTheme.info),
+                  if (corrected)
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: CustomPaint(
+                        size: const Size(7, 7),
+                        painter: _CornerMarkPainter(AppTheme.info),
+                      ),
                     ),
-                  ),
-                if (cell.isSettled)
-                  const Positioned(
-                    left: 3,
-                    bottom: 2,
-                    child: Icon(
-                      Icons.lock_rounded,
-                      size: 9,
-                      color: AppTheme.textMuted,
+                  if (cell.isSettled)
+                    const Positioned(
+                      left: 3,
+                      bottom: 2,
+                      child: Icon(
+                        Icons.lock_rounded,
+                        size: 9,
+                        color: AppTheme.textMuted,
+                      ),
                     ),
-                  ),
-                if (error != null)
-                  const Positioned(
-                    left: 3,
-                    top: 2,
-                    child: Icon(
-                      Icons.error_rounded,
-                      size: 10,
-                      color: AppTheme.danger,
+                  if (error != null)
+                    const Positioned(
+                      left: 3,
+                      top: 2,
+                      child: Icon(
+                        Icons.error_rounded,
+                        size: 10,
+                        color: AppTheme.danger,
+                      ),
                     ),
-                  ),
-                if (saving)
-                  const Positioned(
-                    left: 4,
-                    bottom: 4,
-                    child: SizedBox(
-                      width: 8,
-                      height: 8,
-                      child: CircularProgressIndicator(strokeWidth: 1.4),
+                  if (saving)
+                    const Positioned(
+                      left: 4,
+                      bottom: 4,
+                      child: SizedBox(
+                        width: 8,
+                        height: 8,
+                        child: CircularProgressIndicator(strokeWidth: 1.4),
+                      ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  /// Fondo de hover escuchando solo [_hover] (el contenido de la celda se reutiliza).
+  Widget _hoverTint(bool enabled, GridPos pos, Widget cell) {
+    if (!enabled) return cell;
+    return ValueListenableBuilder<GridPos?>(
+      valueListenable: _hover,
+      child: cell,
+      builder: (BuildContext context, GridPos? h, Widget? child) => ColoredBox(
+        color: h == pos ? AppTheme.surfaceMuted : const Color(0x00000000),
+        child: child,
       ),
     );
   }

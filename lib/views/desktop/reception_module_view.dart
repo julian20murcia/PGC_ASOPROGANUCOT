@@ -36,6 +36,26 @@ class ReceptionModuleView extends StatefulWidget {
 class _ReceptionModuleViewState extends State<ReceptionModuleView> {
   _ReceptionView _view = _ReceptionView.planilla;
 
+  // Memo de la planilla: solo se reconstruye si cambian entregas, productores o rango.
+  Object? _matrixKey;
+  PlanillaMatrix? _matrixCache;
+
+  PlanillaMatrix _planilla(ReceptionController ctrl) {
+    final DateRangeValue range = ctrl.range;
+    final List<MilkReceptionModel> inRange = ctrl.rangeReceptions;
+    final Object key = (inRange, ctrl.activeProducers, range.start, range.end);
+    if (_matrixCache == null || key != _matrixKey) {
+      _matrixCache = PlanillaMatrix.build(
+        activeProducers: ctrl.activeProducers,
+        receptions: inRange,
+        start: range.start,
+        end: range.end,
+      );
+      _matrixKey = key;
+    }
+    return _matrixCache!;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -144,13 +164,7 @@ class _ReceptionModuleViewState extends State<ReceptionModuleView> {
     final bool narrow = MediaQuery.sizeOf(context).width < 900;
 
     final DateRangeValue range = ctrl.range;
-    final List<MilkReceptionModel> inRange = ctrl.rangeReceptions;
-    final PlanillaMatrix fullMatrix = PlanillaMatrix.build(
-      activeProducers: ctrl.activeProducers,
-      receptions: inRange,
-      start: range.start,
-      end: range.end,
-    );
+    final PlanillaMatrix fullMatrix = _planilla(ctrl);
 
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints c) {
@@ -189,7 +203,7 @@ class _ReceptionModuleViewState extends State<ReceptionModuleView> {
                   build: (ExportFormat f) => ReceptionExport.build(
                     format: f,
                     matrix: fullMatrix,
-                    records: inRange,
+                    records: ctrl.rangeReceptions,
                     rangeLabel: range.label,
                     rangeKey: range.start == range.end
                         ? range.startIso

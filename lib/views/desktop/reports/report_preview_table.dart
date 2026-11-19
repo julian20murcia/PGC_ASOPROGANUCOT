@@ -130,8 +130,9 @@ class _ReportPreviewTableState extends State<ReportPreviewTable> {
 
   Widget _row(List<ReportColumn> cols, List<Widget> cells, {bool header = false}) {
     return Container(
-      height: header ? 34 : 36,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      height: header ? null : 36,
+      constraints: header ? const BoxConstraints(minHeight: 34) : null,
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: header ? 6 : 0),
       decoration: BoxDecoration(
         color: header ? AppTheme.surfaceMuted : null,
         border: const Border(bottom: BorderSide(color: AppTheme.dividerLight)),

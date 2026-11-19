@@ -164,7 +164,8 @@ class FinanceInputs {
   bool get isConfigured => _finite(salePricePerLiter) > 0;
 }
 
-enum ForecastStatus { ok, insufficient }
+/// `computing`: la proyección se está calculando en segundo plano.
+enum ForecastStatus { ok, insufficient, computing }
 
 enum InsightTone { positive, negative, neutral, warning }
 

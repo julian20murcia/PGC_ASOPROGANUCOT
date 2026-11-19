@@ -79,6 +79,10 @@ class AdminShellView extends StatefulWidget {
 class _AdminShellViewState extends State<AdminShellView> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   AdminSection? _active;
+
+  /// Módulos ya abiertos: se conservan montados (estado, scroll y datos
+  /// cargados) para que volver a ellos sea instantáneo y no recargue Firestore.
+  final Set<AdminSection> _visited = <AdminSection>{};
   bool _expanded = true;
 
   @override
@@ -149,6 +153,10 @@ class _AdminShellViewState extends State<AdminShellView> {
     }
     final AdminSection active = items.any((_NavItem i) => i.section == _active) ? _active! : items.first.section;
     final _NavItem activeItem = items.firstWhere((_NavItem i) => i.section == active);
+    final Set<AdminSection> allowed = <AdminSection>{for (final _NavItem i in items) i.section};
+    _visited
+      ..removeWhere((AdminSection s) => !allowed.contains(s))
+      ..add(active);
 
     final Widget sidebar = _Sidebar(
       items: items,
@@ -191,21 +199,19 @@ class _AdminShellViewState extends State<AdminShellView> {
                       : null,
                 ),
                 Expanded(
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 180),
-                    switchInCurve: Curves.easeOutCubic,
-                    switchOutCurve: Curves.easeIn,
-                    transitionBuilder: (Widget child, Animation<double> a) => FadeTransition(
-                      opacity: a,
-                      child: SlideTransition(
-                        position: Tween<Offset>(begin: const Offset(0, 0.008), end: Offset.zero).animate(a),
-                        child: child,
-                      ),
-                    ),
-                    child: KeyedSubtree(
-                      key: ValueKey<AdminSection>(active),
-                      child: _body(active),
-                    ),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: <Widget>[
+                      for (final AdminSection s in AdminSection.values)
+                        if (_visited.contains(s))
+                          // Oculto: no pinta, no anima y no recibe foco ni teclado.
+                          Visibility(
+                            key: ValueKey<AdminSection>(s),
+                            visible: s == active,
+                            maintainState: true,
+                            child: _FadeInOnShow(visible: s == active, child: _body(s)),
+                          ),
+                    ],
                   ),
                 ),
               ],
@@ -238,6 +244,40 @@ class _AdminShellViewState extends State<AdminShellView> {
         return const AssistantModuleView();
     }
   }
+}
+
+/// Fundido breve cada vez que un módulo vuelve a mostrarse.
+class _FadeInOnShow extends StatefulWidget {
+  const _FadeInOnShow({required this.visible, required this.child});
+  final bool visible;
+  final Widget child;
+
+  @override
+  State<_FadeInOnShow> createState() => _FadeInOnShowState();
+}
+
+class _FadeInOnShowState extends State<_FadeInOnShow> with SingleTickerProviderStateMixin {
+  late final AnimationController _c =
+      AnimationController(vsync: this, duration: const Duration(milliseconds: 160), value: 0)..forward();
+  late final Animation<double> _opacity = CurvedAnimation(parent: _c, curve: Curves.easeOutCubic);
+
+  @override
+  void didUpdateWidget(covariant _FadeInOnShow old) {
+    super.didUpdateWidget(old);
+    if (widget.visible && !old.visible) _c.forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => FadeTransition(
+        opacity: _opacity,
+        child: widget.child,
+      );
 }
 
 class _Sidebar extends StatelessWidget {

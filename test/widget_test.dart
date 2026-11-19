@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:pgc_asoproganucot/views/desktop/dashboard_module_view.dart';
 import 'package:pgc_asoproganucot/controllers/auth_controller.dart';
 import 'package:pgc_asoproganucot/controllers/producer_controller.dart';
 import 'package:pgc_asoproganucot/controllers/rate_controller.dart';
@@ -124,6 +125,7 @@ class _FakeRemoteAuditDataSource implements RemoteAuditDataSource {
 }
 
 void main() {
+  DashboardModuleView.debugSyncForecast = true;
   setUpAll(() {
     GoogleFonts.config.allowRuntimeFetching = false;
   });
