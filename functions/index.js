@@ -2,6 +2,7 @@ const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { getMessaging } = require('firebase-admin/messaging');
+const logger = require('firebase-functions/logger');
 
 initializeApp();
 
@@ -40,6 +41,7 @@ exports.onNotificationCreated = onDocumentCreated(
     const payload = snap.data() || {};
     const tipo = String(payload.tipo || 'COMUNICADO').trim().toUpperCase();
     if (!SUPPORTED_PUSH_TYPES.has(tipo)) {
+      logger.info('push omitido: tipo sin envío push', { tipo, notificacionId: event.params.notificacionId });
       return null;
     }
 
@@ -71,6 +73,8 @@ exports.onNotificationCreated = onDocumentCreated(
       notification: {
         channelId: 'asoproganucott_alerts',
         sound: 'default',
+        icon: 'ic_stat_notification',
+        color: '#0F766E',
       },
     };
 
@@ -78,13 +82,18 @@ exports.onNotificationCreated = onDocumentCreated(
 
     // Comunicado general masivo a todos los productores suscritos.
     if (!destinoProductorId) {
-      if (!BROADCAST_TYPES.has(tipo)) return null;
-      return messaging.send({
+      if (!BROADCAST_TYPES.has(tipo)) {
+        logger.info('push omitido: aviso sin destinatario', { tipo, notificacionId });
+        return null;
+      }
+      const messageId = await messaging.send({
         topic: 'asoproganucott_comunicados',
         notification: notificationBlock,
         data: dataPayload,
         android: androidConfig,
       });
+      logger.info('push enviado al tema de comunicados', { tipo, notificacionId, messageId });
+      return messageId;
     }
 
     const db = getFirestore();
@@ -97,14 +106,23 @@ exports.onNotificationCreated = onDocumentCreated(
       ? String(producerDoc.data().uidUsuario || '').trim()
       : destinoProductorId;
 
-    if (!uidUsuario) return null;
+    if (!uidUsuario) {
+      logger.info('push omitido: el productor no tiene cuenta en la app', { tipo, notificacionId, destinoProductorId });
+      return null;
+    }
     const account = await db.collection('usuarios').doc(uidUsuario).get();
-    if (account.get('activo') !== true || account.get('rol') !== 'PRODUCTOR') return null;
+    if (account.get('activo') !== true || account.get('rol') !== 'PRODUCTOR') {
+      logger.info('push omitido: cuenta inactiva o sin rol de productor', { tipo, notificacionId, destinoProductorId });
+      return null;
+    }
     const savedTokens = account.get('fcmTokens');
     const tokens = Array.isArray(savedTokens)
       ? savedTokens.filter((token) => typeof token === 'string' && token.trim().length > 0)
       : [];
-    if (tokens.length === 0) return null;
+    if (tokens.length === 0) {
+      logger.info('push omitido: la cuenta no tiene celular registrado', { tipo, notificacionId, destinoProductorId });
+      return null;
+    }
     const response = await messaging.sendEachForMulticast({
       tokens,
       notification: notificationBlock,
@@ -125,6 +143,15 @@ exports.onNotificationCreated = onDocumentCreated(
       ) {
         staleTokens.push(tokens[idx]);
       }
+    });
+    logger.info('push enviado al productor', {
+      tipo,
+      notificacionId,
+      destinoProductorId,
+      dispositivos: tokens.length,
+      exitosos: response.successCount,
+      fallidos: response.failureCount,
+      tokensVencidos: staleTokens.length,
     });
     if (staleTokens.length > 0) {
       await db.collection('usuarios').doc(uidUsuario).update({

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Verde institucional "Pradera" para el ícono y el acento de las notificaciones. -->
+    <color name="notification_accent">#0F766E</color>
+</resources>

@@ -85,7 +85,8 @@ class MainActivity : FlutterActivity() {
             }
 
             val notification = builder
-                .setSmallIcon(applicationInfo.icon)
+                .setSmallIcon(R.drawable.ic_stat_notification)
+                .setColor(getColor(R.color.notification_accent))
                 .setContentTitle(title)
                 .setContentText(body)
                 .setStyle(Notification.BigTextStyle().bigText(body))
