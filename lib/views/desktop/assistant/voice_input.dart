@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
 import '../../../core/services/assistant_service.dart';
@@ -71,6 +73,14 @@ class VoiceInputButtonState extends State<VoiceInputButton> with SingleTickerPro
   double _level = 0;
   int _session = 0;
 
+  /// Modo respaldo: si el dictado en vivo no está disponible (sin conexión con
+  /// el servicio en vivo, función no desplegada…), se graba a un archivo y se
+  /// transcribe al terminar con `transcribeAudio`. Así el micrófono nunca queda
+  /// inservible.
+  String? _filePath;
+  String _fileMime = 'audio/mp4';
+  bool get _fileMode => _filePath != null;
+
   late final AnimationController _pulse;
 
   @override
@@ -86,7 +96,7 @@ class VoiceInputButtonState extends State<VoiceInputButton> with SingleTickerPro
   void dispose() {
     _session++;
     _pulse.dispose();
-    unawaited(_teardown());
+    unawaited(_teardown().whenComplete(() => _deleteFile(_filePath)));
     final AudioRecorder? r = _recorder;
     if (r != null) unawaited(r.dispose().catchError((Object _) {}));
     super.dispose();
@@ -133,38 +143,20 @@ class VoiceInputButtonState extends State<VoiceInputButton> with SingleTickerPro
       if (!await rec.hasPermission()) {
         throw AssistantException('No hay permiso para usar el micrófono. Habilítalo en la configuración del sistema.');
       }
-      final VoiceSessionTicket ticket = await widget.service.createVoiceSession();
-      if (session != _session) return;
-      final LiveTranscriber live = await LiveTranscriber.connect(
-        ticket,
-        onText: (String t) {
-          if (session == _session && mounted) widget.onText(t);
-        },
-        onError: (String m) {
-          if (session != _session) return;
-          _error(m);
-          unawaited(cancel(silent: true));
-        },
-      );
-      if (session != _session) {
-        await live.close();
-        return;
+      bool liveOk = false;
+      try {
+        liveOk = await _startLive(rec, session);
+      } on AssistantException catch (e) {
+        if (_isHardStop(e.message)) rethrow;
+      } catch (_) {
+        liveOk = false;
       }
-      _live = live;
-      final Stream<Uint8List> audio = await rec.startStream(
-        RecordConfig(
-          encoder: AudioEncoder.pcm16bits,
-          sampleRate: ticket.sampleRate,
-          numChannels: 1,
-          autoGain: true,
-          echoCancel: true,
-          noiseSuppress: true,
-        ),
-      );
-      _audioSub = audio.listen((Uint8List chunk) {
-        // Silenciado: el audio no sale del equipo.
-        if (_state == VoiceState.live) _live?.addAudio(chunk);
-      });
+      if (session != _session) return;
+      if (!liveOk) {
+        await _live?.close();
+        _live = null;
+        await _startFile(rec);
+      }
       _ampSub = rec.onAmplitudeChanged(const Duration(milliseconds: 120)).listen((Amplitude a) {
         final double v = _state == VoiceState.live ? ((a.current + 50) / 50).clamp(0.0, 1.0) : 0;
         if (mounted && (v - _level).abs() > 0.04) setState(() => _level = v);
@@ -187,6 +179,90 @@ class VoiceInputButtonState extends State<VoiceInputButton> with SingleTickerPro
     }
   }
 
+  /// Errores en los que no tiene sentido grabar en modo respaldo.
+  static bool _isHardStop(String m) {
+    final String x = m.toLowerCase();
+    return x.contains('permiso') ||
+        x.contains('límite') ||
+        x.contains('limite') ||
+        x.contains('cupo') ||
+        x.contains('sesión expiró') ||
+        x.contains('no tienes acceso') ||
+        x.contains('saldo');
+  }
+
+  /// Dictado en vivo: credenciales temporales + WebSocket + audio en streaming.
+  Future<bool> _startLive(AudioRecorder rec, int session) async {
+    final VoiceSessionTicket ticket = await widget.service.createVoiceSession();
+    if (session != _session) return false;
+    final LiveTranscriber live = await LiveTranscriber.connect(
+      ticket,
+      onText: (String t) {
+        if (session == _session && mounted) widget.onText(t);
+      },
+      onError: (String m) {
+        if (session != _session) return;
+        _error(m);
+        unawaited(cancel(silent: true));
+      },
+    );
+    if (session != _session) {
+      await live.close();
+      return false;
+    }
+    _live = live;
+    final Stream<Uint8List> audio = await rec.startStream(
+      RecordConfig(
+        encoder: AudioEncoder.pcm16bits,
+        sampleRate: ticket.sampleRate,
+        numChannels: 1,
+        autoGain: true,
+        echoCancel: true,
+        noiseSuppress: true,
+      ),
+    );
+    _audioSub = audio.listen((Uint8List chunk) {
+      // Silenciado: el audio no sale del equipo.
+      if (_state == VoiceState.live) _live?.addAudio(chunk);
+    });
+    return true;
+  }
+
+  /// Respaldo: graba a un archivo (se transcribe completo al terminar).
+  Future<void> _startFile(AudioRecorder rec) async {
+    AudioEncoder encoder = AudioEncoder.aacLc;
+    String ext = 'm4a';
+    _fileMime = 'audio/mp4';
+    if (!await rec.isEncoderSupported(AudioEncoder.aacLc)) {
+      encoder = AudioEncoder.wav;
+      ext = 'wav';
+      _fileMime = 'audio/wav';
+    }
+    final Directory tmp = await getTemporaryDirectory();
+    final String path = '${tmp.path}${Platform.pathSeparator}dictado_${DateTime.now().millisecondsSinceEpoch}.$ext';
+    await rec.start(
+      RecordConfig(
+        encoder: encoder,
+        sampleRate: 16000,
+        numChannels: 1,
+        bitRate: 48000,
+        autoGain: true,
+        echoCancel: true,
+        noiseSuppress: true,
+      ),
+      path: path,
+    );
+    _filePath = path;
+  }
+
+  static void _deleteFile(String? path) {
+    if (path == null) return;
+    try {
+      final File f = File(path);
+      if (f.existsSync()) f.deleteSync();
+    } catch (_) {}
+  }
+
   Future<void> _abort(int session, String message) async {
     if (session != _session) return;
     await _teardown();
@@ -200,9 +276,11 @@ class VoiceInputButtonState extends State<VoiceInputButton> with SingleTickerPro
   void toggleMute() {
     if (_state == VoiceState.live) {
       _live?.commit(); // lo dicho hasta aquí queda definitivo
+      if (_fileMode) unawaited(_recorder?.pause().catchError((Object _) {}));
       _level = 0;
       _set(VoiceState.muted);
     } else if (_state == VoiceState.muted) {
+      if (_fileMode) unawaited(_recorder?.resume().catchError((Object _) {}));
       _set(VoiceState.live);
     }
   }
@@ -212,9 +290,14 @@ class VoiceInputButtonState extends State<VoiceInputButton> with SingleTickerPro
     if (_state != VoiceState.live && _state != VoiceState.muted) return;
     final int session = _session;
     _set(VoiceState.finishing);
-    await _teardown();
-    final String text = await (_live?.finish() ?? Future<String>.value(''));
-    _live = null;
+    String text;
+    if (_fileMode) {
+      text = await _finishFile();
+    } else {
+      await _teardown();
+      text = await (_live?.finish() ?? Future<String>.value(''));
+      _live = null;
+    }
     if (session != _session) return;
     _set(VoiceState.idle);
     if (!mounted) return;
@@ -224,6 +307,35 @@ class VoiceInputButtonState extends State<VoiceInputButton> with SingleTickerPro
     widget.onDone?.call(text);
   }
 
+  Future<String> _finishFile() async {
+    _ticker?.cancel();
+    _ticker = null;
+    await _ampSub?.cancel();
+    _ampSub = null;
+    String? path;
+    try {
+      path = await _recorder?.stop();
+    } catch (_) {
+      path = null;
+    }
+    path ??= _filePath;
+    try {
+      final Uint8List bytes = await File(path!).readAsBytes();
+      final String text = await widget.service.transcribe(bytes, mimeType: _fileMime);
+      if (mounted) widget.onText(text);
+      return text;
+    } on AssistantException catch (e) {
+      _error(e.message);
+      return '';
+    } catch (_) {
+      _error('No se pudo transcribir el audio. Intenta de nuevo.');
+      return '';
+    } finally {
+      _deleteFile(path);
+      _filePath = null;
+    }
+  }
+
   /// Descarta lo dictado en esta sesión.
   Future<void> cancel({bool silent = false}) async {
     if (!_active) return;
@@ -231,6 +343,8 @@ class VoiceInputButtonState extends State<VoiceInputButton> with SingleTickerPro
     await _teardown();
     await _live?.close();
     _live = null;
+    _deleteFile(_filePath);
+    _filePath = null;
     _set(VoiceState.idle);
     if (!silent) widget.onCancel?.call();
   }
@@ -315,8 +429,10 @@ class VoiceInputButtonState extends State<VoiceInputButton> with SingleTickerPro
           Text(
             switch (_state) {
               VoiceState.connecting => 'Conectando…',
+              VoiceState.finishing when _fileMode => 'Transcribiendo…',
               VoiceState.finishing => 'Terminando…',
               VoiceState.muted => 'Silenciado · ${_clock(_elapsed)}',
+              _ when _fileMode => 'Grabando · ${_clock(_elapsed)}',
               _ => 'Escuchando · ${_clock(_elapsed)}',
             },
             style: AppTheme.monoStyle(
