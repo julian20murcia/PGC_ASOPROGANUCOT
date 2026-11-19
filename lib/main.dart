@@ -25,6 +25,7 @@ import 'core/theme/app_theme.dart';
 import 'firebase_options.dart';
 import 'models/user_model.dart';
 import 'views/desktop/admin_shell_view.dart';
+import 'views/mobile/producer_registration_view.dart';
 import 'views/mobile/producer_shell_view.dart';
 import 'views/shared/login_view.dart';
 import 'views/shared/widgets/dairy_loader.dart';
@@ -114,6 +115,16 @@ class AsoproganucotApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme(),
         home: const AuthGate(),
+        onGenerateRoute: (settings) {
+          final uri = Uri.tryParse(settings.name ?? '');
+          if (uri?.path != '/activar') return null;
+          return MaterialPageRoute<String>(
+            settings: settings,
+            builder: (_) => ProducerRegistrationView(
+              activationCode: uri?.queryParameters['clave'],
+            ),
+          );
+        },
       ),
     );
   }

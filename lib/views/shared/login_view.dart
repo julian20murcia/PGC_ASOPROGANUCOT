@@ -767,11 +767,10 @@ class _LoginViewState extends State<LoginView>
           isMobile: isMobile,
           onPressed: _submit,
         ),
-        if (ProducerRegistrationView.isSupported)
-          TextButton(
-            onPressed: auth.isLoading ? null : _registerProducer,
-            child: const Text('Crear cuenta de productor'),
-          ),
+        TextButton(
+          onPressed: auth.isLoading ? null : _registerProducer,
+          child: const Text('Crear cuenta de productor'),
+        ),
         const SizedBox(height: 16),
         const Divider(height: 1),
         const SizedBox(height: 12),

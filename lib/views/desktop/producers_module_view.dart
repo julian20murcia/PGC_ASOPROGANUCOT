@@ -1,12 +1,15 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart' show FirebaseException;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter/services.dart' show Clipboard, ClipboardData, rootBundle;
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 
 import '../../controllers/auth_controller.dart';
 import '../../controllers/producer_controller.dart';
+import '../../core/services/firebase_callable.dart';
 import '../../core/theme/app_theme.dart';
+import '../../firebase_options.dart';
 import '../../models/privacy_notice.dart';
 import '../../models/producer_model.dart';
 import '../shared/widgets/dairy_loader.dart';
@@ -23,6 +26,7 @@ class ProducersModuleView extends StatefulWidget {
 
 class _ProducersModuleViewState extends State<ProducersModuleView> {
   final TextEditingController _searchCtrl = TextEditingController();
+  bool _issuingActivation = false;
 
   @override
   void initState() {
@@ -73,6 +77,45 @@ class _ProducersModuleViewState extends State<ProducersModuleView> {
     );
     if (updated == true && mounted) {
       _showToast(ctrl.feedbackMessage ?? 'Productor actualizado.');
+    }
+  }
+
+  Future<void> _issueActivation(ProducerModel producer) async {
+    if (_issuingActivation) return;
+    setState(() => _issuingActivation = true);
+    try {
+      final token = await FirebaseAuth.instance.currentUser?.getIdToken();
+      if (token == null) throw StateError('Inicia sesión para generar el enlace.');
+      final response = await callFirebaseFunction('issueProducerActivationLink',
+        {'productorId': producer.productorId}, idToken: token);
+      final route = Uri(path: '/activar', queryParameters: {'clave': response['clave'] as String});
+      final url = Uri.https('${DefaultFirebaseOptions.currentPlatform.projectId}.web.app', '/')
+          .replace(fragment: route.toString()).toString();
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Enlace de activación'),
+          content: SelectableText('Entrega el enlace a ${producer.nombreCompleto} por un canal privado. Vence en 48 horas.\n\n$url'),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cerrar')),
+            TextButton(
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: url));
+                if (context.mounted) Navigator.of(context).pop();
+              },
+              child: const Text('Copiar enlace'),
+            ),
+          ],
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(
+        error is StateError ? error.message : 'No se pudo generar el enlace. Reintenta.',
+      )));
+    } finally {
+      if (mounted) setState(() => _issuingActivation = false);
     }
   }
 
@@ -534,6 +577,13 @@ class _ProducersModuleViewState extends State<ProducersModuleView> {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
+                  if (p.isActivo && !hasMobile && context.read<AuthController>().currentUser?.isAdmin == true)
+                    IconButton(
+                      tooltip: 'Generar enlace de activación',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: _issuingActivation ? null : () => _issueActivation(p),
+                      icon: const Icon(Icons.link, size: 18),
+                    ),
                   IconButton(
                     tooltip: 'Editar productor',
                     visualDensity: VisualDensity.compact,
@@ -975,24 +1025,24 @@ class _ProducerFormDialogState extends State<_ProducerFormDialog> {
     return 'No se pudo consultar el aviso institucional. Verifica la conexión y reintenta.';
   }
 
-  Future<void> _showPolicyTemplate() => showDialog<void>(
+  Future<void> _showPolicyPdf() => showDialog<void>(
     context: context,
     builder: (context) => AlertDialog(
-      title: const Text('Política y aviso para aprobación'),
+      title: const Text('Política y aviso de privacidad'),
       content: SizedBox(
         width: 680,
         height: MediaQuery.sizeOf(context).height * 0.65,
         child: PdfPreview(
           build: (_) async {
             final pdf = await rootBundle.load(
-              'docs/privacidad/politica-y-aviso-asoproganucot.pdf',
+              'docs/privacidad/politica-y-aviso-vigente-asoproganucott.pdf',
             );
             return pdf.buffer.asUint8List(pdf.offsetInBytes, pdf.lengthInBytes);
           },
           canChangeOrientation: false,
           canChangePageFormat: false,
           canDebug: false,
-          pdfFileName: 'politica-y-aviso-asoproganucot.pdf',
+          pdfFileName: 'politica-y-aviso-vigente-asoproganucott.pdf',
         ),
       ),
       actions: [
@@ -1173,9 +1223,9 @@ class _ProducerFormDialogState extends State<_ProducerFormDialog> {
                               ] else ...<Widget>[
                                 Text(_noticeError(snapshot.error)),
                                 TextButton.icon(
-                                  onPressed: _showPolicyTemplate,
+                                  onPressed: _showPolicyPdf,
                                   icon: const Icon(Icons.picture_as_pdf_outlined),
-                                  label: const Text('Ver formato para aprobación (PDF)'),
+                                  label: const Text('Ver copia de la política (PDF)'),
                                 ),
                                 TextButton(
                                   onPressed: _retryNotice,

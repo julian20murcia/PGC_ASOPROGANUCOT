@@ -4,9 +4,8 @@ const { join } = require('node:path');
 const { test } = require('node:test');
 const { createHash } = require('node:crypto');
 const { initializeApp } = require('firebase-admin/app');
-const { getAuth } = require('firebase-admin/auth');
 const { getFirestore } = require('firebase-admin/firestore');
-const { closeMilkSettlements, registerProducerAccount } = require('../compliance');
+const { closeMilkSettlements, issueProducerActivationLink, registerProducerAccount } = require('../compliance');
 
 const host = process.env.FIRESTORE_EMULATOR_HOST;
 const project = process.env.GCLOUD_PROJECT || 'demo-asoproganucot';
@@ -164,54 +163,58 @@ test('reglas de perfiles, autorización, entregas y cierre con auditoría', asyn
 });
 
 const authEmulator = process.env.FIREBASE_AUTH_EMULATOR_HOST;
-test('activa al productor verificado, registra su autorización y conserva su contraseña al reintentar', {
+test('entrega un enlace único y activa la cuenta con coincidencia del padrón y autorización', {
   skip: !/^(localhost|127\.0\.0\.1):\d+$/.test(authEmulator || ''),
 }, async () => {
   const db = getFirestore();
   const suffix = Date.now().toString();
-  const producer = db.collection('productores').doc(`digital-${suffix}`);
-  const phone = '+573105523031';
-  const user = await getAuth().createUser({ phoneNumber: phone });
-  const { uid } = user;
-  const profile = db.collection('usuarios').doc(uid);
+  const producer = db.collection('productores').doc('digital-' + suffix);
   const document = suffix.slice(3);
+  const admin = 'admin-activacion-' + suffix;
+  await db.doc('usuarios/' + admin).set({ uid: admin, rol: 'ADMIN', activo: true });
   await producer.set({ cedula: document, telefono: '310 552 3031',
     nombres: 'Productor', apellidos: 'Digital', estado: 'ACTIVO', aceptoHabeasData: true });
   const notice = (await db.doc('configuracion/privacidad').get()).data();
   await expectStatus(read('configuracion/privacidad'), 200);
-  const auth = { uid, token: { phone_number: phone, auth_time: Math.floor(Date.now() / 1000),
-    firebase: { sign_in_provider: 'phone' } } };
-  const data = { documento: document, password: 'ClaveDePrueba!123', aviso: notice, aceptado: true,
-    declaracion: 'Leí el aviso y la política de tratamiento. Autorizo el uso de mis datos para verificar mi teléfono, activar mi cuenta y consultar mi historial en el portal.' };
+  const args = { auth: { uid: admin, token: {} }, data: { productorId: producer.id } };
+  await assert.rejects(issueProducerActivationLink.run({ data: args.data }), { code: 'unauthenticated' });
+  await assert.rejects(issueProducerActivationLink.run({ ...args, auth: { uid: document, token: {} } }), { code: 'permission-denied' });
+  const first = await issueProducerActivationLink.run(args);
+  const { clave } = await issueProducerActivationLink.run(args);
+  const invite = db.doc('activaciones_portal/' + producer.id);
+  assert.equal((await invite.get()).get('hash').length, 64);
+  await expectStatus(read(invite.path, admin), 403);
+  const data = { clave, documento: document, telefono: '+573105523031',
+    password: 'ClaveDePrueba!123', aviso: notice, aceptado: true,
+    declaracion: 'Leí el aviso y la política de tratamiento. Autorizo el uso de mis datos para verificar el documento y el teléfono del padrón, activar mi cuenta y consultar mi historial en el portal.' };
 
-  await assert.rejects(registerProducerAccount.run({ data }), { code: 'unauthenticated' });
-  await assert.rejects(registerProducerAccount.run({ auth, data: { ...data, aceptado: false } }), { code: 'invalid-argument' });
-  await assert.rejects(registerProducerAccount.run({ auth, data: { ...data, documento: '99999' } }), { code: 'failed-precondition' });
-  await assert.rejects(registerProducerAccount.run({ auth, data: { ...data, aviso: { ...notice, version: 'antigua' } } }), { code: 'failed-precondition' });
-  const duplicate = db.collection('productores').doc(`compartido-${suffix}`);
-  await duplicate.set({ cedula: '99998', telefono: phone });
-  await assert.rejects(registerProducerAccount.run({ auth, data }), { code: 'failed-precondition' });
-  await duplicate.delete();
-  assert.equal((await profile.get()).exists, false);
+  await assert.rejects(registerProducerAccount.run({ data: { ...data, aceptado: false } }), { code: 'invalid-argument' });
+  await assert.rejects(registerProducerAccount.run({ data: { ...data, clave: first.clave } }), { code: 'failed-precondition' });
+  await assert.rejects(registerProducerAccount.run({ data: { ...data, documento: '99999' } }), { code: 'failed-precondition' });
+  await assert.rejects(registerProducerAccount.run({ data: { ...data, telefono: '3105520199' } }), { code: 'failed-precondition' });
+  await assert.rejects(registerProducerAccount.run({ data: { ...data, aviso: { ...notice, version: 'antigua' } } }), { code: 'failed-precondition' });
+  await invite.update({ venceEn: Date.now() - 1 });
+  await assert.rejects(registerProducerAccount.run({ data }), { code: 'failed-precondition' });
+  const renewed = { ...data, ...(await issueProducerActivationLink.run(args)) };
 
-  assert.deepEqual(await registerProducerAccount.run({ auth, data }), { activa: true });
-  const current = (await profile.get()).data();
+  assert.deepEqual(await registerProducerAccount.run({ data: renewed }), { activa: true });
+  const uid = (await producer.get()).get('uidUsuario');
+  const current = (await db.doc('usuarios/' + uid).get()).data();
   assert.equal(current.rol, 'PRODUCTOR');
-  assert.equal((await producer.get()).get('uidUsuario'), uid);
-  const evidence = (await db.doc(`autorizaciones_portal/${uid}`).get()).data();
+  assert.ok((await invite.get()).get('usadoEn'));
+  const evidence = (await db.doc('autorizaciones_portal/' + uid).get()).data();
   assert.equal(evidence.declaracion, data.declaracion);
-  assert.equal(evidence.canal, 'PORTAL_MOVIL_SMS');
+  assert.equal(evidence.canal, 'PORTAL_ENLACE');
   assert.equal(evidence.aviso.version, notice.version);
-  await expectStatus(read(producer.path, uid, 'phone'), 403);
+  await expectStatus(read(producer.path), 403);
   await expectStatus(read(producer.path, uid), 200);
-  await expectStatus(read(`autorizaciones_portal/${uid}`, uid), 200);
-  await expectStatus(read(`autorizaciones_portal/${uid}`), 403);
+  await expectStatus(read('autorizaciones_portal/' + uid, uid), 200);
 
-  assert.deepEqual(await registerProducerAccount.run({ auth, data: { ...data, password: 'OtraClave!123' } }), { activa: true });
-  const result = await fetch(`http://${authEmulator}/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=demo`, {
+  assert.deepEqual(await registerProducerAccount.run({ data: { ...renewed, password: 'OtraClave!123' } }), { activa: true });
+  const response = await fetch('http://' + authEmulator + '/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=demo', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email: current.correoAccesoInterno, password: data.password, returnSecureToken: true }),
   });
-  assert.equal(result.status, 200, await result.clone().text());
-  assert.equal((await result.json()).localId, uid);
+  assert.equal(response.status, 200, await response.clone().text());
+  assert.equal((await response.json()).localId, uid);
 });
