@@ -1,0 +1,229 @@
+name: Pruebas de calidad (5 tipos)
+
+# Batería de pruebas del trabajo de grado:
+#   1. Caja blanca   · unitarias + widgets con cobertura mínima
+#   2. Caja negra    · particiones de equivalencia y valores límite (requisitos)
+#   3. Seguridad     · reglas de Firestore atacadas en el emulador, backend,
+#                      búsqueda de secretos y auditoría de dependencias
+#   4. Estrés        · carga ≈ 17× la operación real con presupuesto de tiempo
+#   5. Integración   · Cloud Functions reales contra Auth + Firestore emulados
+# Al final, un job consolida todo en un informe (resumen de la ejecución y
+# artefacto descargable "informe-pruebas").
+
+on:
+  push:
+    branches: [main, develop, 'feature/**']
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+concurrency:
+  group: pruebas-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: '3.44.1'
+  NODE_VERSION: '22'
+  FIREBASE_TOOLS_VERSION: '15.20.0'
+  EMU_PROJECT: demo-asoproganucot
+
+jobs:
+  caja-blanca:
+    name: 1 · Caja blanca (unitarias, widgets y cobertura)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - run: flutter pub get --enforce-lockfile
+      - name: Análisis estático (0 problemas)
+        run: flutter analyze --no-pub
+      - name: Pruebas unitarias y de widgets con cobertura
+        run: |
+          mkdir -p resultados
+          flutter test --no-pub --coverage --exclude-tags "caja-negra,estres" \
+            --reporter expanded --file-reporter json:resultados/caja-blanca__flutter.json
+      - name: Cobertura mínima de la lógica de negocio (70 %)
+        run: dart run tool/coverage_summary.dart coverage/lcov.info resultados/caja-blanca__cobertura.md 70
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: resultados-caja-blanca
+          path: |
+            resultados/
+            coverage/lcov.info
+
+  caja-negra:
+    name: 2 · Caja negra (equivalencia y valores límite)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - run: flutter pub get --enforce-lockfile
+      - name: Casos derivados de los requisitos
+        run: |
+          mkdir -p resultados
+          flutter test --no-pub --tags caja-negra \
+            --reporter expanded --file-reporter json:resultados/caja-negra__flutter.json
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: resultados-caja-negra
+          path: resultados/
+
+  seguridad:
+    name: 3 · Seguridad (reglas, backend, secretos, dependencias)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: npm ci
+        working-directory: functions
+      - run: npm install -g firebase-tools@${{ env.FIREBASE_TOOLS_VERSION }}
+      - run: mkdir -p resultados
+      - name: Búsqueda de secretos en el repositorio
+        run: bash tool/security/secret_scan.sh resultados/seguridad__secretos.md
+      - name: Auditoría de dependencias de producción (sin vulnerabilidades altas o críticas)
+        working-directory: functions
+        run: |
+          set -o pipefail
+          npm audit --omit=dev --audit-level=high | tee ../resultados/npm-audit.txt
+          {
+            echo "### Auditoría de dependencias (npm audit, producción)"
+            echo
+            echo "Umbral de rechazo: vulnerabilidades **altas** o **críticas**. Resultado: **sin hallazgos que superen el umbral**."
+            echo
+            echo '```'
+            tail -n 3 ../resultados/npm-audit.txt
+            echo '```'
+          } > ../resultados/seguridad__npm-audit.md
+      - name: Seguridad del backend (autenticación, entradas maliciosas, esquemas, secretos)
+        run: |
+          node --test --test-reporter=spec --test-reporter-destination=stdout \
+            --test-reporter=junit --test-reporter-destination=resultados/seguridad__backend.xml \
+            functions/test/security/backend_security.test.js
+      - name: Reglas de Firestore atacadas en el emulador
+        run: |
+          firebase emulators:exec --only firestore --project "$EMU_PROJECT" \
+            "node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination=resultados/seguridad__reglas-firestore.xml functions/test/security/firestore_rules.test.js"
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: resultados-seguridad
+          path: resultados/
+
+  estres:
+    name: 4 · Estrés y rendimiento
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+      - run: flutter pub get --enforce-lockfile
+      - run: npm ci
+        working-directory: functions
+      - name: Carga en la app (liquidación, planilla, reportes, predicción, Excel, caché)
+        run: |
+          mkdir -p resultados
+          flutter test --no-pub --tags estres \
+            --reporter expanded --file-reporter json:resultados/estres__flutter.json
+      - name: Carga en el backend del asistente IA
+        run: |
+          set -o pipefail
+          node --test --test-reporter=spec --test-reporter-destination=stdout \
+            --test-reporter=junit --test-reporter-destination=resultados/estres__backend.xml \
+            functions/test/stress/backend_stress.test.js | tee resultados/estres__backend.log
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: resultados-estres
+          path: resultados/
+
+  integracion:
+    name: 5 · Integración (Cloud Functions + emuladores)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: npm ci
+        working-directory: functions
+      - run: npm install -g firebase-tools@${{ env.FIREBASE_TOOLS_VERSION }}
+      - name: Inicio por documento, registro de productores y cierre de quincena
+        run: |
+          mkdir -p resultados
+          firebase emulators:exec --only auth,firestore --project "$EMU_PROJECT" \
+            "node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination=resultados/integracion__cloud-functions.xml functions/test/compliance.test.js"
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: resultados-integracion
+          path: resultados/
+
+  informe:
+    name: Informe consolidado de pruebas
+    runs-on: ubuntu-latest
+    needs: [caja-blanca, caja-negra, seguridad, estres, integracion]
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: resultados-*
+          path: descargas
+      - name: Generar informe
+        run: |
+          mkdir -p resultados
+          find descargas -type f \( -name '*.json' -o -name '*.xml' -o -name '*.log' -o -name '*.md' \) \
+            -exec cp {} resultados/ \;
+          ls -la resultados
+          # Script sin dependencias: se ejecuta fuera del proyecto Flutter.
+          cp tool/test_report.dart "$RUNNER_TEMP/test_report.dart"
+          dart "$RUNNER_TEMP/test_report.dart" resultados informe_pruebas.md
+      - name: Publicar en el resumen de la ejecución
+        if: always()
+        run: cat informe_pruebas.md >> "$GITHUB_STEP_SUMMARY"
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: informe-pruebas
+          path: |
+            informe_pruebas.md
+            resultados/
+            descargas/resultados-caja-blanca/coverage/lcov.info

@@ -1,0 +1,7 @@
+# Etiquetas de los tipos de prueba (ver .github/workflows/pruebas_calidad.yml).
+tags:
+  caja-negra:
+    description: Particiones de equivalencia y valores límite sobre los requisitos.
+  estres:
+    description: Pruebas de carga y rendimiento con volúmenes grandes de datos.
+    timeout: 5m
