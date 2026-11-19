@@ -49,4 +49,5 @@ PLAN_MAESTRO_DESARROLLO.md
 
 # Firebase Functions
 functions/node_modules/
+functions/.env*
 firebase-debug*.log

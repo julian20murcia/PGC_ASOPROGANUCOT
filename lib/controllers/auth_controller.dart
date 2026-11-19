@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../core/services/fcm_service.dart';
@@ -18,6 +20,8 @@ class AuthController extends ChangeNotifier {
   final FirebaseUserService _userService;
   final HiveService _hiveService;
   final FcmService _fcmService;
+
+  StreamSubscription<String>? _tokenRefreshSub;
 
   UserModel? _currentUser;
   bool _isInitializing = true;
@@ -50,6 +54,7 @@ class AuthController extends ChangeNotifier {
         );
         if (profile != null && profile.activo) {
           _currentUser = profile;
+          unawaited(_registerDeviceToken(profile.uid));
         } else {
           await _userService.signOut();
           _currentUser = null;
@@ -99,10 +104,7 @@ class AuthController extends ChangeNotifier {
       _currentUser = signedUser;
       _savedIdentifier = cleanIdentifier;
 
-      final String? token = await _fcmService.fetchDeviceTokenIfSupported();
-      if (token != null && token.isNotEmpty) {
-        await _userService.appendFcmToken(uid: signedUser.uid, token: token);
-      }
+      await _registerDeviceToken(signedUser.uid);
 
       await _hiveService.saveSessionState(
         rememberMe: rememberMe,
@@ -128,6 +130,23 @@ class AuthController extends ChangeNotifier {
     }
   }
 
+  Future<void> _registerDeviceToken(String uid) async {
+    try {
+      final String? token = await _fcmService.fetchDeviceTokenIfSupported();
+      if (token != null && token.isNotEmpty) {
+        await _userService.appendFcmToken(uid: uid, token: token);
+      }
+      await _tokenRefreshSub?.cancel();
+      _tokenRefreshSub = _fcmService.onTokenRefresh.listen((String nextToken) {
+        if (nextToken.isNotEmpty && _currentUser?.uid == uid) {
+          unawaited(_userService.appendFcmToken(uid: uid, token: nextToken));
+        }
+      });
+    } catch (_) {
+      // No bloquear la sesión ni entornos de prueba si no hay canal push.
+    }
+  }
+
   void clearError() {
     if (_errorMessage != null) {
       _errorMessage = null;
@@ -139,6 +158,8 @@ class AuthController extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     try {
+      await _tokenRefreshSub?.cancel();
+      _tokenRefreshSub = null;
       await _userService.signOut();
       await _hiveService.clearActiveSession(keepIdentifier: _rememberMe);
       _currentUser = null;
@@ -147,5 +168,11 @@ class AuthController extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  @override
+  void dispose() {
+    unawaited(_tokenRefreshSub?.cancel());
+    super.dispose();
   }
 }

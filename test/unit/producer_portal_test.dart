@@ -537,7 +537,7 @@ void main() {
           isTrue,
         );
 
-        // Paso 7.6: Parseo FCM de eventos en primer plano
+        // Paso 7.6: Parseo FCM de eventos en primer plano (PAGO, ENTREGA y CIERRE_QUINCENA)
         final AppNotificationModel? parsedFcm =
             FcmService.parseRemoteMessageData(
           <String, dynamic>{
@@ -550,6 +550,38 @@ void main() {
         );
         expect(parsedFcm, isNotNull);
         expect(parsedFcm!.tipo, 'PAGO');
+
+        final AppNotificationModel? parsedEntrega =
+            FcmService.parseRemoteMessageData(
+          <String, dynamic>{
+            'notificacionId': 'notif_entrega_rec-1',
+            'tipo': 'ENTREGA',
+            'destinoProductorId': 'prod-a',
+            'titulo': 'Entrega registrada (Mañana)',
+            'mensaje': 'Se registraron 24.5 L de leche cruda el 2026-11-18.',
+            'refrescarAvisos': 'true',
+          },
+        );
+        expect(parsedEntrega, isNotNull);
+        expect(parsedEntrega!.tipo, 'ENTREGA');
+        expect(parsedEntrega.titulo, 'Entrega registrada (Mañana)');
+        expect(parsedEntrega.mensaje, contains('24.5 L'));
+
+        final AppNotificationModel? parsedCierre =
+            FcmService.parseRemoteMessageData(
+          <String, dynamic>{
+            'notificacionId': 'notif_cierre_liq-1',
+            'tipo': 'CIERRE_QUINCENA',
+            'destinoProductorId': 'prod-a',
+            'refrescarAvisos': 'true',
+          },
+          title: 'Cierre de 2ª quincena · 11/2026',
+          body:
+              'Se cerró tu quincena: 310.0 L (14 entregas) por \$620.000 COP. Comprobante COMP-2026-0001.',
+        );
+        expect(parsedCierre, isNotNull);
+        expect(parsedCierre!.tipo, 'CIERRE_QUINCENA');
+        expect(parsedCierre.mensaje, contains('310.0 L'));
       },
     );
 
@@ -586,6 +618,8 @@ void main() {
             )).thenAnswer((_) async => producerUserA);
         when(() => mockFcm.fetchDeviceTokenIfSupported())
             .thenAnswer((_) async => null);
+        when(() => mockFcm.onTokenRefresh)
+            .thenAnswer((_) => const Stream<String>.empty());
 
         final AuthController authController = AuthController(
           userService: mockUserService,

@@ -420,20 +420,20 @@ class _LoginViewState extends State<LoginView>
     final MediaQueryData media = MediaQuery.of(context);
     final double topInset = media.padding.top;
     final double headerHeight =
-        (media.size.height * 0.38).clamp(268.0, 324.0) + topInset;
+        (media.size.height * 0.30).clamp(215.0, 260.0) + topInset;
 
     return SingleChildScrollView(
       child: Column(
         children: <Widget>[
           ModernWaveHeader(
             height: headerHeight,
-            padding: EdgeInsets.fromLTRB(24, topInset + 18, 24, 64),
+            padding: EdgeInsets.fromLTRB(24, topInset + 20, 24, 24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
                 const AsoproganucotLogo(
-                  size: 86,
+                  size: 80,
                   compact: false,
                   onDark: true,
                 ),
@@ -457,7 +457,7 @@ class _LoginViewState extends State<LoginView>
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 14.5,
+                    fontSize: 14,
                     fontWeight: FontWeight.w500,
                     color: Colors.white70,
                   ),
@@ -468,7 +468,7 @@ class _LoginViewState extends State<LoginView>
           Container(
             width: double.infinity,
             color: AppTheme.surface,
-            padding: const EdgeInsets.fromLTRB(24, 6, 24, 28),
+            padding: const EdgeInsets.fromLTRB(24, 22, 24, 28),
             child: Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 420),

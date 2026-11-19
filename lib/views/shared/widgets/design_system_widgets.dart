@@ -533,21 +533,23 @@ class CleanDataTable extends StatelessWidget {
   }
 }
 
-/// Cabecera móvil moderna con fondo en tinta negra `#0E1117`, barra de estado clara
-/// y una sola onda pronunciada en un único color para empalmar con el cuerpo blanco.
+/// Cabecera móvil limpia con fondo en tinta negra `#0E1117`, barra de estado clara
+/// y bordes inferiores redondeados para empalmar con el cuerpo claro.
 class ModernWaveHeader extends StatelessWidget {
   const ModernWaveHeader({
     super.key,
     required this.height,
     required this.child,
     this.bottomSurfaceColor = AppTheme.surface,
-    this.padding = const EdgeInsets.only(bottom: 64),
+    this.padding = const EdgeInsets.only(bottom: 24),
+    this.borderRadius = 28.0,
   });
 
   final double height;
   final Widget child;
   final Color bottomSurfaceColor;
   final EdgeInsetsGeometry padding;
+  final double borderRadius;
 
   static const SystemUiOverlayStyle _lightStatusOverlay = SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
@@ -559,66 +561,28 @@ class ModernWaveHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: _lightStatusOverlay,
-      child: SizedBox(
-        height: height,
-        width: double.infinity,
-        child: Stack(
-          fit: StackFit.expand,
-          children: <Widget>[
-            CustomPaint(
-              painter: _ModernWavePainter(
-                bottomSurfaceColor: bottomSurfaceColor,
+      child: ColoredBox(
+        color: bottomSurfaceColor,
+        child: Container(
+          height: height,
+          width: double.infinity,
+          padding: padding,
+          decoration: BoxDecoration(
+            color: AppTheme.inkBlack,
+            borderRadius: BorderRadius.vertical(
+              bottom: Radius.circular(borderRadius),
+            ),
+            boxShadow: const <BoxShadow>[
+              BoxShadow(
+                color: Color(0x140E1117),
+                blurRadius: 14,
+                offset: Offset(0, 6),
               ),
-            ),
-            Padding(
-              padding: padding,
-              child: child,
-            ),
-          ],
+            ],
+          ),
+          child: child,
         ),
       ),
     );
   }
-}
-
-class _ModernWavePainter extends CustomPainter {
-  const _ModernWavePainter({required this.bottomSurfaceColor});
-
-  final Color bottomSurfaceColor;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final double w = size.width;
-    final double h = size.height;
-
-    // Fondo sólido de un solo color en tinta negra
-    canvas.drawRect(
-      Rect.fromLTWH(0, 0, w, h),
-      Paint()..color = AppTheme.inkBlack,
-    );
-
-    // Una sola onda amplia y pronunciada en el color de la hoja inferior
-    final Path singleWave = Path()
-      ..moveTo(0, h - 44)
-      ..cubicTo(
-        w * 0.30,
-        h - 96,
-        w * 0.68,
-        h + 26,
-        w,
-        h - 32,
-      )
-      ..lineTo(w, h + 1)
-      ..lineTo(0, h + 1)
-      ..close();
-
-    canvas.drawPath(
-      singleWave,
-      Paint()..color = bottomSurfaceColor,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _ModernWavePainter oldDelegate) =>
-      oldDelegate.bottomSurfaceColor != bottomSurfaceColor;
 }

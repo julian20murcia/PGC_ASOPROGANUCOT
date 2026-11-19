@@ -64,12 +64,17 @@ class FirestoreReceptionGateway implements RemoteReceptionGateway {
           ),
         );
         final String notificationId = 'notif_entrega_${reception.recepcionId}';
+        final String shiftLabel =
+            reception.jornada.toUpperCase() == AppConstants.shiftAfternoon
+                ? 'Tarde'
+                : 'Mañana';
         transaction.set(
           _db.collection(AppConstants.notificationsCollection).doc(notificationId),
           <String, dynamic>{
             'notificacionId': notificationId,
-            'titulo': 'Entrega registrada',
-            'mensaje': 'Se registraron ${reception.litros.toStringAsFixed(1)} L de leche cruda el ${reception.fechaEntrega} a las ${reception.horaEntrega}.',
+            'titulo': 'Entrega registrada ($shiftLabel)',
+            'mensaje':
+                'Se registraron ${reception.litros.toStringAsFixed(1)} L de leche cruda el ${reception.fechaEntrega} a las ${reception.horaEntrega} ($shiftLabel).',
             'tipo': 'ENTREGA',
             'destinoProductorId': reception.productorId,
             'fechaEnvio': payload['createdAt'],

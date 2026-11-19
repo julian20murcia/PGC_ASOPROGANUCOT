@@ -261,8 +261,8 @@ async function closeForProducer(db, uid, { settlement, receptionIds, notificatio
     }
     transaction.create(db.collection('notificaciones').doc(notification.notificacionId), {
       notificacionId: notification.notificacionId,
-      titulo: `Liquidación ${settlement.quincenaLabel} disponible`,
-      mensaje: `Consulta en la aplicación el comprobante ${numeroComprobante}.`,
+      titulo: `Cierre de ${settlement.quincenaLabel}`,
+      mensaje: `Se cerró tu quincena: ${issued.totalLitros.toFixed(1)} L (${ids.length} ${ids.length === 1 ? 'entrega' : 'entregas'}) por $${Math.round(issued.valorTotalPagar).toLocaleString('es-CO')} COP. Comprobante ${numeroComprobante}.`,
       tipo: 'CIERRE_QUINCENA', destinoProductorId: productorId,
       fechaEnvio: issued.fechaLiquidacion, leida: false,
     });

@@ -110,21 +110,51 @@ class _ProducerRegistrationViewState extends State<ProducerRegistrationView> {
     });
   }
 
+  bool _isIntegrityVerificationFailure(FirebaseException error) {
+    final String code = error.code.toLowerCase();
+    final String msg = (error.message ?? '').toLowerCase();
+    return code == 'app-not-authorized' ||
+        code == 'missing-client-identifier' ||
+        code == 'invalid-app-credential' ||
+        msg.contains('play_integrity_token') ||
+        msg.contains('17028') ||
+        msg.contains('play integrity');
+  }
+
   String _phoneError(FirebaseException error) {
+    final String msg = (error.message ?? '').toLowerCase();
+    if (_isIntegrityVerificationFailure(error)) {
+      return 'No se pudo validar la integridad de la app con Google Play. '
+          'Verifica tu conexión e intenta nuevamente para usar la verificación web.';
+    }
     return switch (error.code) {
       'invalid-verification-code' => 'El código del mensaje es incorrecto.',
       'session-expired' => 'El código venció. Solicita uno nuevo.',
       'too-many-requests' =>
         'Se alcanzó el límite de intentos. Intenta más tarde.',
       'operation-not-allowed' =>
-        'La verificación por SMS aún no está habilitada.',
-      _ =>
-        'No se pudo verificar el teléfono. Revisa la conexión y vuelve a intentar.',
+        'La verificación por SMS no está habilitada en Firebase Auth.',
+      'invalid-phone-number' => 'El número de celular no tiene formato válido.',
+      'quota-exceeded' =>
+        'Se superó la cuota diaria de SMS. Intenta más tarde.',
+      'billing-not-enabled' =>
+        'El proyecto Firebase requiere facturación activa para enviar SMS reales.',
+      'captcha-check-failed' =>
+        'La verificación de seguridad (reCAPTCHA) no se completó.',
+      'web-context-cancelled' =>
+        'Cancelaste la verificación de seguridad en el navegador. Intenta de nuevo.',
+      'network-request-failed' =>
+        'Sin conexión a internet para solicitar el SMS.',
+      _ => msg.contains('billing')
+          ? 'El proyecto Firebase requiere facturación activa para enviar SMS reales.'
+          : 'No se pudo verificar el teléfono (${error.code}). Revisa la conexión y vuelve a intentar.',
     };
   }
 
-  Future<void> _sendCode() async {
-    if (!_accepted || _busy || !(_form.currentState?.validate() ?? false)) {
+  Future<void> _sendCode({bool forceRecaptcha = false}) async {
+    if (!_accepted ||
+        (_busy && !forceRecaptcha) ||
+        !(_form.currentState?.validate() ?? false)) {
       return;
     }
     final attempt = ++_attempt;
@@ -134,16 +164,28 @@ class _ProducerRegistrationViewState extends State<ProducerRegistrationView> {
     });
     try {
       final auth = await _auth();
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        await auth.setSettings(forceRecaptchaFlow: forceRecaptcha);
+      }
       if (!mounted || attempt != _attempt) return;
       await auth.verifyPhoneNumber(
         phoneNumber: _mobile!,
+        timeout: const Duration(seconds: 60),
         verificationCompleted: (credential) {
           unawaited(_verify(credential, attempt));
         },
         verificationFailed: (error) {
-          if (attempt == _attempt && _verifiedUser == null && !_verifying) {
-            _showError(_phoneError(error));
+          if (attempt != _attempt || _verifiedUser != null || _verifying) {
+            return;
           }
+          if (!forceRecaptcha &&
+              !kIsWeb &&
+              defaultTargetPlatform == TargetPlatform.android &&
+              _isIntegrityVerificationFailure(error)) {
+            unawaited(_sendCode(forceRecaptcha: true));
+            return;
+          }
+          _showError(_phoneError(error));
         },
         codeSent: (id, _) {
           if (!mounted || attempt != _attempt || _verifiedUser != null) return;
@@ -161,7 +203,22 @@ class _ProducerRegistrationViewState extends State<ProducerRegistrationView> {
         },
       );
     } on FirebaseException catch (error) {
-      if (attempt == _attempt) _showError(_phoneError(error));
+      if (attempt == _attempt) {
+        if (!forceRecaptcha &&
+            !kIsWeb &&
+            defaultTargetPlatform == TargetPlatform.android &&
+            _isIntegrityVerificationFailure(error)) {
+          unawaited(_sendCode(forceRecaptcha: true));
+          return;
+        }
+        _showError(_phoneError(error));
+      }
+    } catch (_) {
+      if (attempt == _attempt) {
+        _showError(
+          'No se pudo iniciar la verificación por SMS. Intenta nuevamente.',
+        );
+      }
     }
   }
 
@@ -780,7 +837,7 @@ class _ProducerRegistrationViewState extends State<ProducerRegistrationView> {
                 ? () => _activate(notice)
                 : codeSent
                 ? _confirmCode
-                : _sendCode,
+                : () => _sendCode(),
           ),
           if (codeSent || verified)
             TextButton(

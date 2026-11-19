@@ -167,6 +167,8 @@ void main() {
     when(() => mockUserService.signOut()).thenAnswer((_) async {});
     when(() => mockFcmService.fetchDeviceTokenIfSupported())
         .thenAnswer((_) async => null);
+    when(() => mockFcmService.onTokenRefresh)
+        .thenAnswer((_) => const Stream<String>.empty());
 
     final AuthController authController = AuthController(
       userService: mockUserService,

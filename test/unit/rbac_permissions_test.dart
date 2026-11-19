@@ -150,6 +150,8 @@ void main() {
       ).thenAnswer((_) async => admin);
       when(() => mockFcmService.fetchDeviceTokenIfSupported())
           .thenAnswer((_) async => null);
+      when(() => mockFcmService.onTokenRefresh)
+          .thenAnswer((_) => const Stream<String>.empty());
 
       final bool ok = await controller.signIn(
         identifier: 'admin@asoproganucot.com',

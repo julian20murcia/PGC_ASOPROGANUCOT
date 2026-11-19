@@ -165,27 +165,8 @@ class ProducerPortalController extends ChangeNotifier {
         final setRes = await setFuture;
         final notifRes = await notifFuture;
 
-        // Filtro defensivo adicional para asegurar solo lectura aislada en móvil.
-        _receptions = recRes.receptions
-            .where(
-              (MilkReceptionModel r) =>
-                  r.productorId == prodId && !r.anulado,
-            )
-            .toList()
-          ..sort((MilkReceptionModel a, MilkReceptionModel b) {
-            final int dateCmp = b.fechaEntrega.compareTo(a.fechaEntrega);
-            return dateCmp != 0
-                ? dateCmp
-                : b.horaEntrega.compareTo(a.horaEntrega);
-          });
-
-        _settlements = setRes.settlements
-            .where((SettlementModel s) => s.productorId == prodId)
-            .toList()
-          ..sort(
-            (SettlementModel a, SettlementModel b) =>
-                b.fechaLiquidacion.compareTo(a.fechaLiquidacion),
-          );
+        _receptions = _filterAndSortReceptions(recRes.receptions, prodId);
+        _settlements = _filterAndSortSettlements(setRes.settlements, prodId);
 
         _notifications = notifRes.notifications;
         fromCache = recRes.fromCache || setRes.fromCache || notifRes.fromCache;
@@ -193,12 +174,10 @@ class ProducerPortalController extends ChangeNotifier {
         await _fcmSub?.cancel();
         _fcmSub = _fcmService.foregroundNotifications.listen(_handleIncomingFcm);
         await _fcmService.initializeForProducer(
-          onRefreshRequested: () async {
-            final result = await _notificationService.listForProducer(productorId: prodId, userUid: user.uid);
-            if (activeUser?.uid != user.uid || activeProducer?.productorId != prodId) return;
-            _notifications = result.notifications;
-            notifyListeners();
-          },
+          onRefreshRequested: () => _refreshLiveProducerData(
+            userUid: user.uid,
+            prodId: prodId,
+          ),
         );
       }
     } catch (e) {
@@ -206,6 +185,65 @@ class ProducerPortalController extends ChangeNotifier {
     } finally {
       isLoading = false;
       notifyListeners();
+    }
+  }
+
+  List<MilkReceptionModel> _filterAndSortReceptions(
+    List<MilkReceptionModel> items,
+    String prodId,
+  ) {
+    return items
+        .where(
+          (MilkReceptionModel r) => r.productorId == prodId && !r.anulado,
+        )
+        .toList()
+      ..sort((MilkReceptionModel a, MilkReceptionModel b) {
+        final int dateCmp = b.fechaEntrega.compareTo(a.fechaEntrega);
+        return dateCmp != 0
+            ? dateCmp
+            : b.horaEntrega.compareTo(a.horaEntrega);
+      });
+  }
+
+  List<SettlementModel> _filterAndSortSettlements(
+    List<SettlementModel> items,
+    String prodId,
+  ) {
+    return items
+        .where((SettlementModel s) => s.productorId == prodId)
+        .toList()
+      ..sort(
+        (SettlementModel a, SettlementModel b) =>
+            b.fechaLiquidacion.compareTo(a.fechaLiquidacion),
+      );
+  }
+
+  Future<void> _refreshLiveProducerData({
+    required String userUid,
+    required String prodId,
+  }) async {
+    try {
+      final recFuture = _receptionService.listForProducer(prodId);
+      final setFuture = _settlementService.listForProducer(prodId);
+      final notifFuture = _notificationService.listForProducer(
+        productorId: prodId,
+        userUid: userUid,
+      );
+
+      final recRes = await recFuture;
+      final setRes = await setFuture;
+      final notifRes = await notifFuture;
+      if (activeUser?.uid != userUid ||
+          activeProducer?.productorId != prodId) {
+        return;
+      }
+
+      _receptions = _filterAndSortReceptions(recRes.receptions, prodId);
+      _settlements = _filterAndSortSettlements(setRes.settlements, prodId);
+      _notifications = notifRes.notifications;
+      notifyListeners();
+    } catch (_) {
+      // Fallo silencioso al refrescar tras push en primer plano.
     }
   }
 

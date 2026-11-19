@@ -3,6 +3,7 @@ import 'dart:io' show Platform;
 
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
 import '../../models/app_notification_model.dart';
 
@@ -12,6 +13,9 @@ class FcmService {
   FcmService();
 
   static const String broadcastTopic = 'asoproganucott_comunicados';
+  static const MethodChannel _localAlertsChannel = MethodChannel(
+    'com.example.pgc_asoproganucot/notifications',
+  );
 
   final StreamController<AppNotificationModel> _foregroundController =
       StreamController<AppNotificationModel>.broadcast();
@@ -25,18 +29,67 @@ class FcmService {
   bool get isSupportedPlatform =>
       !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 
+  Stream<String> get onTokenRefresh {
+    if (!isSupportedPlatform) {
+      return const Stream<String>.empty();
+    }
+    try {
+      return FirebaseMessaging.instance.onRegistered;
+    } catch (_) {
+      return const Stream<String>.empty();
+    }
+  }
+
   Future<String?> fetchDeviceTokenIfSupported() async {
     if (!isSupportedPlatform) {
       return null;
     }
     try {
       final FirebaseMessaging messaging = FirebaseMessaging.instance;
-      await messaging.requestPermission();
-      final token = messaging.onRegistered.first.timeout(const Duration(seconds: 4));
-      await messaging.register();
-      return await token;
+      await messaging.requestPermission(alert: true, badge: true, sound: true);
+      try {
+        final Future<String> tokenFuture = messaging.onRegistered.first.timeout(
+          const Duration(seconds: 6),
+        );
+        await messaging.register();
+        final String registeredToken = (await tokenFuture).trim();
+        if (registeredToken.isNotEmpty) {
+          return registeredToken;
+        }
+      } catch (_) {
+        // Respaldo con getToken si onRegistered vence antes de emitir.
+      }
+      // ignore: deprecated_member_use
+      final String? fallbackToken = await messaging.getToken();
+      final String cleanFallback = (fallbackToken ?? '').trim();
+      return cleanFallback.isEmpty ? null : cleanFallback;
     } catch (_) {
       return null;
+    }
+  }
+
+  Future<void> showLocalAlertIfSupported({
+    required String title,
+    required String body,
+    int? id,
+  }) async {
+    if (!isSupportedPlatform || kIsWeb || !Platform.isAndroid) {
+      return;
+    }
+    if (title.trim().isEmpty && body.trim().isEmpty) {
+      return;
+    }
+    try {
+      await _localAlertsChannel.invokeMethod<void>(
+        'showNotification',
+        <String, dynamic>{
+          'id': id ?? DateTime.now().millisecondsSinceEpoch.remainder(1000000),
+          'title': title.trim().isEmpty ? 'ASOPROGANUCOTT' : title.trim(),
+          'body': body.trim(),
+        },
+      );
+    } catch (_) {
+      // Sin canal nativo disponible (p. ej. entorno de pruebas).
     }
   }
 
@@ -50,27 +103,60 @@ class FcmService {
     }
     try {
       final FirebaseMessaging messaging = FirebaseMessaging.instance;
-      await messaging.requestPermission();
+      await messaging.requestPermission(alert: true, badge: true, sound: true);
+      if (Platform.isIOS) {
+        await messaging.setForegroundNotificationPresentationOptions(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+      }
       await messaging.subscribeToTopic(broadcastTopic);
       await _onMessageSub?.cancel();
-      void handle(RemoteMessage msg) {
-        if (msg.data['refrescarAvisos'] == 'true') {
-          unawaited(onRefreshRequested?.call());
-          return;
-        }
+
+      void handle(RemoteMessage msg, {required bool isForeground}) {
         final AppNotificationModel? parsed = parseRemoteMessageData(
           msg.data,
           title: msg.notification?.title,
           body: msg.notification?.body,
         );
         if (parsed != null) {
+          if (isForeground) {
+            unawaited(
+              showLocalAlertIfSupported(
+                title: parsed.titulo,
+                body: parsed.mensaje,
+                id: parsed.notificacionId.hashCode & 0x7FFFFFFF,
+              ),
+            );
+          }
           _foregroundController.add(parsed);
           onNotification?.call(parsed);
         }
+        final String tipo =
+            (parsed?.tipo ?? msg.data['tipo'] ?? '').toString().toUpperCase();
+        final bool shouldRefresh =
+            msg.data['refrescarAvisos'] == 'true' ||
+            tipo == 'ENTREGA' ||
+            tipo == 'CIERRE_QUINCENA' ||
+            tipo == 'LIQUIDACION' ||
+            tipo == 'PAGO';
+        if (shouldRefresh) {
+          unawaited(onRefreshRequested?.call());
+        }
       }
-      _onMessageSub = FirebaseMessaging.onMessage.listen(handle);
+
+      _onMessageSub = FirebaseMessaging.onMessage.listen(
+        (RemoteMessage msg) => handle(msg, isForeground: true),
+      );
       await _onOpenedAppSub?.cancel();
-      _onOpenedAppSub = FirebaseMessaging.onMessageOpenedApp.listen(handle);
+      _onOpenedAppSub = FirebaseMessaging.onMessageOpenedApp.listen(
+        (RemoteMessage msg) => handle(msg, isForeground: false),
+      );
+      final RemoteMessage? initialMessage = await messaging.getInitialMessage();
+      if (initialMessage != null) {
+        handle(initialMessage, isForeground: false);
+      }
     } catch (_) {
       // Fallo silencioso en emuladores o dispositivos sin Google Play Services.
     }

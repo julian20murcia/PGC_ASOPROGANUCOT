@@ -114,8 +114,9 @@ class _ProducerShellViewState extends State<ProducerShellView> {
         body: Column(
           children: <Widget>[
             ModernWaveHeader(
-              height: 216 + topInset,
-              padding: EdgeInsets.fromLTRB(18, topInset + 10, 18, 60),
+              height: 176 + topInset,
+              bottomSurfaceColor: AppTheme.canvas,
+              padding: EdgeInsets.fromLTRB(18, topInset + 10, 18, 22),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,

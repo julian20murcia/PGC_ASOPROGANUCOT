@@ -1,6 +1,6 @@
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { initializeApp } = require('firebase-admin/app');
-const { getFirestore } = require('firebase-admin/firestore');
+const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { getMessaging } = require('firebase-admin/messaging');
 
 initializeApp();
@@ -93,11 +93,32 @@ exports.onNotificationCreated = onDocumentCreated(
       ? savedTokens.filter((token) => typeof token === 'string' && token.trim().length > 0)
       : [];
     if (tokens.length === 0) return null;
-    return messaging.sendEachForMulticast({
+    const response = await messaging.sendEachForMulticast({
       tokens,
-      notification: { title: 'ASOPROGANUCOTT', body: 'Tienes un nuevo aviso. Consúltalo en la aplicación.' },
-      data: { refrescarAvisos: 'true' },
+      notification: notificationBlock,
+      data: {
+        ...dataPayload,
+        refrescarAvisos: 'true',
+      },
       android: androidConfig,
     });
+
+    const staleTokens = [];
+    response.responses.forEach((res, idx) => {
+      if (res.success || !res.error) return;
+      const code = String(res.error.code || '');
+      if (
+        code === 'messaging/registration-token-not-registered' ||
+        code === 'messaging/invalid-registration-token'
+      ) {
+        staleTokens.push(tokens[idx]);
+      }
+    });
+    if (staleTokens.length > 0) {
+      await db.collection('usuarios').doc(uidUsuario).update({
+        fcmTokens: FieldValue.arrayRemove(...staleTokens),
+      });
+    }
+    return response;
   },
 );
