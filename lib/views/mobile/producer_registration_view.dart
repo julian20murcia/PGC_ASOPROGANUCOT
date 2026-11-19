@@ -11,9 +11,12 @@ import '../../firebase_options.dart';
 import '../../models/privacy_notice.dart';
 import '../shared/widgets/design_system_widgets.dart';
 import '../shared/widgets/privacy_notice_view.dart';
+import '../shared/widgets/ui_kit.dart';
 
 class ProducerRegistrationView extends StatefulWidget {
-  const ProducerRegistrationView({super.key});
+  const ProducerRegistrationView({super.key, this.privacyNoticeLoader});
+
+  final Future<PrivacyNotice> Function()? privacyNoticeLoader;
 
   static bool get isSupported =>
       !kIsWeb &&
@@ -45,13 +48,18 @@ class _ProducerRegistrationViewState extends State<ProducerRegistrationView> {
   bool _accepted = false;
   bool _busy = false;
   bool _verifying = false;
+  bool _obscurePassword = true;
+  bool _obscureConfirmation = true;
   int _attempt = 0;
 
   @override
   void initState() {
     super.initState();
-    _notice = PrivacyNotice.load();
+    _notice = _loadNotice();
   }
+
+  Future<PrivacyNotice> _loadNotice() =>
+      (widget.privacyNoticeLoader ?? PrivacyNotice.load)();
 
   @override
   void dispose() {
@@ -244,13 +252,44 @@ class _ProducerRegistrationViewState extends State<ProducerRegistrationView> {
     if (mounted) setState(() => _busy = false);
   }
 
+  Future<void> _openPolicyAndAccept(PrivacyNotice notice) async {
+    FocusScope.of(context).unfocus();
+    final bool? accepted = await PrivacyNoticeView.showPolicyPreview(
+      context,
+      notice: notice,
+      requireScrollToAccept: true,
+      onPolicyOpened: () {
+        if (mounted) setState(() => _policyOpened = true);
+      },
+    );
+    if (!mounted) return;
+    if (accepted == true) {
+      setState(() {
+        _policyOpened = true;
+        _accepted = true;
+      });
+    }
+  }
+
+  Future<void> _openPolicyConsultation(PrivacyNotice notice) async {
+    await PrivacyNoticeView.showPolicyPreview(
+      context,
+      notice: notice,
+      requireScrollToAccept: false,
+      onPolicyOpened: () {
+        if (mounted) setState(() => _policyOpened = true);
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppTheme.canvas,
       appBar: AppBar(title: const Text('Crear cuenta de productor')),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(16),
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 540),
@@ -258,26 +297,46 @@ class _ProducerRegistrationViewState extends State<ProducerRegistrationView> {
                 future: _notice,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState != ConnectionState.done) {
-                    return const LinearProgressIndicator();
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 32),
+                      child: LinearProgressIndicator(),
+                    );
                   }
-                  final notice = snapshot.data;
+                  final PrivacyNotice? notice = snapshot.data;
                   if (notice == null) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'El registro requiere el aviso institucional vigente. Consulta a la asociación si el aviso sigue sin estar disponible.',
+                    return Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppTheme.surface,
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.radiusCard + 2,
                         ),
-                        TextButton(
-                          onPressed: () {
-                            final pending = PrivacyNotice.load();
-                            setState(() {
-                              _notice = pending;
-                            });
-                          },
-                          child: const Text('Reintentar'),
-                        ),
-                      ],
+                        border: Border.all(color: AppTheme.border),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          const AppInlineNotice.danger(
+                            message:
+                                'El registro requiere el aviso institucional vigente. Consulta a la asociación si el aviso sigue sin estar disponible.',
+                          ),
+                          const SizedBox(height: 12),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: OutlinedButton.icon(
+                              onPressed: () {
+                                final Future<PrivacyNotice> pending =
+                                    _loadNotice();
+                                setState(() {
+                                  _notice = pending;
+                                });
+                              },
+                              icon: const Icon(Icons.refresh_rounded, size: 17),
+                              label: const Text('Reintentar'),
+                            ),
+                          ),
+                        ],
+                      ),
                     );
                   }
                   return _registrationForm(notice);
@@ -291,111 +350,429 @@ class _ProducerRegistrationViewState extends State<ProducerRegistrationView> {
   }
 
   Widget _registrationForm(PrivacyNotice notice) {
-    final verified = _verifiedUser != null;
-    final codeSent = _verificationId != null;
+    final bool verified = _verifiedUser != null;
+    final bool codeSent = _verificationId != null;
+    final int currentStep = verified
+        ? 3
+        : _accepted
+        ? 2
+        : 1;
+    final Map<String, String> data = notice.data;
+
     return Form(
       key: _form,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text('Aviso de privacidad', style: AppTheme.subtitleStyle()),
-          const SizedBox(height: 12),
-          PrivacyNoticeView(
-            notice: notice,
-            onPolicyOpened: () => setState(() => _policyOpened = true),
+        children: <Widget>[
+          _RegistrationStepper(
+            currentStep: currentStep,
+            step1Done: _accepted,
+            step2Done: verified,
           ),
-          if (!_policyOpened)
-            const Text(
-              'Abre la política para poder confirmar tu autorización.',
-            ),
-          const Text(
-            'Firebase recibe el número para verificarlo por SMS y prevenir abusos.',
-          ),
-          CheckboxListTile(
-            contentPadding: EdgeInsets.zero,
-            value: _accepted,
-            onChanged: !_policyOpened || _busy || codeSent || verified
-                ? null
-                : (value) {
-                    setState(() => _accepted = value ?? false);
-                  },
-            title: const Text(_consent),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'Usa el documento y el celular registrados en la asociación.',
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            controller: _document,
-            enabled: _accepted && !_busy && !codeSent && !verified,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: 'Número de identificación',
-            ),
-            validator: (value) =>
-                RegExp(r'^\d{5,24}$').hasMatch(value?.trim() ?? '')
-                ? null
-                : 'Ingresa un número de identificación válido.',
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            controller: _phone,
-            enabled: _accepted && !_busy && !codeSent && !verified,
-            keyboardType: TextInputType.phone,
-            decoration: const InputDecoration(labelText: 'Celular registrado'),
-            validator: (_) => _mobile == null
-                ? 'Ingresa un celular colombiano válido.'
-                : null,
-          ),
-          if (codeSent && !verified) ...[
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _code,
-              keyboardType: TextInputType.number,
-              autofillHints: const [AutofillHints.oneTimeCode],
-              decoration: const InputDecoration(labelText: 'Código del SMS'),
-              validator: (value) =>
-                  RegExp(r'^\d{6}$').hasMatch(value?.trim() ?? '')
-                  ? null
-                  : 'Ingresa el código de seis dígitos.',
-            ),
-          ],
-          if (verified) ...[
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _password,
-              obscureText: true,
-              autofillHints: const [AutofillHints.newPassword],
-              decoration: const InputDecoration(labelText: 'Contraseña'),
-              validator: (value) =>
-                  (value ?? '').length < 8 || (value ?? '').length > 128
-                  ? 'Usa entre 8 y 128 caracteres.'
-                  : null,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _confirmation,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: 'Confirmar contraseña',
+          const SizedBox(height: 14),
+          if (!_accepted) ...<Widget>[
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppTheme.surface,
+                borderRadius: BorderRadius.circular(AppTheme.radiusCard + 2),
+                border: Border.all(color: AppTheme.border),
               ),
-              validator: (value) => value != _password.text
-                  ? 'Las contraseñas deben coincidir.'
-                  : null,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      const AppIconBadge(
+                        icon: Icons.privacy_tip_outlined,
+                        color: AppTheme.primaryGreen,
+                        size: 34,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            const Text(
+                              'Aviso de privacidad',
+                              style: TextStyle(
+                                fontSize: 15.5,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.textPrimary,
+                              ),
+                            ),
+                            Text(
+                              'Versión ${data['version']} · ${data['responsable']}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.canvasAlt,
+                      borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+                      border: Border.all(color: AppTheme.border),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          '${data['finalidades']}',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            height: 1.45,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          '${data['derechos']}',
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            height: 1.4,
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  PrimaryActionButton(
+                    label: 'Leer política aquí y aceptar',
+                    icon: Icons.menu_book_outlined,
+                    isMobile: true,
+                    fullWidth: true,
+                    onPressed: _busy ? null : () => _openPolicyAndAccept(notice),
+                  ),
+                  const SizedBox(height: 4),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: _busy
+                          ? null
+                          : () => PrivacyNoticeView.openPolicy(
+                              context,
+                              notice,
+                              onPolicyOpened: () {
+                                if (mounted) {
+                                  setState(() => _policyOpened = true);
+                                }
+                              },
+                            ),
+                      icon: const Icon(Icons.open_in_new, size: 15),
+                      label: const Text('Abrir enlace en navegador'),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Material(
+                    color: AppTheme.surfaceMuted,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+                      side: const BorderSide(color: AppTheme.border),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: CheckboxListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      controlAffinity: ListTileControlAffinity.leading,
+                      activeColor: AppTheme.primaryGreen,
+                      value: _accepted,
+                      onChanged: _busy || codeSent || verified
+                          ? null
+                          : (bool? value) {
+                              if (!_policyOpened) {
+                                _openPolicyAndAccept(notice);
+                              } else {
+                                setState(() => _accepted = value ?? false);
+                              }
+                            },
+                      title: const Text(
+                        _consent,
+                        style: TextStyle(
+                          fontSize: 13,
+                          height: 1.38,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ] else ...<Widget>[
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryGreenLight,
+                borderRadius: BorderRadius.circular(AppTheme.radiusCard + 2),
+                border: Border.all(
+                  color: AppTheme.primaryGreen.withValues(alpha: 0.35),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      const Icon(
+                        Icons.verified_user_rounded,
+                        size: 20,
+                        color: AppTheme.primaryGreen,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            const Text(
+                              'Política leída y autorización aceptada',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.successText,
+                              ),
+                            ),
+                            Text(
+                              'Versión ${data['version']}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    _consent,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      height: 1.4,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: <Widget>[
+                      TextButton.icon(
+                        style: TextButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        onPressed: () => _openPolicyConsultation(notice),
+                        icon: const Icon(Icons.menu_book_outlined, size: 15),
+                        label: const Text('Ver política'),
+                      ),
+                      if (!_busy && !codeSent && !verified)
+                        TextButton.icon(
+                          style: TextButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          onPressed: () => setState(() => _accepted = false),
+                          icon: const Icon(Icons.edit_outlined, size: 15),
+                          label: const Text('Cambiar'),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ],
-          if (_error != null) ...[
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppTheme.surface,
+              borderRadius: BorderRadius.circular(AppTheme.radiusCard + 2),
+              border: Border.all(color: AppTheme.border),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                const Row(
+                  children: <Widget>[
+                    AppIconBadge(
+                      icon: Icons.sms_outlined,
+                      color: AppTheme.skyBlue,
+                      size: 34,
+                    ),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            'Identificación y verificación SMS',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.textPrimary,
+                            ),
+                          ),
+                          Text(
+                            'Usa el documento y el celular registrados en la asociación.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'Firebase recibe el número para verificarlo por SMS y prevenir abusos.',
+                  style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _document,
+                  enabled: _accepted && !_busy && !codeSent && !verified,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Número de identificación',
+                    prefixIcon: Icon(Icons.badge_outlined, size: 18),
+                  ),
+                  validator: (value) =>
+                      RegExp(r'^\d{5,24}$').hasMatch(value?.trim() ?? '')
+                      ? null
+                      : 'Ingresa un número de identificación válido.',
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _phone,
+                  enabled: _accepted && !_busy && !codeSent && !verified,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(
+                    labelText: 'Celular registrado',
+                    hintText: 'Ej. 3101234567',
+                    prefixIcon: Icon(Icons.phone_android_rounded, size: 18),
+                  ),
+                  validator: (_) => _mobile == null
+                      ? 'Ingresa un celular colombiano válido.'
+                      : null,
+                ),
+                if (codeSent && !verified) ...<Widget>[
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _code,
+                    keyboardType: TextInputType.number,
+                    autofillHints: const <String>[AutofillHints.oneTimeCode],
+                    decoration: const InputDecoration(
+                      labelText: 'Código del SMS',
+                      prefixIcon: Icon(Icons.password_rounded, size: 18),
+                    ),
+                    validator: (value) =>
+                        RegExp(r'^\d{6}$').hasMatch(value?.trim() ?? '')
+                        ? null
+                        : 'Ingresa el código de seis dígitos.',
+                  ),
+                ],
+                if (verified) ...<Widget>[
+                  const SizedBox(height: 16),
+                  const Divider(height: 1),
+                  const SizedBox(height: 14),
+                  const Text(
+                    'Define tu contraseña de acceso',
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    controller: _password,
+                    obscureText: _obscurePassword,
+                    autofillHints: const <String>[AutofillHints.newPassword],
+                    decoration: InputDecoration(
+                      labelText: 'Contraseña',
+                      prefixIcon: const Icon(
+                        Icons.lock_outline_rounded,
+                        size: 18,
+                      ),
+                      suffixIcon: IconButton(
+                        tooltip: _obscurePassword
+                            ? 'Mostrar contraseña'
+                            : 'Ocultar contraseña',
+                        onPressed: () => setState(
+                          () => _obscurePassword = !_obscurePassword,
+                        ),
+                        icon: Icon(
+                          _obscurePassword
+                              ? Icons.visibility_outlined
+                              : Icons.visibility_off_outlined,
+                          size: 18,
+                        ),
+                      ),
+                    ),
+                    validator: (value) =>
+                        (value ?? '').length < 8 || (value ?? '').length > 128
+                        ? 'Usa entre 8 y 128 caracteres.'
+                        : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _confirmation,
+                    obscureText: _obscureConfirmation,
+                    decoration: InputDecoration(
+                      labelText: 'Confirmar contraseña',
+                      prefixIcon: const Icon(
+                        Icons.lock_outline_rounded,
+                        size: 18,
+                      ),
+                      suffixIcon: IconButton(
+                        tooltip: _obscureConfirmation
+                            ? 'Mostrar contraseña'
+                            : 'Ocultar contraseña',
+                        onPressed: () => setState(
+                          () => _obscureConfirmation = !_obscureConfirmation,
+                        ),
+                        icon: Icon(
+                          _obscureConfirmation
+                              ? Icons.visibility_outlined
+                              : Icons.visibility_off_outlined,
+                          size: 18,
+                        ),
+                      ),
+                    ),
+                    validator: (value) => value != _password.text
+                        ? 'Las contraseñas deben coincidir.'
+                        : null,
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (_error != null) ...<Widget>[
             const SizedBox(height: 12),
-            Text(_error!, style: const TextStyle(color: AppTheme.dangerText)),
+            AppInlineNotice.danger(message: _error!),
           ],
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           PrimaryActionButton(
             label: verified
                 ? 'Crear cuenta'
                 : codeSent
                 ? 'Verificar código'
                 : 'Enviar código por SMS',
+            isMobile: true,
             isLoading: _busy,
             onPressed: !_accepted || _busy
                 ? null
@@ -410,6 +787,118 @@ class _ProducerRegistrationViewState extends State<ProducerRegistrationView> {
               onPressed: _busy ? null : _restartVerification,
               child: const Text('Cambiar datos o solicitar otro código'),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RegistrationStepper extends StatelessWidget {
+  const _RegistrationStepper({
+    required this.currentStep,
+    required this.step1Done,
+    required this.step2Done,
+  });
+
+  final int currentStep;
+  final bool step1Done;
+  final bool step2Done;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            child: _StepChip(
+              number: '1',
+              label: 'Privacidad',
+              active: currentStep == 1,
+              done: step1Done,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: _StepChip(
+              number: '2',
+              label: 'Celular SMS',
+              active: currentStep == 2,
+              done: step2Done,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: _StepChip(
+              number: '3',
+              label: 'Contraseña',
+              active: currentStep == 3,
+              done: false,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StepChip extends StatelessWidget {
+  const _StepChip({
+    required this.number,
+    required this.label,
+    required this.active,
+    required this.done,
+  });
+
+  final String number;
+  final String label;
+  final bool active;
+  final bool done;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color bg = done
+        ? AppTheme.primaryGreenLight
+        : active
+        ? AppTheme.inkBlack
+        : AppTheme.surfaceMuted;
+    final Color fg = done
+        ? AppTheme.successText
+        : active
+        ? Colors.white
+        : AppTheme.textMuted;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(AppTheme.radiusControl),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: <Widget>[
+          Icon(
+            done ? Icons.check_circle_rounded : Icons.circle,
+            size: done ? 14 : 7,
+            color: fg,
+          ),
+          const SizedBox(width: 5),
+          Flexible(
+            child: Text(
+              done ? label : '$number. $label',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+                color: fg,
+              ),
+            ),
+          ),
         ],
       ),
     );
