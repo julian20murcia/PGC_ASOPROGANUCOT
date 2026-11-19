@@ -13,6 +13,7 @@ import '../../models/settlement_model.dart';
 import '../../models/user_model.dart';
 import '../shared/widgets/dairy_loader.dart';
 import '../shared/widgets/design_system_widgets.dart';
+import '../shared/widgets/ui_kit.dart';
 
 /// Módulo administrativo de liquidación quincenal, comprobantes PDF y control de pagos (`RF-13` a `RF-15`).
 class SettlementsModuleView extends StatefulWidget {
@@ -81,8 +82,8 @@ class _SettlementsModuleViewState extends State<SettlementsModuleView> {
     if (picked == null || !mounted) return;
     setState(() => _quickRangeIndex = 4);
     context.read<SettlementController>().setPeriod(
-          QuincenaPeriod.custom(picked.start, picked.end),
-        );
+      QuincenaPeriod.custom(picked.start, picked.end),
+    );
   }
 
   Future<void> _confirmAndCloseQuincena(
@@ -118,10 +119,8 @@ class _SettlementsModuleViewState extends State<SettlementsModuleView> {
     final bool? paid = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => _ConfirmPaymentDialog(
-        actor: actor,
-        settlement: settlement,
-      ),
+      builder: (_) =>
+          _ConfirmPaymentDialog(actor: actor, settlement: settlement),
     );
     if (paid == true && mounted) {
       _showToast(ctrl.feedbackMessage ?? 'Pago confirmado.');
@@ -133,8 +132,9 @@ class _SettlementsModuleViewState extends State<SettlementsModuleView> {
     SettlementModel settlement, {
     required bool shareOnly,
   }) async {
-    final List<MilkReceptionModel> items =
-        ctrl.receptionsForSettlement(settlement);
+    final List<MilkReceptionModel> items = ctrl.receptionsForSettlement(
+      settlement,
+    );
     final producer = ctrl.producerForSettlement(settlement);
     try {
       if (shareOnly) {
@@ -199,10 +199,7 @@ class _SettlementsModuleViewState extends State<SettlementsModuleView> {
     );
   }
 
-  Widget _buildHeader(
-    SettlementController ctrl, {
-    required bool isNarrow,
-  }) {
+  Widget _buildHeader(SettlementController ctrl, {required bool isNarrow}) {
     final Widget titleBlock = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -250,7 +247,7 @@ class _SettlementsModuleViewState extends State<SettlementsModuleView> {
     final MilkRateModel? rate = ctrl.activeRate;
 
     final List<Widget> cards = <Widget>[
-      AppKpiCard(
+      AppMetricTile(
         title: 'Por liquidar en período',
         value: AppFormatters.formatCurrency(preview?.totalAmountToPay ?? 0),
         subtitle:
@@ -258,7 +255,7 @@ class _SettlementsModuleViewState extends State<SettlementsModuleView> {
         icon: Icons.calculate_outlined,
         accentColor: AppTheme.primaryGreen,
       ),
-      AppKpiCard(
+      AppMetricTile(
         title: 'Tarifa aplicable',
         value: rate != null
             ? AppFormatters.formatCurrency(rate.precioPorLitro)
@@ -269,7 +266,7 @@ class _SettlementsModuleViewState extends State<SettlementsModuleView> {
         icon: Icons.payments_outlined,
         accentColor: AppTheme.skyBlue,
       ),
-      AppKpiCard(
+      AppMetricTile(
         title: 'Comprobantes pendientes',
         value: '${ctrl.pendingCount}',
         subtitle:
@@ -277,7 +274,7 @@ class _SettlementsModuleViewState extends State<SettlementsModuleView> {
         icon: Icons.schedule_rounded,
         accentColor: AppTheme.warning,
       ),
-      AppKpiCard(
+      AppMetricTile(
         title: 'Comprobantes pagados',
         value: '${ctrl.paidCount}',
         subtitle:
@@ -289,14 +286,23 @@ class _SettlementsModuleViewState extends State<SettlementsModuleView> {
 
     if (isNarrow) {
       return Column(
-        children: cards
-            .map(
-              (Widget card) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: card,
-              ),
-            )
-            .toList(),
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Expanded(child: cards[0]),
+              const SizedBox(width: 10),
+              Expanded(child: cards[1]),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: <Widget>[
+              Expanded(child: cards[2]),
+              const SizedBox(width: 10),
+              Expanded(child: cards[3]),
+            ],
+          ),
+        ],
       );
     }
 
@@ -317,285 +323,306 @@ class _SettlementsModuleViewState extends State<SettlementsModuleView> {
   }) {
     final SettlementPreviewResult? preview = ctrl.preview;
     final QuincenaPeriod period = ctrl.selectedPeriod;
-    final bool canClose = actor.isAdmin &&
+    final bool canClose =
+        actor.isAdmin &&
         preview != null &&
         preview.hasEligibleCandidates &&
         !preview.hasPendingSync &&
         (ctrl.activeRate?.precioPorLitro ?? 0) > 0;
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radiusCard),
-        border: Border.all(color: AppTheme.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          if (isNarrow) ...<Widget>[
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  'Cierre de quincena: ${period.label}',
-                  style: AppTheme.serifStyle(fontSize: 19),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Del ${AppFormatters.formatIsoDate(period.startDate)} al ${AppFormatters.formatIsoDate(period.endDate)}',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            PrimaryActionButton(
-              label: 'Ejecutar cierre quincenal',
-              icon: Icons.lock_outline_rounded,
-              isLoading: ctrl.isClosing,
-              fullWidth: true,
-              onPressed: canClose
-                  ? () => _confirmAndCloseQuincena(ctrl, actor)
-                  : null,
-            ),
-          ] else
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(
-                        'Cierre de quincena: ${period.label}',
-                        style: AppTheme.serifStyle(fontSize: 19),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Rango seleccionado: ${AppFormatters.formatIsoDate(period.startDate)} al ${AppFormatters.formatIsoDate(period.endDate)}',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: AppTheme.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                PrimaryActionButton(
-                  label: 'Ejecutar cierre quincenal',
-                  icon: Icons.lock_outline_rounded,
-                  isLoading: ctrl.isClosing,
-                  fullWidth: false,
-                  onPressed: canClose
-                      ? () => _confirmAndCloseQuincena(ctrl, actor)
-                      : null,
-                ),
-              ],
-            ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
+    final Widget closeButton = PrimaryActionButton(
+      label: 'Ejecutar cierre quincenal',
+      icon: Icons.lock_outline_rounded,
+      isLoading: ctrl.isClosing,
+      fullWidth: isNarrow,
+      isMobile: isNarrow,
+      onPressed: canClose ? () => _confirmAndCloseQuincena(ctrl, actor) : null,
+    );
+
+    final Widget titleBlock = Row(
+      children: <Widget>[
+        const AppIconBadge(
+          icon: Icons.lock_clock_outlined,
+          color: AppTheme.warmGold,
+          size: 36,
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              _PeriodChip(
-                label: 'Quincena actual',
-                selected: _quickRangeIndex == 0,
-                onTap: () => _selectQuickPeriod(0),
+              Text(
+                'Cierre de quincena: ${period.label}',
+                style: AppTheme.subtitleStyle().copyWith(fontSize: 16),
               ),
-              _PeriodChip(
-                label: 'Quincena anterior',
-                selected: _quickRangeIndex == 1,
-                onTap: () => _selectQuickPeriod(1),
-              ),
-              _PeriodChip(
-                label: 'Días 1 al 15 del mes',
-                selected: _quickRangeIndex == 2,
-                onTap: () => _selectQuickPeriod(2),
-              ),
-              _PeriodChip(
-                label: 'Días 16 a fin de mes',
-                selected: _quickRangeIndex == 3,
-                onTap: () => _selectQuickPeriod(3),
-              ),
-              OutlinedButton.icon(
-                onPressed: _pickCustomRange,
-                icon: const Icon(Icons.date_range_outlined, size: 16),
-                label: Text(
-                  _quickRangeIndex == 4 ? period.label : 'Rango personalizado',
-                ),
+              const SizedBox(height: 3),
+              Row(
+                children: <Widget>[
+                  const Icon(
+                    Icons.date_range_outlined,
+                    size: 13,
+                    color: AppTheme.textMuted,
+                  ),
+                  const SizedBox(width: 5),
+                  Flexible(
+                    child: Text(
+                      '${AppFormatters.formatIsoDate(period.startDate)} → ${AppFormatters.formatIsoDate(period.endDate)}',
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTheme.monoStyle(
+                        fontSize: 12.5,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-          if (preview != null && preview.hasPendingSync) ...<Widget>[
-            const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppTheme.warningBg,
-                borderRadius: BorderRadius.circular(AppTheme.radiusControl),
-                border: Border.all(
-                  color: AppTheme.warning.withValues(alpha: 0.35),
-                ),
-              ),
-              child: Row(
-                children: <Widget>[
-                  const Icon(
-                    Icons.sync_problem_rounded,
-                    size: 18,
-                    color: AppTheme.warningText,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Hay ${preview.pendingSyncReceptions.length} entrega(s) en este rango pendientes por subir a la nube. Sincroniza en Recepción antes de cerrar el período.',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: AppTheme.warningText,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+        ),
+      ],
+    );
+
+    final Widget periodSelector = Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: <Widget>[
+        AppSegmentedControl<int>(
+          selected: _quickRangeIndex,
+          onChanged: _selectQuickPeriod,
+          segments: const <AppSegment<int>>[
+            AppSegment<int>(
+              value: 0,
+              label: 'Quincena actual',
+              icon: Icons.today_rounded,
             ),
+            AppSegment<int>(value: 1, label: 'Quincena anterior'),
+            AppSegment<int>(value: 2, label: 'Días 1 al 15 del mes'),
+            AppSegment<int>(value: 3, label: 'Días 16 a fin de mes'),
           ],
-          if ((ctrl.activeRate?.precioPorLitro ?? 0) <= 0) ...<Widget>[
-            const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppTheme.dangerBg,
-                borderRadius: BorderRadius.circular(AppTheme.radiusControl),
-                border: Border.all(
-                  color: AppTheme.danger.withValues(alpha: 0.35),
-                ),
+        ),
+        OutlinedButton.icon(
+          onPressed: _pickCustomRange,
+          style: _quickRangeIndex == 4
+              ? OutlinedButton.styleFrom(
+                  backgroundColor: AppTheme.inkBlack,
+                  foregroundColor: Colors.white,
+                  side: const BorderSide(color: AppTheme.inkBlack),
+                )
+              : null,
+          icon: const Icon(Icons.date_range_outlined, size: 16),
+          label: Text(
+            _quickRangeIndex == 4 ? period.label : 'Rango personalizado',
+          ),
+        ),
+      ],
+    );
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radiusCard + 2),
+        border: Border.all(color: AppTheme.border),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0x0D0C3B24),
+            blurRadius: 18,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Container(
+            padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: <Color>[AppTheme.warmGoldLight, AppTheme.surface],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
               ),
-              child: const Text(
-                'No existe una tarifa vigente configurada. Regístrala en "Tarifas por Litro" para calcular liquidaciones.',
-                style: TextStyle(fontSize: 13, color: AppTheme.dangerText),
-              ),
+              border: Border(bottom: BorderSide(color: AppTheme.dividerLight)),
             ),
-          ],
-          const SizedBox(height: 16),
-          if (ctrl.isLoading && preview == null)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 28),
-              child: Center(
-                child: DairyLoader(
-                  size: DairyLoaderSize.md,
-                  label: 'Calculando entregas del corte…',
-                ),
-              ),
-            )
-          else if (preview == null || preview.candidates.isEmpty)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 26),
-              decoration: BoxDecoration(
-                color: AppTheme.surfaceMuted,
-                borderRadius: BorderRadius.circular(AppTheme.radiusControl),
-                border: Border.all(color: AppTheme.border),
-              ),
-              child: Column(
-                children: <Widget>[
-                  const Icon(
-                    Icons.inventory_2_outlined,
-                    size: 32,
-                    color: AppTheme.textMuted,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    preview != null && preview.alreadySettledDeliveriesCount > 0
-                        ? 'Las entregas registradas en este corte ya fueron liquidadas.'
-                        : 'No hay entregas sincronizadas pendientes por liquidar en este rango.',
-                    style: const TextStyle(
-                      fontSize: 13.5,
-                      color: AppTheme.textSecondary,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            )
-          else
-            CleanDataTable(
-              columns: const <CleanTableColumn>[
-                CleanTableColumn(label: 'Productor'),
-                CleanTableColumn(label: 'Entregas', numeric: true),
-                CleanTableColumn(label: 'Mañana', numeric: true),
-                CleanTableColumn(label: 'Tarde', numeric: true),
-                CleanTableColumn(label: 'Total litros', numeric: true),
-                CleanTableColumn(label: 'Tarifa / L', numeric: true),
-                CleanTableColumn(label: 'Neto a pagar', numeric: true),
-              ],
-              rows: preview.candidates.map((SettlementCandidate c) {
-                return <Widget>[
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
+            child: isNarrow
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: <Widget>[
-                      Text(
-                        c.nombreProductor,
-                        style: const TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.textPrimary,
-                        ),
-                      ),
-                      Text(
-                        '${c.codigoAsociado} · C.C. ${c.cedula}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppTheme.textSecondary,
-                        ),
-                      ),
+                      titleBlock,
+                      const SizedBox(height: 12),
+                      closeButton,
+                    ],
+                  )
+                : Row(
+                    children: <Widget>[
+                      Expanded(child: titleBlock),
+                      const SizedBox(width: 12),
+                      closeButton,
                     ],
                   ),
-                  Text(
-                    '${c.deliveryCount}',
-                    style: AppTheme.monoStyle(fontSize: 13),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                periodSelector,
+                if (preview != null && preview.hasPendingSync) ...<Widget>[
+                  const SizedBox(height: 12),
+                  AppInlineNotice(
+                    icon: Icons.sync_problem_rounded,
+                    message:
+                        'Hay ${preview.pendingSyncReceptions.length} entrega(s) en este rango pendientes por subir a la nube. Sincroniza en Recepción antes de cerrar el período.',
                   ),
-                  Text(
-                    AppFormatters.formatLiters(c.morningLiters),
-                    style: AppTheme.monoStyle(
-                      fontSize: 12.5,
-                      color: AppTheme.textSecondary,
+                ],
+                if ((ctrl.activeRate?.precioPorLitro ?? 0) <= 0) ...<Widget>[
+                  const SizedBox(height: 12),
+                  const AppInlineNotice.danger(
+                    icon: Icons.money_off_rounded,
+                    message:
+                        'No existe una tarifa vigente configurada. Regístrala en "Tarifas por Litro" para calcular liquidaciones.',
+                  ),
+                ],
+                const SizedBox(height: 14),
+                if (ctrl.isLoading && preview == null)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 28),
+                    child: Center(
+                      child: DairyLoader(
+                        size: DairyLoaderSize.md,
+                        label: 'Calculando entregas del corte…',
+                      ),
                     ),
-                  ),
-                  Text(
-                    AppFormatters.formatLiters(c.afternoonLiters),
-                    style: AppTheme.monoStyle(
-                      fontSize: 12.5,
-                      color: AppTheme.textSecondary,
+                  )
+                else if (preview == null || preview.candidates.isEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 26,
                     ),
-                  ),
-                  Text(
-                    AppFormatters.formatLiters(c.totalLiters),
-                    style: AppTheme.monoStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
+                    decoration: BoxDecoration(
+                      color: AppTheme.canvasAlt,
+                      borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+                      border: Border.all(color: AppTheme.border),
                     ),
-                  ),
-                  Text(
-                    AppFormatters.formatCurrency(c.precioPorLitro),
-                    style: AppTheme.monoStyle(fontSize: 12.5),
-                  ),
-                  Text(
-                    AppFormatters.formatCurrency(
-                      c.valorTotalPagar,
-                      alwaysShowDecimals: true,
+                    child: Column(
+                      children: <Widget>[
+                        AppIconBadge(
+                          icon:
+                              preview != null &&
+                                  preview.alreadySettledDeliveriesCount > 0
+                              ? Icons.task_alt_rounded
+                              : Icons.inventory_2_outlined,
+                          color:
+                              preview != null &&
+                                  preview.alreadySettledDeliveriesCount > 0
+                              ? AppTheme.primaryGreen
+                              : AppTheme.textMuted,
+                          size: 44,
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          preview != null &&
+                                  preview.alreadySettledDeliveriesCount > 0
+                              ? 'Las entregas registradas en este corte ya fueron liquidadas.'
+                              : 'No hay entregas sincronizadas pendientes por liquidar en este rango.',
+                          style: const TextStyle(
+                            fontSize: 13.5,
+                            color: AppTheme.textSecondary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
                     ),
-                    style: AppTheme.monoStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.primaryGreen,
-                    ),
+                  )
+                else ...<Widget>[
+                  CleanDataTable(
+                    columns: const <CleanTableColumn>[
+                      CleanTableColumn(label: 'Productor'),
+                      CleanTableColumn(label: 'Entregas', numeric: true),
+                      CleanTableColumn(label: 'Mañana', numeric: true),
+                      CleanTableColumn(label: 'Tarde', numeric: true),
+                      CleanTableColumn(label: 'Total litros', numeric: true),
+                      CleanTableColumn(label: 'Tarifa / L', numeric: true),
+                      CleanTableColumn(label: 'Neto a pagar', numeric: true),
+                    ],
+                    rows: preview.candidates.map((SettlementCandidate c) {
+                      return <Widget>[
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            _InitialsAvatar(name: c.nombreProductor),
+                            const SizedBox(width: 10),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: <Widget>[
+                                Text(
+                                  c.nombreProductor,
+                                  style: const TextStyle(
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.textPrimary,
+                                  ),
+                                ),
+                                Text(
+                                  '${c.codigoAsociado} · C.C. ${c.cedula}',
+                                  style: AppTheme.monoStyle(
+                                    fontSize: 11.5,
+                                    color: AppTheme.textMuted,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        AppCountPill(text: '${c.deliveryCount}'),
+                        _ShiftLiters(
+                          liters: c.morningLiters,
+                          icon: Icons.wb_sunny_outlined,
+                          color: AppTheme.warningText,
+                        ),
+                        _ShiftLiters(
+                          liters: c.afternoonLiters,
+                          icon: Icons.wb_twilight_rounded,
+                          color: AppTheme.indigoAccent,
+                        ),
+                        Text(
+                          AppFormatters.formatLiters(c.totalLiters),
+                          style: AppTheme.monoStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        Text(
+                          AppFormatters.formatCurrency(c.precioPorLitro),
+                          style: AppTheme.monoStyle(
+                            fontSize: 12.5,
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                        Text(
+                          AppFormatters.formatCurrency(
+                            c.valorTotalPagar,
+                            alwaysShowDecimals: true,
+                          ),
+                          style: AppTheme.monoStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.primaryGreen,
+                          ),
+                        ),
+                      ];
+                    }).toList(),
                   ),
-                ];
-              }).toList(),
+                  const SizedBox(height: 10),
+                  _PreviewTotalBar(preview: preview),
+                ],
+              ],
             ),
+          ),
         ],
       ),
     );
@@ -613,19 +640,20 @@ class _SettlementsModuleViewState extends State<SettlementsModuleView> {
       children: <Widget>[
         Row(
           children: <Widget>[
-            Expanded(
+            const Icon(
+              Icons.receipt_long_outlined,
+              size: 18,
+              color: AppTheme.textSecondary,
+            ),
+            const SizedBox(width: 8),
+            Flexible(
               child: Text(
                 'Comprobantes de liquidación emitidos',
-                style: AppTheme.serifStyle(fontSize: 19),
+                style: AppTheme.subtitleStyle(),
               ),
             ),
-            Text(
-              '${items.length} registro(s)',
-              style: const TextStyle(
-                fontSize: 12.5,
-                color: AppTheme.textSecondary,
-              ),
-            ),
+            const SizedBox(width: 10),
+            AppCountPill(text: '${items.length}'),
           ],
         ),
         const SizedBox(height: 12),
@@ -655,11 +683,23 @@ class _SettlementsModuleViewState extends State<SettlementsModuleView> {
               borderRadius: BorderRadius.circular(AppTheme.radiusCard),
               border: Border.all(color: AppTheme.border),
             ),
-            child: const Center(
-              child: Text(
-                'No hay comprobantes emitidos con el filtro seleccionado.',
-                style: TextStyle(fontSize: 13.5, color: AppTheme.textSecondary),
-              ),
+            child: const Column(
+              children: <Widget>[
+                AppIconBadge(
+                  icon: Icons.receipt_long_outlined,
+                  color: AppTheme.skyBlue,
+                  size: 48,
+                ),
+                SizedBox(height: 10),
+                Text(
+                  'No hay comprobantes emitidos con el filtro seleccionado.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              ],
             ),
           )
         else
@@ -772,11 +812,7 @@ class _SettlementsModuleViewState extends State<SettlementsModuleView> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: <Widget>[
-                    SyncStatusBadge(
-                      isSynced: s.isPagada,
-                      syncedLabel: 'Pagada',
-                      pendingLabel: 'Pendiente',
-                    ),
+                    _PaymentBadge(paid: s.isPagada),
                     if (s.isPagada && s.fechaPago != null)
                       Text(
                         AppFormatters.formatDate(s.fechaPago!),
@@ -790,33 +826,38 @@ class _SettlementsModuleViewState extends State<SettlementsModuleView> {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: <Widget>[
-                    IconButton(
+                    AppRowActionButton(
                       tooltip: 'Ver / Imprimir comprobante PDF',
+                      icon: Icons.picture_as_pdf_outlined,
+                      color: AppTheme.danger,
                       onPressed: () =>
                           _openVoucherPdf(ctrl, s, shareOnly: false),
-                      icon: const Icon(
-                        Icons.picture_as_pdf_outlined,
-                        size: 19,
-                        color: AppTheme.inkBlack,
-                      ),
                     ),
-                    IconButton(
+                    const SizedBox(width: 6),
+                    AppRowActionButton(
                       tooltip: 'Descargar / Compartir PDF',
-                      onPressed: () => _openVoucherPdf(ctrl, s, shareOnly: true),
-                      icon: const Icon(
-                        Icons.download_outlined,
-                        size: 19,
-                        color: AppTheme.textSecondary,
-                      ),
+                      icon: Icons.download_outlined,
+                      color: AppTheme.skyBlue,
+                      onPressed: () =>
+                          _openVoucherPdf(ctrl, s, shareOnly: true),
                     ),
-                    if (!s.isPagada && actor.isAdmin)
-                      TextButton.icon(
-                        onPressed: ctrl.isUpdatingPayment
-                            ? null
-                            : () => _openConfirmPaymentDialog(ctrl, actor, s),
-                        icon: const Icon(Icons.check_circle_outline, size: 16),
-                        label: const Text('Pagar'),
+                    if (!s.isPagada && actor.isAdmin) ...<Widget>[
+                      const SizedBox(width: 6),
+                      SizedBox(
+                        height: 30,
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            minimumSize: const Size(0, 30),
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                          ),
+                          onPressed: ctrl.isUpdatingPayment
+                              ? null
+                              : () => _openConfirmPaymentDialog(ctrl, actor, s),
+                          icon: const Icon(Icons.payments_outlined, size: 15),
+                          label: const Text('Pagar'),
+                        ),
                       ),
+                    ],
                   ],
                 ),
               ];
@@ -847,60 +888,190 @@ class _SettlementsModuleViewState extends State<SettlementsModuleView> {
   }
 
   Widget _buildStatusFilters(SettlementController ctrl) {
-    return Wrap(
-      spacing: 6,
-      runSpacing: 6,
-      children: <Widget>[
-        _PeriodChip(
-          label: 'Todos',
-          selected: ctrl.statusFilter == 'TODOS',
-          onTap: () => ctrl.setStatusFilter('TODOS'),
-        ),
-        _PeriodChip(
+    return AppSegmentedControl<String>(
+      height: 40,
+      selected: ctrl.statusFilter,
+      onChanged: ctrl.setStatusFilter,
+      segments: const <AppSegment<String>>[
+        AppSegment<String>(value: 'TODOS', label: 'Todos'),
+        AppSegment<String>(
+          value: 'PENDIENTE',
           label: 'Pendientes',
-          selected: ctrl.statusFilter == 'PENDIENTE',
-          onTap: () => ctrl.setStatusFilter('PENDIENTE'),
+          icon: Icons.schedule_rounded,
         ),
-        _PeriodChip(
+        AppSegment<String>(
+          value: 'PAGADA',
           label: 'Pagadas',
-          selected: ctrl.statusFilter == 'PAGADA',
-          onTap: () => ctrl.setStatusFilter('PAGADA'),
+          icon: Icons.task_alt_rounded,
         ),
       ],
     );
   }
 }
 
-class _PeriodChip extends StatelessWidget {
-  const _PeriodChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
+/// Avatar circular con iniciales del productor.
+class _InitialsAvatar extends StatelessWidget {
+  const _InitialsAvatar({required this.name});
 
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
+  final String name;
 
   @override
   Widget build(BuildContext context) {
-    return ChoiceChip(
-      label: Text(
-        label,
-        style: TextStyle(
-          fontSize: 12.5,
-          fontWeight: FontWeight.w600,
-          color: selected ? Colors.white : AppTheme.textSecondary,
+    final List<String> parts = name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((String p) => p.isNotEmpty)
+        .toList();
+    final String initials = parts.isEmpty
+        ? '?'
+        : parts.length == 1
+        ? parts.first[0].toUpperCase()
+        : '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    return Container(
+      width: 30,
+      height: 30,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: AppTheme.primaryGreenLight,
+        shape: BoxShape.circle,
+        border: Border.all(color: AppTheme.primaryGreen.withValues(alpha: 0.3)),
+      ),
+      child: Text(
+        initials,
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: AppTheme.primaryGreen,
         ),
       ),
-      selected: selected,
-      selectedColor: AppTheme.inkBlack,
-      backgroundColor: AppTheme.surfaceMuted,
-      side: BorderSide(
-        color: selected ? AppTheme.inkBlack : AppTheme.border,
+    );
+  }
+}
+
+class _ShiftLiters extends StatelessWidget {
+  const _ShiftLiters({
+    required this.liters,
+    required this.icon,
+    required this.color,
+  });
+
+  final double liters;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Icon(icon, size: 13, color: liters > 0 ? color : AppTheme.textMuted),
+        const SizedBox(width: 5),
+        Text(
+          AppFormatters.formatLiters(liters),
+          style: AppTheme.monoStyle(
+            fontSize: 12.5,
+            color: AppTheme.textSecondary,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Barra de totales del corte previo al cierre.
+class _PreviewTotalBar extends StatelessWidget {
+  const _PreviewTotalBar({required this.preview});
+
+  final SettlementPreviewResult preview;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget item(String label, String value, {bool strong = false}) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            label,
+            style: const TextStyle(fontSize: 11.5, color: Color(0xFFCFE9D8)),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: AppTheme.monoStyle(
+              fontSize: strong ? 17 : 14,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+        gradient: const LinearGradient(
+          colors: <Color>[AppTheme.inkBlack, Color(0xFF14663A)],
+        ),
       ),
-      showCheckmark: false,
-      onSelected: (_) => onTap(),
+      child: Wrap(
+        spacing: 28,
+        runSpacing: 10,
+        crossAxisAlignment: WrapCrossAlignment.end,
+        children: <Widget>[
+          item('Productores', '${preview.candidates.length}'),
+          item('Entregas', '${preview.totalDeliveries}'),
+          item('Total litros', AppFormatters.formatLiters(preview.totalLiters)),
+          item(
+            'Total neto a emitir',
+            AppFormatters.formatCurrency(
+              preview.totalAmountToPay,
+              alwaysShowDecimals: true,
+            ),
+            strong: true,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PaymentBadge extends StatelessWidget {
+  const _PaymentBadge({required this.paid});
+
+  final bool paid;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color fg = paid ? AppTheme.successText : AppTheme.warningText;
+    final Color bg = paid ? AppTheme.successBg : AppTheme.warningBg;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+        border: Border.all(color: fg.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(
+            paid ? Icons.task_alt_rounded : Icons.schedule_rounded,
+            size: 13,
+            color: fg,
+          ),
+          const SizedBox(width: 5),
+          Text(
+            paid ? 'Pagada' : 'Pendiente',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: fg,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -913,75 +1084,69 @@ class _CloseQuincenaConfirmDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: AppTheme.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTheme.radiusCard),
-        side: const BorderSide(color: AppTheme.border),
-      ),
+      insetPadding: const EdgeInsets.all(20),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 460),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(22),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              Text(
-                'Confirmar cierre quincenal',
-                style: AppTheme.serifStyle(fontSize: 20),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Una vez cerradas las entregas de ${preview.period.label}, quedarán bloqueadas contra futuras modificaciones.',
-                style: const TextStyle(
-                  fontSize: 13.5,
-                  color: AppTheme.textSecondary,
-                  height: 1.4,
-                ),
+              AppDialogHeader(
+                icon: Icons.lock_clock_outlined,
+                color: AppTheme.warmGold,
+                title: 'Confirmar cierre quincenal',
+                subtitle: preview.period.label,
+                onClose: () => Navigator.of(context).pop(false),
               ),
               const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: AppTheme.surfaceMuted,
-                  borderRadius: BorderRadius.circular(AppTheme.radiusControl),
-                  border: Border.all(color: AppTheme.border),
-                ),
-                child: Column(
-                  children: <Widget>[
-                    _SummaryRow(
-                      label: 'Productores a liquidar',
-                      value: '${preview.candidates.length}',
+              AppInfoPanel(
+                children: <Widget>[
+                  AppInfoRow(
+                    label: 'Productores a liquidar',
+                    value: '${preview.candidates.length}',
+                    mono: true,
+                  ),
+                  AppInfoRow(
+                    label: 'Entregas incluidas',
+                    value: '${preview.totalDeliveries}',
+                    mono: true,
+                  ),
+                  AppInfoRow(
+                    label: 'Total de litros',
+                    value: AppFormatters.formatLiters(preview.totalLiters),
+                    mono: true,
+                  ),
+                  AppInfoRow(
+                    label: 'Tarifa por litro',
+                    value: AppFormatters.formatCurrency(preview.precioPorLitro),
+                    mono: true,
+                  ),
+                  const Divider(height: 14),
+                  AppInfoRow(
+                    label: 'Total neto a emitir',
+                    value: AppFormatters.formatCurrency(
+                      preview.totalAmountToPay,
+                      alwaysShowDecimals: true,
                     ),
-                    _SummaryRow(
-                      label: 'Entregas incluidas',
-                      value: '${preview.totalDeliveries}',
-                    ),
-                    _SummaryRow(
-                      label: 'Total de litros',
-                      value: AppFormatters.formatLiters(preview.totalLiters),
-                    ),
-                    _SummaryRow(
-                      label: 'Tarifa por litro',
-                      value: AppFormatters.formatCurrency(preview.precioPorLitro),
-                    ),
-                    const Divider(height: 16),
-                    _SummaryRow(
-                      label: 'Total neto a emitir',
-                      value: AppFormatters.formatCurrency(
-                        preview.totalAmountToPay,
-                        alwaysShowDecimals: true,
-                      ),
-                      highlight: true,
-                    ),
-                  ],
-                ),
+                    mono: true,
+                    emphasize: true,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              AppInlineNotice(
+                icon: Icons.lock_outline_rounded,
+                message:
+                    'Una vez cerradas las entregas de ${preview.period.label}, quedarán bloqueadas contra futuras modificaciones.',
               ),
               const SizedBox(height: 20),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: <Widget>[
                   OutlinedButton(
+                    autofocus: true,
                     onPressed: () => Navigator.of(context).pop(false),
                     child: const Text('Cancelar'),
                   ),
@@ -1002,51 +1167,8 @@ class _CloseQuincenaConfirmDialog extends StatelessWidget {
   }
 }
 
-class _SummaryRow extends StatelessWidget {
-  const _SummaryRow({
-    required this.label,
-    required this.value,
-    this.highlight = false,
-  });
-
-  final String label;
-  final String value;
-  final bool highlight;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: <Widget>[
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: highlight ? FontWeight.w700 : FontWeight.w500,
-              color: AppTheme.textSecondary,
-            ),
-          ),
-          Text(
-            value,
-            style: AppTheme.monoStyle(
-              fontSize: highlight ? 15 : 13,
-              fontWeight: FontWeight.w700,
-              color: highlight ? AppTheme.primaryGreen : AppTheme.textPrimary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _ConfirmPaymentDialog extends StatefulWidget {
-  const _ConfirmPaymentDialog({
-    required this.actor,
-    required this.settlement,
-  });
+  const _ConfirmPaymentDialog({required this.actor, required this.settlement});
 
   final UserModel actor;
   final SettlementModel settlement;
@@ -1068,10 +1190,10 @@ class _ConfirmPaymentDialogState extends State<_ConfirmPaymentDialog> {
 
   Future<void> _submit() async {
     final bool ok = await context.read<SettlementController>().confirmPayment(
-          actor: widget.actor,
-          settlement: widget.settlement,
-          observacionPago: _obsCtrl.text,
-        );
+      actor: widget.actor,
+      settlement: widget.settlement,
+      observacionPago: _obsCtrl.text,
+    );
     if (ok && mounted) {
       Navigator.of(context).pop(true);
     }
@@ -1082,32 +1204,80 @@ class _ConfirmPaymentDialogState extends State<_ConfirmPaymentDialog> {
     final SettlementController ctrl = context.watch<SettlementController>();
     final String? error = ctrl.errorMessage;
 
+    final SettlementModel st = widget.settlement;
+
+    Widget quick(IconData icon, String label, String text) {
+      final bool active = _obsCtrl.text == text;
+      return ActionChip(
+        avatar: Icon(
+          icon,
+          size: 15,
+          color: active ? Colors.white : AppTheme.textSecondary,
+        ),
+        label: Text(label),
+        labelStyle: TextStyle(
+          fontSize: 12.5,
+          fontWeight: FontWeight.w600,
+          color: active ? Colors.white : AppTheme.textPrimary,
+        ),
+        backgroundColor: active ? AppTheme.inkBlack : AppTheme.surface,
+        side: BorderSide(
+          color: active ? AppTheme.inkBlack : AppTheme.inputBorder,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+        ),
+        onPressed: ctrl.isUpdatingPayment
+            ? null
+            : () => setState(() => _obsCtrl.text = text),
+      );
+    }
+
     return Dialog(
-      backgroundColor: AppTheme.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTheme.radiusCard),
-        side: const BorderSide(color: AppTheme.border),
-      ),
+      insetPadding: const EdgeInsets.all(20),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 460),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(22),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              Text(
-                'Confirmar pago al productor',
-                style: AppTheme.serifStyle(fontSize: 20),
+              AppDialogHeader(
+                icon: Icons.payments_outlined,
+                title: 'Confirmar pago al productor',
+                subtitle: 'Registra el desembolso del comprobante.',
+                onClose: ctrl.isUpdatingPayment
+                    ? null
+                    : () => Navigator.of(context).pop(false),
               ),
-              const SizedBox(height: 6),
-              Text(
-                '${widget.settlement.numeroComprobante} · ${widget.settlement.nombreProductorSnap} · ${AppFormatters.formatCurrency(widget.settlement.valorTotalPagar, alwaysShowDecimals: true)}',
-                style: const TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.primaryGreen,
-                ),
+              const SizedBox(height: 16),
+              AppInfoPanel(
+                children: <Widget>[
+                  AppInfoRow(
+                    label: 'Comprobante',
+                    value: st.numeroComprobante,
+                    mono: true,
+                  ),
+                  AppInfoRow(label: 'Productor', value: st.nombreProductorSnap),
+                  AppInfoRow(label: 'Período', value: st.quincenaLabel),
+                  AppInfoRow(
+                    label: 'Litros',
+                    value:
+                        '${AppFormatters.formatLiters(st.totalLitros)} · ${st.cantidadEntregas} ent.',
+                    mono: true,
+                  ),
+                  const Divider(height: 14),
+                  AppInfoRow(
+                    label: 'Valor a pagar',
+                    value: AppFormatters.formatCurrency(
+                      st.valorTotalPagar,
+                      alwaysShowDecimals: true,
+                    ),
+                    mono: true,
+                    emphasize: true,
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
               const Text(
@@ -1121,38 +1291,34 @@ class _ConfirmPaymentDialogState extends State<_ConfirmPaymentDialog> {
               const SizedBox(height: 6),
               TextField(
                 controller: _obsCtrl,
+                enabled: !ctrl.isUpdatingPayment,
                 maxLines: 2,
+                onChanged: (_) => setState(() {}),
                 decoration: const InputDecoration(
-                  hintText: 'Ej: Transferencia Bancolombia #84920 o pago en caja',
+                  hintText:
+                      'Ej: Transferencia Bancolombia #84920 o pago en caja',
                 ),
               ),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 6,
+                runSpacing: 6,
                 children: <Widget>[
-                  ActionChip(
-                    label: const Text('Transferencia'),
-                    onPressed: () {
-                      _obsCtrl.text = 'Pago confirmado por transferencia';
-                    },
+                  quick(
+                    Icons.account_balance_outlined,
+                    'Transferencia',
+                    'Pago confirmado por transferencia',
                   ),
-                  ActionChip(
-                    label: const Text('Efectivo en planta'),
-                    onPressed: () {
-                      _obsCtrl.text = 'Desembolso en efectivo en tesorería';
-                    },
+                  quick(
+                    Icons.point_of_sale_outlined,
+                    'Efectivo en planta',
+                    'Desembolso en efectivo en tesorería',
                   ),
                 ],
               ),
               if (error != null && error.isNotEmpty) ...<Widget>[
                 const SizedBox(height: 12),
-                Text(
-                  error,
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    color: AppTheme.dangerText,
-                  ),
-                ),
+                AppInlineNotice.danger(message: error),
               ],
               const SizedBox(height: 20),
               Row(

@@ -14,8 +14,10 @@ import '../../core/utils/formatters.dart';
 import '../../models/app_notification_model.dart';
 import '../../models/producer_model.dart';
 import '../../models/user_model.dart';
+import '../shared/widgets/app_select.dart';
 import '../shared/widgets/dairy_loader.dart';
 import '../shared/widgets/design_system_widgets.dart';
+import '../shared/widgets/ui_kit.dart';
 import 'dashboard_module_view.dart';
 import 'producers_module_view.dart';
 import 'rates_module_view.dart';
@@ -259,32 +261,33 @@ class _AdminShellViewState extends State<AdminShellView> {
                       duration: const Duration(milliseconds: 210),
                       switchInCurve: Curves.easeOutCubic,
                       switchOutCurve: Curves.easeIn,
-                      layoutBuilder: (
-                        Widget? currentChild,
-                        List<Widget> previousChildren,
-                      ) {
-                        return Stack(
-                          alignment: Alignment.topLeft,
-                          fit: StackFit.expand,
-                          children: <Widget>[
-                            ...previousChildren,
-                            ?currentChild,
-                          ],
-                        );
-                      },
+                      layoutBuilder:
+                          (
+                            Widget? currentChild,
+                            List<Widget> previousChildren,
+                          ) {
+                            return Stack(
+                              alignment: Alignment.topLeft,
+                              fit: StackFit.expand,
+                              children: <Widget>[
+                                ...previousChildren,
+                                ?currentChild,
+                              ],
+                            );
+                          },
                       transitionBuilder:
                           (Widget child, Animation<double> anim) {
-                        return FadeTransition(
-                          opacity: anim,
-                          child: SlideTransition(
-                            position: Tween<Offset>(
-                              begin: const Offset(0, 0.01),
-                              end: Offset.zero,
-                            ).animate(anim),
-                            child: child,
-                          ),
-                        );
-                      },
+                            return FadeTransition(
+                              opacity: anim,
+                              child: SlideTransition(
+                                position: Tween<Offset>(
+                                  begin: const Offset(0, 0.01),
+                                  end: Offset.zero,
+                                ).animate(anim),
+                                child: child,
+                              ),
+                            );
+                          },
                       child: KeyedSubtree(
                         key: ValueKey<AdminSection>(_activeSection),
                         child: _buildActiveSectionBody(user),
@@ -307,10 +310,12 @@ class _AdminShellViewState extends State<AdminShellView> {
     required bool isDrawer,
     required ValueChanged<AdminSection> onSelectSection,
   }) {
-    final List<_NavItemMeta> mainItems =
-        items.where((_NavItemMeta i) => !i.isFooterGroup).toList();
-    final List<_NavItemMeta> footerItems =
-        items.where((_NavItemMeta i) => i.isFooterGroup).toList();
+    final List<_NavItemMeta> mainItems = items
+        .where((_NavItemMeta i) => !i.isFooterGroup)
+        .toList();
+    final List<_NavItemMeta> footerItems = items
+        .where((_NavItemMeta i) => i.isFooterGroup)
+        .toList();
 
     final Map<String, List<_NavItemMeta>> grouped =
         <String, List<_NavItemMeta>>{};
@@ -332,12 +337,7 @@ class _AdminShellViewState extends State<AdminShellView> {
               children: <Widget>[
                 // Marca + botón de colapso
                 Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    expanded ? 12 : 8,
-                    14,
-                    8,
-                    12,
-                  ),
+                  padding: EdgeInsets.fromLTRB(expanded ? 12 : 8, 14, 8, 12),
                   child: expanded
                       ? Row(
                           children: <Widget>[
@@ -371,8 +371,9 @@ class _AdminShellViewState extends State<AdminShellView> {
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
                                       fontSize: 11.5,
-                                      color:
-                                          Colors.white.withValues(alpha: 0.84),
+                                      color: Colors.white.withValues(
+                                        alpha: 0.84,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -416,38 +417,39 @@ class _AdminShellViewState extends State<AdminShellView> {
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: grouped.entries.map(
-                        (MapEntry<String, List<_NavItemMeta>> entry) {
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: <Widget>[
-                              if (expanded)
-                                _SidebarGroupHeader(
-                                  title: entry.key,
-                                  rightInset: isDrawer ? 0 : 12,
-                                )
-                              else
-                                Padding(
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 8),
-                                  child: Divider(
-                                    height: 1,
-                                    color: Colors.white.withValues(alpha: 0.10),
-                                  ),
+                      children: grouped.entries.map((
+                        MapEntry<String, List<_NavItemMeta>> entry,
+                      ) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: <Widget>[
+                            if (expanded)
+                              _SidebarGroupHeader(
+                                title: entry.key,
+                                rightInset: isDrawer ? 0 : 12,
+                              )
+                            else
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8,
                                 ),
-                              ...entry.value.map(
-                                (_NavItemMeta item) => _OtepNavTab(
-                                  item: item,
-                                  selected: _activeSection == item.section,
-                                  expanded: expanded,
-                                  showConcaveTab: !isDrawer && expanded,
-                                  onTap: () => onSelectSection(item.section),
+                                child: Divider(
+                                  height: 1,
+                                  color: Colors.white.withValues(alpha: 0.10),
                                 ),
                               ),
-                            ],
-                          );
-                        },
-                      ).toList(),
+                            ...entry.value.map(
+                              (_NavItemMeta item) => _OtepNavTab(
+                                item: item,
+                                selected: _activeSection == item.section,
+                                expanded: expanded,
+                                showConcaveTab: !isDrawer && expanded,
+                                onTap: () => onSelectSection(item.section),
+                              ),
+                            ),
+                          ],
+                        );
+                      }).toList(),
                     ),
                   ),
                 ),
@@ -498,49 +500,60 @@ class _AdminShellViewState extends State<AdminShellView> {
                     ),
                   ),
                   padding: EdgeInsets.symmetric(
-                    horizontal: expanded ? 12 : 6,
-                    vertical: 12,
+                    horizontal: expanded ? 10 : 6,
+                    vertical: 10,
                   ),
                   child: expanded
-                      ? Row(
-                          children: <Widget>[
-                            _UserInitialCircle(initials: user.initials),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: <Widget>[
-                                  Text(
-                                    user.nombreCompleto,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontSize: 12.5,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.white,
+                      ? Container(
+                          padding: const EdgeInsets.fromLTRB(8, 7, 4, 7),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.06),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.10),
+                            ),
+                          ),
+                          child: Row(
+                            children: <Widget>[
+                              _UserInitialCircle(initials: user.initials),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: <Widget>[
+                                    Text(
+                                      user.nombreCompleto,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.white,
+                                      ),
                                     ),
-                                  ),
-                                  Text(
-                                    _roleDisplayName(user.rol),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 11.5,
-                                      color:
-                                          Colors.white.withValues(alpha: 0.84),
+                                    Text(
+                                      _roleDisplayName(user.rol),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        color: Colors.white.withValues(
+                                          alpha: 0.84,
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                            _SidebarIconButton(
-                              tooltip: 'Cerrar sesión',
-                              icon: Icons.logout_rounded,
-                              onPressed: () =>
-                                  context.read<AuthController>().signOut(),
-                            ),
-                          ],
+                              _SidebarIconButton(
+                                tooltip: 'Cerrar sesión',
+                                icon: Icons.logout_rounded,
+                                onPressed: () =>
+                                    context.read<AuthController>().signOut(),
+                              ),
+                            ],
+                          ),
                         )
                       : Column(
                           mainAxisSize: MainAxisSize.min,
@@ -603,13 +616,18 @@ class _AdminShellViewState extends State<AdminShellView> {
     final _NavItemMeta meta = _metaFor(_activeSection);
 
     return Container(
-      height: 56,
+      height: 58,
       padding: EdgeInsets.symmetric(horizontal: isDesktop ? 22 : 14),
       decoration: const BoxDecoration(
         color: AppTheme.surface,
-        border: Border(
-          bottom: BorderSide(color: AppTheme.border),
-        ),
+        border: Border(bottom: BorderSide(color: AppTheme.border)),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Color(0x080C3B24),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         children: <Widget>[
@@ -643,24 +661,18 @@ class _AdminShellViewState extends State<AdminShellView> {
                     ),
                   ),
                   const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 8),
-                    child: Text(
-                      '/',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        color: AppTheme.textMuted,
-                      ),
+                    padding: EdgeInsets.symmetric(horizontal: 6),
+                    child: Icon(
+                      Icons.chevron_right_rounded,
+                      size: 16,
+                      color: AppTheme.textMuted,
                     ),
                   ),
                 ],
-                Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    color: meta.accentColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(7),
-                  ),
-                  child: Icon(meta.icon, size: 16, color: meta.accentColor),
+                AppIconBadge(
+                  icon: meta.icon,
+                  color: meta.accentColor,
+                  size: 30,
                 ),
                 const SizedBox(width: 9),
                 Flexible(
@@ -719,11 +731,7 @@ class _AdminShellViewState extends State<AdminShellView> {
                     ),
                   const SizedBox(width: 8),
                 ],
-                SyncStatusBadge(
-                  isSynced: isOnline,
-                  syncedLabel: 'En línea',
-                  pendingLabel: 'Sin conexión',
-                ),
+                _ConnectionPill(isOnline: isOnline),
                 if (isDesktop) ...<Widget>[
                   Container(
                     width: 1,
@@ -735,8 +743,8 @@ class _AdminShellViewState extends State<AdminShellView> {
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
                       Icon(
-                        Icons.place_rounded,
-                        size: 14,
+                        Icons.place_outlined,
+                        size: 15,
                         color: AppTheme.primaryGreen,
                       ),
                       SizedBox(width: 4),
@@ -814,89 +822,146 @@ class _AdminShellViewState extends State<AdminShellView> {
           child: Container(
             width: double.infinity,
             padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: AppTheme.surface,
-            borderRadius: BorderRadius.circular(AppTheme.radiusCard),
-            border: Border.all(color: AppTheme.border),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Row(
-                children: <Widget>[
-                  Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: AppTheme.surfaceMuted,
-                      borderRadius: BorderRadius.circular(AppTheme.radiusControl),
-                      border: Border.all(color: AppTheme.border),
+            decoration: BoxDecoration(
+              color: AppTheme.surface,
+              borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+              border: Border.all(color: AppTheme.border),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Row(
+                  children: <Widget>[
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: AppTheme.surfaceMuted,
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.radiusControl,
+                        ),
+                        border: Border.all(color: AppTheme.border),
+                      ),
+                      child: Icon(
+                        meta.icon,
+                        color: AppTheme.primaryGreen,
+                        size: 20,
+                      ),
                     ),
-                    child: Icon(
-                      meta.icon,
-                      color: AppTheme.primaryGreen,
-                      size: 20,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            meta.label,
+                            style: AppTheme.serifStyle(
+                              fontSize: 20,
+                              color: AppTheme.textPrimary,
+                            ),
+                          ),
+                          const Text(
+                            'Módulo operativo de planta',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              color: AppTheme.textMuted,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Divider(height: 1),
+                const SizedBox(height: 16),
+                Text(
+                  meta.description,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    height: 1.5,
+                    color: AppTheme.textSecondary,
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Text(
-                          meta.label,
-                          style: AppTheme.serifStyle(
-                            fontSize: 20,
-                            color: AppTheme.textPrimary,
-                          ),
-                        ),
-                        const Text(
-                          'Módulo operativo de planta',
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            color: AppTheme.textMuted,
-                          ),
-                        ),
-                      ],
-                    ),
+                ),
+                if (user.isAdmin) ...<Widget>[
+                  const SizedBox(height: 22),
+                  PrimaryActionButton(
+                    label: 'Volver a Usuarios',
+                    icon: Icons.manage_accounts_outlined,
+                    fullWidth: false,
+                    onPressed: () => _selectSection(AdminSection.usuarios),
                   ),
                 ],
-              ),
-              const SizedBox(height: 16),
-              const Divider(height: 1),
-              const SizedBox(height: 16),
-              Text(
-                meta.description,
-                style: const TextStyle(
-                  fontSize: 14,
-                  height: 1.5,
-                  color: AppTheme.textSecondary,
-                ),
-              ),
-              if (user.isAdmin) ...<Widget>[
-                const SizedBox(height: 22),
-                PrimaryActionButton(
-                  label: 'Volver a Usuarios',
-                  icon: Icons.manage_accounts_outlined,
-                  fullWidth: false,
-                  onPressed: () => _selectSection(AdminSection.usuarios),
-                ),
               ],
-            ],
+            ),
           ),
         ),
       ),
-    ),
+    );
+  }
+}
+
+class _ConnectionPill extends StatelessWidget {
+  const _ConnectionPill({required this.isOnline});
+
+  final bool isOnline;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color fg = isOnline ? AppTheme.successText : AppTheme.warningText;
+    final Color bg = isOnline ? AppTheme.successBg : AppTheme.warningBg;
+    final Color dot = isOnline ? AppTheme.success : AppTheme.warning;
+    return Tooltip(
+      message: isOnline
+          ? 'Conectado: los registros se sincronizan con la nube.'
+          : 'Sin conexión: los registros se guardan en este equipo.',
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+          border: Border.all(color: dot.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Container(
+              width: 7,
+              height: 7,
+              decoration: BoxDecoration(
+                color: dot,
+                shape: BoxShape.circle,
+                boxShadow: <BoxShadow>[
+                  BoxShadow(color: dot.withValues(alpha: 0.45), blurRadius: 5),
+                ],
+              ),
+            ),
+            const SizedBox(width: 6),
+            Icon(
+              isOnline ? Icons.cloud_done_outlined : Icons.cloud_off_outlined,
+              size: 14,
+              color: fg,
+            ),
+            const SizedBox(width: 5),
+            Text(
+              isOnline ? 'En línea' : 'Sin conexión',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: fg,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
 
 class _SidebarGroupHeader extends StatelessWidget {
-  const _SidebarGroupHeader({
-    required this.title,
-    this.rightInset = 12,
-  });
+  const _SidebarGroupHeader({required this.title, this.rightInset = 12});
 
   final String title;
   final double rightInset;
@@ -966,16 +1031,16 @@ class _OtepNavTabState extends State<_OtepNavTab> {
     final Color fg = selected
         ? AppTheme.inkBlack
         : _hovered
-            ? Colors.white
-            : const Color(0xFFF8FAFC);
+        ? Colors.white
+        : const Color(0xFFF8FAFC);
     final Color iconColor = selected
         ? widget.item.accentColor
         : widget.item.darkIconColor;
     final Color bg = selected
         ? AppTheme.canvas
         : _hovered
-            ? Colors.white.withValues(alpha: 0.12)
-            : Colors.transparent;
+        ? Colors.white.withValues(alpha: 0.12)
+        : Colors.transparent;
 
     final BorderRadius radius = showConcave
         ? const BorderRadius.only(
@@ -1003,10 +1068,7 @@ class _OtepNavTabState extends State<_OtepNavTab> {
               padding: EdgeInsets.symmetric(
                 horizontal: widget.expanded ? 11 : 0,
               ),
-              decoration: BoxDecoration(
-                color: bg,
-                borderRadius: radius,
-              ),
+              decoration: BoxDecoration(color: bg, borderRadius: radius),
               child: Row(
                 mainAxisAlignment: widget.expanded
                     ? MainAxisAlignment.start
@@ -1032,8 +1094,9 @@ class _OtepNavTabState extends State<_OtepNavTab> {
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 13.5,
-                          fontWeight:
-                              selected ? FontWeight.w700 : FontWeight.w500,
+                          fontWeight: selected
+                              ? FontWeight.w700
+                              : FontWeight.w500,
                           color: fg,
                         ),
                       ),
@@ -1066,9 +1129,7 @@ class _OtepNavTabState extends State<_OtepNavTab> {
             width: 8,
             height: 8,
             child: IgnorePointer(
-              child: CustomPaint(
-                painter: _ConcaveFilletPainter(isTop: true),
-              ),
+              child: CustomPaint(painter: _ConcaveFilletPainter(isTop: true)),
             ),
           ),
           Positioned(
@@ -1077,9 +1138,7 @@ class _OtepNavTabState extends State<_OtepNavTab> {
             width: 8,
             height: 8,
             child: IgnorePointer(
-              child: CustomPaint(
-                painter: _ConcaveFilletPainter(isTop: false),
-              ),
+              child: CustomPaint(painter: _ConcaveFilletPainter(isTop: false)),
             ),
           ),
         ],
@@ -1107,22 +1166,14 @@ class _ConcaveFilletPainter extends CustomPainter {
         ..moveTo(r, 0)
         ..lineTo(r, r)
         ..lineTo(0, r)
-        ..arcToPoint(
-          Offset(r, 0),
-          radius: Radius.circular(r),
-          clockwise: false,
-        )
+        ..arcToPoint(Offset(r, 0), radius: Radius.circular(r), clockwise: false)
         ..close();
     } else {
       path
         ..moveTo(0, 0)
         ..lineTo(r, 0)
         ..lineTo(r, r)
-        ..arcToPoint(
-          Offset.zero,
-          radius: Radius.circular(r),
-          clockwise: false,
-        )
+        ..arcToPoint(Offset.zero, radius: Radius.circular(r), clockwise: false)
         ..close();
     }
     canvas.drawPath(path, paint);
@@ -1150,9 +1201,7 @@ class _UserInitialCircle extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
         shape: BoxShape.circle,
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.30),
-        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.30)),
       ),
       alignment: Alignment.center,
       child: Text(
@@ -1271,12 +1320,31 @@ class _LiveHeaderDateTimeState extends State<_LiveHeaderDateTime> {
     final String formatted =
         '${_pad2(_now.day)} ${_months[_now.month - 1]} ${_now.year} · '
         '${_pad2(_now.hour)}:${_pad2(_now.minute)}';
-    return Text(
-      formatted,
-      style: AppTheme.monoStyle(
-        fontSize: 11.5,
-        fontWeight: FontWeight.w500,
-        color: AppTheme.textSecondary,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppTheme.canvasAlt,
+        borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          const Icon(
+            Icons.schedule_rounded,
+            size: 13,
+            color: AppTheme.textMuted,
+          ),
+          const SizedBox(width: 5),
+          Text(
+            formatted,
+            style: AppTheme.monoStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textSecondary,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1348,257 +1416,309 @@ class _BroadcastDialogState extends State<_BroadcastDialog> {
       builder: (BuildContext context, _) {
         final ProducerPortalController ctrl = widget.portalController;
         final List<AppNotificationModel> history = ctrl.adminNotifications;
+        final bool general = _selectedProducerId == null;
 
         return Dialog(
+          insetPadding: const EdgeInsets.all(20),
+          clipBehavior: Clip.antiAlias,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 620, maxHeight: 680),
-            child: Padding(
-              padding: const EdgeInsets.all(22),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Row(
-                    children: <Widget>[
-                      Container(
-                        width: 38,
-                        height: 38,
-                        decoration: BoxDecoration(
-                          color: AppTheme.warmGoldLight,
-                          borderRadius: BorderRadius.circular(9),
-                        ),
-                        child: const Icon(
-                          Icons.campaign_rounded,
-                          color: AppTheme.warmGold,
-                          size: 21,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Text(
-                              'Comunicados Institucionales',
-                              style: AppTheme.serifStyle(fontSize: 19),
+            constraints: BoxConstraints(
+              maxWidth: 640,
+              maxHeight: (MediaQuery.of(context).size.height * 0.9).clamp(
+                420.0,
+                720.0,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Container(
+                  padding: const EdgeInsets.fromLTRB(22, 18, 14, 16),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: <Color>[AppTheme.warmGoldLight, AppTheme.surface],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                    ),
+                    border: Border(
+                      bottom: BorderSide(color: AppTheme.dividerLight),
+                    ),
+                  ),
+                  child: AppDialogHeader(
+                    icon: Icons.campaign_rounded,
+                    color: AppTheme.warmGold,
+                    title: 'Comunicados Institucionales',
+                    subtitle:
+                        'Envía avisos push a todos los productores o a un asociado puntual.',
+                    onClose: () => Navigator.of(context).pop(),
+                  ),
+                ),
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(22, 16, 22, 18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        AppSelect<String?>(
+                          value: _selectedProducerId,
+                          labelText: 'Destinatario',
+                          prefixIcon: Icons.campaign_outlined,
+                          searchable: true,
+                          searchHint: 'Buscar productor…',
+                          options: <AppSelectOption<String?>>[
+                            const AppSelectOption<String?>(
+                              value: null,
+                              label:
+                                  'Todos los productores (Comunicado general)',
+                              icon: Icons.groups_2_outlined,
                             ),
-                            const Text(
-                              'Envía avisos push a todos los productores o a un asociado puntual.',
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                color: AppTheme.textSecondary,
+                            ...widget.producers
+                                .where((ProducerModel p) => p.isActivo)
+                                .map(
+                                  (ProducerModel p) => AppSelectOption<String?>(
+                                    value: p.productorId,
+                                    label: p.nombreCompleto,
+                                    description: 'Código ${p.codigoAsociado}',
+                                  ),
+                                ),
+                          ],
+                          onChanged: (String? value) {
+                            setState(() => _selectedProducerId = value);
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: <Widget>[
+                            Icon(
+                              general
+                                  ? Icons.public_rounded
+                                  : Icons.person_pin_outlined,
+                              size: 14,
+                              color: AppTheme.textMuted,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                general
+                                    ? 'Llegará a todos los productores activos con la app instalada.'
+                                    : 'Solo el productor seleccionado recibirá el aviso.',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.textMuted,
+                                ),
                               ),
                             ),
                           ],
                         ),
-                      ),
-                      IconButton(
-                        tooltip: 'Cerrar',
-                        onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.close_rounded, size: 20),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  DropdownButtonFormField<String?>(
-                    initialValue: _selectedProducerId,
-                    decoration: const InputDecoration(
-                      labelText: 'Destinatario',
-                    ),
-                    items: <DropdownMenuItem<String?>>[
-                      const DropdownMenuItem<String?>(
-                        value: null,
-                        child: Text(
-                          'Todos los productores (Comunicado general)',
-                          overflow: TextOverflow.ellipsis,
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _titleCtrl,
+                          maxLength: 80,
+                          onChanged: (_) => setState(() {}),
+                          decoration: const InputDecoration(
+                            labelText: 'Asunto del comunicado',
+                            hintText:
+                                'Ej. Reunión general de asociados en Susa',
+                            prefixIcon: Icon(Icons.title_rounded, size: 17),
+                            counterText: '',
+                          ),
                         ),
-                      ),
-                      ...widget.producers
-                          .where((ProducerModel p) => p.isActivo)
-                          .map(
-                            (ProducerModel p) => DropdownMenuItem<String?>(
-                              value: p.productorId,
-                              child: Text(
-                                '${p.codigoAsociado} · ${p.nombreCompleto}',
-                                overflow: TextOverflow.ellipsis,
+                        const SizedBox(height: 10),
+                        TextField(
+                          controller: _messageCtrl,
+                          maxLines: 4,
+                          maxLength: 500,
+                          onChanged: (_) => setState(() {}),
+                          decoration: const InputDecoration(
+                            labelText: 'Mensaje',
+                            alignLabelWithHint: true,
+                            hintText:
+                                'Escribe el aviso que llegará a la bandeja y alertas del productor…',
+                          ),
+                        ),
+                        if (_feedback != null) ...<Widget>[
+                          const SizedBox(height: 8),
+                          _isSuccess
+                              ? AppInlineNotice(
+                                  icon: Icons.check_circle_outline_rounded,
+                                  background: AppTheme.primaryGreenLight,
+                                  foreground: AppTheme.successText,
+                                  message: _feedback!,
+                                )
+                              : AppInlineNotice.danger(message: _feedback!),
+                        ],
+                        const SizedBox(height: 12),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: PrimaryActionButton(
+                            label: 'Enviar comunicado',
+                            icon: Icons.send_rounded,
+                            fullWidth: false,
+                            isLoading: ctrl.isSubmitting,
+                            onPressed: _submit,
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        Row(
+                          children: <Widget>[
+                            const Icon(
+                              Icons.history_rounded,
+                              size: 17,
+                              color: AppTheme.textSecondary,
+                            ),
+                            const SizedBox(width: 7),
+                            Text(
+                              'Historial reciente de avisos y solicitudes',
+                              style: AppTheme.subtitleStyle(),
+                            ),
+                            const SizedBox(width: 8),
+                            AppCountPill(text: '${history.length}'),
+                            const SizedBox(width: 10),
+                            const Expanded(child: Divider()),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        if (ctrl.isLoading && history.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 20),
+                            child: Center(
+                              child: DairyLoader(
+                                size: DairyLoaderSize.sm,
+                                label: 'Cargando avisos…',
                               ),
                             ),
-                          ),
-                    ],
-                    onChanged: (String? value) {
-                      setState(() => _selectedProducerId = value);
-                    },
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: _titleCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Asunto del comunicado',
-                      hintText: 'Ej. Reunión general de asociados en Susa',
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: _messageCtrl,
-                    maxLines: 3,
-                    decoration: const InputDecoration(
-                      labelText: 'Mensaje',
-                      hintText:
-                          'Escribe el aviso que llegará a la bandeja y alertas del productor…',
-                    ),
-                  ),
-                  if (_feedback != null) ...<Widget>[
-                    const SizedBox(height: 10),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _isSuccess
-                            ? AppTheme.primaryGreenLight
-                            : AppTheme.dangerBg,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: _isSuccess
-                              ? AppTheme.primaryGreen.withValues(alpha: 0.35)
-                              : AppTheme.danger.withValues(alpha: 0.35),
-                        ),
-                      ),
-                      child: Text(
-                        _feedback!,
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                          color: _isSuccess
-                              ? AppTheme.successText
-                              : AppTheme.dangerText,
-                        ),
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 12),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: PrimaryActionButton(
-                      label: 'Enviar comunicado',
-                      icon: Icons.send_rounded,
-                      fullWidth: false,
-                      isLoading: ctrl.isSubmitting,
-                      onPressed: _submit,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  const Divider(height: 1),
-                  const SizedBox(height: 10),
-                  Text(
-                    'Historial reciente de avisos y solicitudes (${history.length})',
-                    style: AppTheme.subtitleStyle(),
-                  ),
-                  const SizedBox(height: 8),
-                  Expanded(
-                    child: ctrl.isLoading && history.isEmpty
-                        ? const Center(
-                            child: DairyLoader(
-                              size: DairyLoaderSize.sm,
-                              label: 'Cargando avisos…',
-                            ),
                           )
-                        : history.isEmpty
-                            ? const Center(
-                                child: Text(
+                        else if (history.isEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(vertical: 22),
+                            decoration: BoxDecoration(
+                              color: AppTheme.canvasAlt,
+                              borderRadius: BorderRadius.circular(
+                                AppTheme.radiusCard,
+                              ),
+                              border: Border.all(color: AppTheme.border),
+                            ),
+                            child: const Column(
+                              children: <Widget>[
+                                AppIconBadge(
+                                  icon: Icons.notifications_none_rounded,
+                                  color: AppTheme.warmGold,
+                                  size: 40,
+                                ),
+                                SizedBox(height: 8),
+                                Text(
                                   'Aún no se han emitido comunicados institucionales.',
                                   style: TextStyle(
                                     fontSize: 13,
                                     color: AppTheme.textMuted,
                                   ),
                                 ),
-                              )
-                            : ListView.separated(
-                                itemCount: history.length,
-                                separatorBuilder: (_, _) =>
-                                    const SizedBox(height: 8),
-                                itemBuilder: (BuildContext ctx, int index) {
-                                  final AppNotificationModel n = history[index];
-                                  return Container(
-                                    padding: const EdgeInsets.all(10),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.canvasAlt,
-                                      borderRadius: BorderRadius.circular(8),
-                                      border:
-                                          Border.all(color: AppTheme.border),
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: <Widget>[
-                                        Row(
-                                          children: <Widget>[
-                                            Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                horizontal: 7,
-                                                vertical: 2,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                color: n.tipo == 'RECTIFICACION'
-                                                    ? AppTheme.tealLight
-                                                    : AppTheme.warmGoldLight,
-                                                borderRadius:
-                                                    BorderRadius.circular(4),
-                                              ),
-                                              child: Text(
-                                                n.tipo,
-                                                style: TextStyle(
-                                                  fontSize: 10.5,
-                                                  fontWeight: FontWeight.w700,
-                                                  color: n.tipo == 'RECTIFICACION'
-                                                      ? AppTheme.tealAccent
-                                                      : AppTheme.warmGold,
-                                                ),
-                                              ),
-                                            ),
-                                            const Spacer(),
-                                            Text(
-                                              AppFormatters.formatDateTime(
-                                                n.fechaEnvio,
-                                              ),
-                                              style: AppTheme.monoStyle(
-                                                fontSize: 11,
-                                                color: AppTheme.textMuted,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          n.titulo,
-                                          style: const TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w700,
-                                            color: AppTheme.textPrimary,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          n.mensaje,
-                                          style: const TextStyle(
-                                            fontSize: 12.5,
-                                            color: AppTheme.textSecondary,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              ),
+                              ],
+                            ),
+                          )
+                        else
+                          for (final AppNotificationModel n in history)
+                            _HistoryItem(notification: n),
+                      ],
+                    ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         );
       },
+    );
+  }
+}
+
+class _HistoryItem extends StatelessWidget {
+  const _HistoryItem({required this.notification});
+
+  final AppNotificationModel notification;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppNotificationModel n = notification;
+    final bool rect = n.tipo == 'RECTIFICACION';
+    final Color color = rect ? AppTheme.tealAccent : AppTheme.warmGold;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          AppIconBadge(
+            icon: rect ? Icons.rate_review_outlined : Icons.campaign_outlined,
+            color: color,
+            size: 32,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Row(
+                  children: <Widget>[
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.radiusPill,
+                        ),
+                      ),
+                      child: Text(
+                        n.tipo,
+                        style: AppTheme.monoStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                          color: color,
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      AppFormatters.formatDateTime(n.fechaEnvio),
+                      style: AppTheme.monoStyle(
+                        fontSize: 11,
+                        color: AppTheme.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  n.titulo,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  n.mensaje,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    height: 1.4,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

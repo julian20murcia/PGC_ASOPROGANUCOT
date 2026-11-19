@@ -344,6 +344,7 @@ class PrimaryActionButton extends StatelessWidget {
     this.icon,
     this.isMobile = false,
     this.fullWidth = true,
+    this.color = AppTheme.primaryGreen,
   });
 
   final String label;
@@ -353,6 +354,9 @@ class PrimaryActionButton extends StatelessWidget {
   final bool isMobile;
   final bool fullWidth;
 
+  /// Color de fondo (p. ej. `AppTheme.danger` para acciones destructivas).
+  final Color color;
+
   @override
   Widget build(BuildContext context) {
     return SizedBox(
@@ -361,10 +365,10 @@ class PrimaryActionButton extends StatelessWidget {
       child: ElevatedButton(
         onPressed: isLoading ? null : onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppTheme.primaryGreen,
+          backgroundColor: color,
           foregroundColor: Colors.white,
           disabledBackgroundColor: isLoading
-              ? AppTheme.primaryGreen.withValues(alpha: 0.72)
+              ? color.withValues(alpha: 0.72)
               : AppTheme.border,
           disabledForegroundColor:
               isLoading ? Colors.white : AppTheme.textMuted,
