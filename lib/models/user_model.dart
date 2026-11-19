@@ -1,4 +1,5 @@
 import '../core/constants/app_constants.dart';
+import '../core/security/permissions.dart';
 
 /// Entidad pura de usuario del sistema ASOPROGANUCOT (Sección 3.3).
 ///
@@ -16,6 +17,7 @@ class UserModel {
     required this.fechaCreacion,
     this.ultimoAcceso,
     this.isBootstrapSession = false,
+    this.permisos,
   });
 
   final String uid;
@@ -29,6 +31,22 @@ class UserModel {
   final DateTime fechaCreacion;
   final DateTime? ultimoAcceso;
   final bool isBootstrapSession;
+
+  /// Permisos personalizados por módulo. Null => permisos por defecto del rol.
+  final Map<String, List<String>>? permisos;
+
+  /// Permisos efectivos. El administrador siempre tiene acceso total.
+  Map<String, List<String>> get effectivePermissions {
+    if (isAdmin) return Permissions.full();
+    return permisos ?? Permissions.defaultsFor(rol);
+  }
+
+  /// ¿Puede ejecutar [action] en [module]?
+  bool can(String module, [String action = PermAction.ver]) {
+    if (!activo) return false;
+    if (isAdmin) return true;
+    return effectivePermissions[module]?.contains(action) ?? false;
+  }
 
   bool get isAdmin => rol == AppConstants.roleAdmin;
   bool get isOperario => rol == AppConstants.roleOperario;
@@ -118,6 +136,7 @@ class UserModel {
       fechaCreacion: parseDate(map['fechaCreacion']),
       ultimoAcceso: parseNullableDate(map['ultimoAcceso']),
       isBootstrapSession: map['isBootstrapSession'] == true,
+      permisos: Permissions.parse(map['permisos']),
     );
   }
 
@@ -133,6 +152,7 @@ class UserModel {
       'fcmTokens': fcmTokens,
       'fechaCreacion': fechaCreacion.toUtc().toIso8601String(),
       'ultimoAcceso': ultimoAcceso?.toUtc().toIso8601String(),
+      if (permisos != null) 'permisos': permisos,
     };
     if (includeBootstrapFlag) {
       data['isBootstrapSession'] = isBootstrapSession;
@@ -152,6 +172,8 @@ class UserModel {
     DateTime? fechaCreacion,
     DateTime? ultimoAcceso,
     bool? isBootstrapSession,
+    Map<String, List<String>>? permisos,
+    bool clearPermisos = false,
   }) {
     return UserModel(
       uid: uid ?? this.uid,
@@ -165,6 +187,7 @@ class UserModel {
       fechaCreacion: fechaCreacion ?? this.fechaCreacion,
       ultimoAcceso: ultimoAcceso ?? this.ultimoAcceso,
       isBootstrapSession: isBootstrapSession ?? this.isBootstrapSession,
+      permisos: clearPermisos ? null : (permisos ?? this.permisos),
     );
   }
 }

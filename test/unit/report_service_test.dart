@@ -3,12 +3,14 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pgc_asoproganucot/controllers/report_controller.dart';
 import 'package:pgc_asoproganucot/core/constants/app_constants.dart';
+import 'package:pgc_asoproganucot/core/services/file_export_service.dart';
 import 'package:pgc_asoproganucot/core/services/hive_service.dart';
 import 'package:pgc_asoproganucot/core/services/producer_service.dart';
 import 'package:pgc_asoproganucot/core/services/rate_service.dart';
 import 'package:pgc_asoproganucot/core/services/reception_service.dart';
 import 'package:pgc_asoproganucot/core/services/report_export_service.dart';
 import 'package:pgc_asoproganucot/core/services/report_service.dart';
+import 'package:pgc_asoproganucot/core/services/settlement_calculator.dart';
 import 'package:pgc_asoproganucot/core/services/settlement_service.dart';
 import 'package:pgc_asoproganucot/models/app_notification_model.dart';
 import 'package:pgc_asoproganucot/models/audit_log_model.dart';
@@ -317,6 +319,134 @@ void main() {
       );
       expect(pdfBytes.length, greaterThan(1500));
       expect(pdfBytes.sublist(0, 4), <int>[0x25, 0x50, 0x44, 0x46]);
+    });
+  });
+  group('Catálogo de reportes (vista previa y descargas)', () {
+    final QuincenaPeriod november = QuincenaPeriod.custom(DateTime(2026, 11, 1), DateTime(2026, 11, 30));
+    final QuincenaPeriod firstHalf = QuincenaPeriod.custom(DateTime(2026, 11, 1), DateTime(2026, 11, 15));
+
+    test('Consolidado de recepción excluye anuladas y filtra por jornada', () {
+      final ReportDataset all = ReportCatalog.consolidated(period: november, receptions: sampleDeliveries);
+      expect(all.rows.length, 3);
+      expect(all.totals![5], 55.0);
+      expect(all.kpis.first.value, '55,0 L');
+      final ReportDataset morning = ReportCatalog.consolidated(
+        period: november,
+        receptions: sampleDeliveries,
+        shift: AppConstants.shiftMorning,
+      );
+      expect(morning.rows.length, 2);
+      expect(morning.totals![5], 43.0);
+    });
+
+    test('Resumen por productor y liquidaciones', () {
+      final ReportDataset sum = ReportCatalog.producerSummary(
+        period: november,
+        receptions: sampleDeliveries,
+        producers: <ProducerModel>[prod1, prod2],
+        settlements: <SettlementModel>[settlement1],
+        activePricePerLiter: 1900,
+      );
+      expect(sum.rows.length, 2);
+      expect(sum.rows.first[1], 'Carlos Rojas');
+      expect(sum.totals!.last, 103000.0);
+      final ReportDataset liq = ReportCatalog.settlementsReport(
+        period: november,
+        settlements: <SettlementModel>[settlement1],
+      );
+      expect(liq.rows.single.first, 'COMP-2026-0001');
+      expect(liq.kpis[3].value, r'$ 55.500');
+    });
+
+    test('Comparativo mañana / tarde por día', () {
+      final ReportDataset d = ReportCatalog.shiftComparison(period: november, receptions: sampleDeliveries);
+      expect(d.rows.length, 3);
+      expect(d.totals![1], 43.0);
+      expect(d.totals![3], 12.0);
+      expect(d.kpis[3].value, '16/11/2026');
+    });
+
+    test('Productores sin entregas en la primera quincena', () {
+      final ReportDataset d = ReportCatalog.inactiveProducers(
+        period: firstHalf,
+        receptions: sampleDeliveries,
+        producers: <ProducerModel>[prod1, prod2],
+        today: DateTime(2026, 11, 18),
+      );
+      expect(d.rows.length, 1);
+      expect(d.rows.single[1], 'Lucía Becerra');
+      expect(d.rows.single[5], '16/11/2026');
+      expect(d.rows.single[6], 2);
+    });
+
+    test('Correcciones y anulaciones con responsable y motivo', () {
+      final ReportDataset d = ReportCatalog.corrections(
+        period: november,
+        receptions: sampleDeliveries,
+        auditLogs: sampleLogs,
+        userNames: const <String, String>{'admin': 'Ana Gómez'},
+      );
+      expect(d.rows.length, 1);
+      expect(d.rows.single[1], 'Anulación');
+      expect(d.rows.single[2], 'Lucía Becerra');
+      expect(d.rows.single[6], 'Ana Gómez');
+      expect(d.rows.single[7], 'Error en marcación de cantina');
+      expect(d.kpis[2].value, '100,0 L');
+    });
+
+    test('Cada reporte se descarga en PDF, Excel y CSV', () async {
+      final ReportDataset d = ReportCatalog.consolidated(period: november, receptions: sampleDeliveries);
+      final Uint8List pdf = await ReportExportService.exportDataset(d, ExportFormat.pdf, generatedBy: 'Ana Gómez');
+      expect(pdf.sublist(0, 4), <int>[0x25, 0x50, 0x44, 0x46]);
+      final Uint8List xlsx = await ReportExportService.exportDataset(d, ExportFormat.xlsx);
+      expect(xlsx.sublist(0, 2), <int>[0x50, 0x4B]);
+      final String csv = String.fromCharCodes(await ReportExportService.exportDataset(d, ExportFormat.csv));
+      expect(csv, contains('Productor'));
+      expect(ReportExportService.datasetFileName(d), startsWith('consolidado_de_recepcion_'));
+
+      final ReportDataset empty = ReportCatalog.settlementsReport(period: firstHalf, settlements: const <SettlementModel>[]);
+      expect(empty.isEmpty, isTrue);
+      final Uint8List emptyPdf = await ReportExportService.exportDataset(empty, ExportFormat.pdf);
+      expect(emptyPdf.length, greaterThan(500));
+    });
+
+    test('Valores extremos no rompen el formato', () {
+      expect(ReportDataset.formatCell(1e20, ReportColumnType.liters), isNotEmpty);
+      expect(ReportDataset.formatCell(9999999999999.0, ReportColumnType.money), startsWith(r'$'));
+      expect(ReportDataset.formatCell(null, ReportColumnType.money), '');
+      expect(ReportDataset.formatCell(0.456, ReportColumnType.percent), '45,6 %');
+    });
+
+    test('ReportController arma el reporte elegido con los filtros', () async {
+      final HiveService memoryHive = HiveService(enablePersistence: false);
+      final ReportController controller = ReportController(
+        reportService: ReportService(remoteAuditDataSource: _InMemoryAuditSource(sampleLogs)),
+        receptionService: ReceptionService(
+          hiveService: memoryHive,
+          remoteDataSource: _InMemoryReceptionSource(sampleDeliveries),
+        ),
+        producerService: ProducerService(
+          hiveService: memoryHive,
+          remoteDataSource: _InMemoryProducerSource(<ProducerModel>[prod1, prod2]),
+        ),
+        rateService: RateService(hiveService: memoryHive, remoteDataSource: _InMemoryRateSource(<MilkRateModel>[rate])),
+        settlementService: SettlementService(
+          hiveService: memoryHive,
+          remoteDataSource: _InMemorySettlementSource(<SettlementModel>[settlement1]),
+        ),
+      );
+      await controller.ensureLoaded();
+      expect(controller.hasLoaded, isTrue);
+      controller.setPeriodRange(DateTime(2026, 11, 1), DateTime(2026, 11, 30), label: '1 – 30 nov 2026');
+      expect(controller.selectedPeriod.label, '1 – 30 nov 2026');
+      controller.selectReport(ReportKind.consolidated);
+      controller.setSelectedProducer('p-1');
+      expect(controller.buildDataset().rows.length, 2);
+      controller.setShiftFilter(AppConstants.shiftAfternoon);
+      expect(controller.buildDataset().rows.length, 1);
+      controller.selectReport(ReportKind.corrections);
+      controller.setSelectedProducer(null);
+      expect(controller.buildDataset().rows.length, 1);
     });
   });
 }

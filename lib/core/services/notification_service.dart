@@ -27,7 +27,16 @@ abstract class RemoteNotificationDataSource {
   Future<void> appendAuditLog(AuditLogModel log);
 }
 
-class FirestoreNotificationDataSource implements RemoteNotificationDataSource {
+/// Capacidad opcional de una fuente remota para eliminar avisos personales.
+///
+/// Se mantiene separada de [RemoteNotificationDataSource] para no romper
+/// implementaciones existentes (fakes de pruebas, fuentes en memoria).
+abstract class DeletableNotificationDataSource {
+  Future<void> deleteNotification(String notificacionId);
+}
+
+class FirestoreNotificationDataSource
+    implements RemoteNotificationDataSource, DeletableNotificationDataSource {
   FirestoreNotificationDataSource({this.firestore});
 
   final FirebaseFirestore? firestore;
@@ -93,6 +102,14 @@ class FirestoreNotificationDataSource implements RemoteNotificationDataSource {
         .collection(AppConstants.notificationsCollection)
         .doc(notificacionId)
         .update(<String, dynamic>{'leida': true});
+  }
+
+  @override
+  Future<void> deleteNotification(String notificacionId) async {
+    await _db
+        .collection(AppConstants.notificationsCollection)
+        .doc(notificacionId)
+        .delete();
   }
 
   @override
@@ -401,6 +418,43 @@ class NotificationService {
   Future<void> markAllAsRead(List<String> notificacionIds) async {
     for (final String id in notificacionIds) {
       await markAsRead(id);
+    }
+  }
+
+  /// Elimina un aviso personal del productor (remoto + caché local).
+  ///
+  /// Si la fuente remota no soporta eliminación, solo se depura la caché.
+  /// Lanza [NotificationServiceException] si la eliminación remota falla.
+  Future<void> deleteNotification(String notificacionId) async {
+    final String id = notificacionId.trim();
+    if (id.isEmpty) return;
+    final RemoteNotificationDataSource source = _remoteDataSource;
+    if (source is DeletableNotificationDataSource) {
+      try {
+        await (source as DeletableNotificationDataSource)
+            .deleteNotification(id);
+      } catch (_) {
+        throw NotificationServiceException(
+          'No se pudo borrar el aviso. Verifica tu conexión e intenta de nuevo.',
+        );
+      }
+    }
+    await removeFromCache(<String>{id});
+  }
+
+  /// Quita avisos de la caché local (Hive) sin tocar la nube.
+  Future<void> removeFromCache(Set<String> notificacionIds) async {
+    if (notificacionIds.isEmpty) return;
+    final List<AppNotificationModel> cached =
+        await _hiveService.getCachedNotifications();
+    final List<AppNotificationModel> kept = cached
+        .where(
+          (AppNotificationModel n) =>
+              !notificacionIds.contains(n.notificacionId),
+        )
+        .toList();
+    if (kept.length != cached.length) {
+      await _hiveService.cacheNotifications(kept);
     }
   }
 

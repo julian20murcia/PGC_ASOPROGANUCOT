@@ -42,7 +42,7 @@ class UserController extends ChangeNotifier {
   UserSortColumn _sortColumn = UserSortColumn.nombreCompleto;
   bool _sortAscending = true;
   int _currentPage = 1;
-  int _itemsPerPage = 7;
+  int _itemsPerPage = 20;
 
   bool get isLoading => _isLoading;
   bool get isSaving => _isSaving;
@@ -60,6 +60,27 @@ class UserController extends ChangeNotifier {
   int get itemsPerPage => _itemsPerPage;
 
   List<UserModel> get allUsers => List<UserModel>.unmodifiable(_users);
+
+  /// uid → nombre completo, para traducir la bitácora de auditoría.
+  Map<String, String> get userNamesByUid => <String, String>{
+        for (final UserModel u in _users) u.uid: u.nombreCompleto,
+      };
+
+  UserModel? findByUid(String uid) {
+    for (final UserModel u in _users) {
+      if (u.uid == uid) return u;
+    }
+    return null;
+  }
+
+  bool get hasLoadedOnce => _hasLoadedOnce;
+  bool _hasLoadedOnce = false;
+
+  /// Carga la lista solo si aún no se ha cargado.
+  Future<void> ensureLoaded() async {
+    if (_hasLoadedOnce || _isLoading) return;
+    await loadUsers();
+  }
 
   int get totalCount => _users.length;
   int get activeCount => _users.where((UserModel u) => u.activo).length;
@@ -186,6 +207,7 @@ class UserController extends ChangeNotifier {
           await _userService.listUsers();
       _users = result.users;
       _isFromOfflineCache = result.fromCache;
+      _hasLoadedOnce = true;
       _currentPage = _currentPage.clamp(1, totalPages);
     } catch (e) {
       _errorMessage = e.toString();
@@ -204,6 +226,8 @@ class UserController extends ChangeNotifier {
     required String password,
     required bool activo,
     required String actorUid,
+    Map<String, List<String>>? permisos,
+    String? productorId,
   }) async {
     _isSaving = true;
     _errorMessage = null;
@@ -220,6 +244,8 @@ class UserController extends ChangeNotifier {
         password: password,
         activo: activo,
         actorUid: actorUid,
+        permisos: permisos,
+        productorId: productorId,
       );
       _users = <UserModel>[created, ..._users];
       _feedbackMessage =
@@ -248,6 +274,9 @@ class UserController extends ChangeNotifier {
     required String rol,
     required bool activo,
     required String actorUid,
+    Map<String, List<String>>? permisos,
+    bool resetPermisosToRole = false,
+    String? newPassword,
   }) async {
     _isSaving = true;
     _errorMessage = null;
@@ -263,6 +292,9 @@ class UserController extends ChangeNotifier {
         rol: rol,
         activo: activo,
         actorUid: actorUid,
+        permisos: permisos,
+        resetPermisosToRole: resetPermisosToRole,
+        newPassword: newPassword,
       );
       _users = _users
           .map((UserModel u) => u.uid == updated.uid ? updated : u)

@@ -5,7 +5,10 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/date_symbol_data_local.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import 'controllers/auth_controller.dart';
@@ -32,6 +35,7 @@ import 'views/desktop/admin_shell_view.dart';
 import 'views/mobile/producer_shell_view.dart';
 import 'views/shared/login_view.dart';
 import 'views/shared/widgets/dairy_loader.dart';
+import 'views/shared/widgets/idle_session_guard.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -43,6 +47,9 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   GoogleFonts.config.allowRuntimeFetching = false;
+  await initializeDateFormatting('es_CO');
+  await initializeDateFormatting('es');
+  Intl.defaultLocale = 'es_CO';
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
@@ -127,6 +134,13 @@ class AsoproganucotApp extends StatelessWidget {
         title: 'ASOPROGANUCOTT',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme(),
+        locale: const Locale('es', 'CO'),
+        supportedLocales: const <Locale>[Locale('es', 'CO'), Locale('es'), Locale('en')],
+        localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
         home: const AuthGate(),
       ),
     );
@@ -208,7 +222,14 @@ class _AuthGateState extends State<AuthGate>
     final Widget destination = user == null
         ? const LoginView(key: ValueKey<String>('login'))
         : user.canAccessDesktopAdmin
-            ? const AdminShellView(key: ValueKey<String>('admin_shell'))
+            ? IdleSessionGuard(
+                key: const ValueKey<String>('admin_shell_guard'),
+                enabled: IdleSessionGuard.isDesktopPlatform,
+                onTimeout: () => context
+                    .read<AuthController>()
+                    .signOut(reason: SessionEndReason.inactivity),
+                child: const AdminShellView(key: ValueKey<String>('admin_shell')),
+              )
             : const ProducerShellView(key: ValueKey<String>('producer_shell'));
 
     return Stack(

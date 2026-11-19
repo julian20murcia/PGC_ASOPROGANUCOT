@@ -6,6 +6,10 @@ const { getMessaging } = require('firebase-admin/messaging');
 initializeApp();
 
 Object.assign(exports, require('./compliance'));
+const admin = require('./admin');
+exports.adminCreateUser = admin.adminCreateUser;
+exports.adminUpdateUser = admin.adminUpdateUser;
+exports.askAssistant = require('./assistant').askAssistant;
 
 const SUPPORTED_PUSH_TYPES = new Set([
   'ENTREGA',

@@ -7,8 +7,7 @@ import '../core/services/reception_service.dart';
 import '../models/milk_reception_model.dart';
 import '../models/producer_model.dart';
 import '../models/user_model.dart';
-
-enum ReceptionDateFilterMode { today, quincena, all }
+import '../views/shared/widgets/app_date_range_picker.dart';
 
 enum ReceptionViewMode { matrix, list }
 
@@ -135,7 +134,8 @@ class ReceptionController extends ChangeNotifier {
   int _matrixPage = 1;
   int _matrixRowsPerPage = 25;
 
-  ReceptionDateFilterMode _dateFilterMode = ReceptionDateFilterMode.today;
+  DateRangeValue _range = DateRangePresets.today();
+  final Set<String> _correctedIds = <String>{};
   String _shiftFilter = 'ALL'; // ALL | MANANA | TARDE
   String _statusFilter = 'ACTIVE'; // ACTIVE | ANNULLED | ALL
   String _searchQuery = '';
@@ -163,7 +163,8 @@ class ReceptionController extends ChangeNotifier {
   int get matrixPage => _matrixPage;
   int get matrixRowsPerPage => _matrixRowsPerPage;
 
-  ReceptionDateFilterMode get dateFilterMode => _dateFilterMode;
+  /// Rango de fechas visible en la planilla y en la lista de registros.
+  DateRangeValue get range => _range;
   String get shiftFilter => _shiftFilter;
   String get statusFilter => _statusFilter;
   String get searchQuery => _searchQuery;
@@ -400,19 +401,49 @@ class ReceptionController extends ChangeNotifier {
   String get currentQuincenaLabel =>
       ReceptionService.currentQuincenaRange(DateTime.now()).label;
 
+  /// Todas las entregas (activas y anuladas) cuya fecha está en [range].
+  List<MilkReceptionModel> get rangeReceptions => _receptions
+      .where((MilkReceptionModel r) => _range.containsIso(r.fechaEntrega))
+      .toList();
+
+  Iterable<MilkReceptionModel> get _rangeActive => _receptions.where(
+        (MilkReceptionModel r) =>
+            !r.anulado && _range.containsIso(r.fechaEntrega),
+      );
+
+  double _sumLiters(Iterable<MilkReceptionModel> items) => items.fold<double>(
+        0.0,
+        (double acc, MilkReceptionModel r) => acc + r.litros,
+      );
+
+  double get rangeTotalLiters => _sumLiters(_rangeActive);
+  double get rangeMorningLiters => _sumLiters(
+        _rangeActive.where(
+          (MilkReceptionModel r) => r.jornada == AppConstants.shiftMorning,
+        ),
+      );
+  double get rangeAfternoonLiters => _sumLiters(
+        _rangeActive.where(
+          (MilkReceptionModel r) => r.jornada == AppConstants.shiftAfternoon,
+        ),
+      );
+  int get rangeDeliveriesCount => _rangeActive.length;
+  int get rangeProducersDelivered => _rangeActive
+      .map((MilkReceptionModel r) => r.productorId)
+      .toSet()
+      .length;
+
+  /// ¿La entrega fue corregida (en esta sesión o según su auditoría remota)?
+  bool isCorrected(MilkReceptionModel r) =>
+      _correctedIds.contains(r.recepcionId) ||
+      (r.updatedByUid != null && r.updatedByUid!.trim().isNotEmpty);
+
+  /// Entregas del rango con búsqueda y filtros de jornada / estado, de la más
+  /// reciente a la más antigua.
   List<MilkReceptionModel> get filteredReceptions {
     final String q = _searchQuery.trim().toLowerCase();
-    final range = ReceptionService.currentQuincenaRange(DateTime.now());
-    final String today = _todayDateStr;
-
     return _receptions.where((MilkReceptionModel r) {
-      if (_dateFilterMode == ReceptionDateFilterMode.today &&
-          r.fechaEntrega != today) {
-        return false;
-      }
-      if (_dateFilterMode == ReceptionDateFilterMode.quincena &&
-          (r.fechaEntrega.compareTo(range.start) < 0 ||
-              r.fechaEntrega.compareTo(range.end) > 0)) {
+      if (!_range.containsIso(r.fechaEntrega)) {
         return false;
       }
       if (_shiftFilter != 'ALL' && r.jornada != _shiftFilter) {
@@ -424,13 +455,21 @@ class ReceptionController extends ChangeNotifier {
       if (_statusFilter == 'ANNULLED' && !r.anulado) {
         return false;
       }
+      if (_statusFilter == 'PENDING' && r.isSynced) {
+        return false;
+      }
       if (q.isEmpty) {
         return true;
       }
       return r.nombreProductorSnap.toLowerCase().contains(q) ||
           r.codigoAsociadoSnap.toLowerCase().contains(q) ||
           r.fechaEntrega.contains(q);
-    }).toList();
+    }).toList()
+      ..sort((MilkReceptionModel a, MilkReceptionModel b) {
+        final int d = b.fechaEntrega.compareTo(a.fechaEntrega);
+        if (d != 0) return d;
+        return b.horaEntrega.compareTo(a.horaEntrega);
+      });
   }
 
   int get totalPages {
@@ -495,30 +534,11 @@ class ReceptionController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final prodResult = await _producerService.listProducers();
-      _producersById = <String, ProducerModel>{
-        for (final ProducerModel p in prodResult.producers) p.productorId: p,
-      };
-      _activeProducers = prodResult.producers
-          .where((ProducerModel p) => p.isActivo)
-          .toList()
-        ..sort(
-          (ProducerModel a, ProducerModel b) =>
-              a.codigoAsociado.compareTo(b.codigoAsociado),
-        );
-
+      await _loadActiveProducers();
       final recResult = await _receptionService.listReceptions();
       _receptions = recResult.receptions;
       _isFromOfflineCache = recResult.fromCache;
       _pendingSyncCount = (await _hiveService.getPendingReceptions()).length;
-
-      if (_selectedProducer != null) {
-        _selectedProducer = _activeProducers.cast<ProducerModel?>().firstWhere(
-              (ProducerModel? p) =>
-                  p?.productorId == _selectedProducer!.productorId,
-              orElse: () => null,
-            );
-      }
     } catch (e) {
       _errorMessage = 'No fue posible cargar las entregas: $e';
     } finally {
@@ -526,6 +546,75 @@ class ReceptionController extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  Future<void> _loadActiveProducers() async {
+    final prodResult = await _producerService.listProducers();
+    _producersById = <String, ProducerModel>{
+      for (final ProducerModel p in prodResult.producers) p.productorId: p,
+    };
+    _activeProducers = prodResult.producers
+        .where((ProducerModel p) => p.isActivo)
+        .toList()
+      ..sort(
+        (ProducerModel a, ProducerModel b) =>
+            a.codigoAsociado.compareTo(b.codigoAsociado),
+      );
+    if (_selectedProducer != null) {
+      _selectedProducer = _activeProducers.cast<ProducerModel?>().firstWhere(
+            (ProducerModel? p) =>
+                p?.productorId == _selectedProducer!.productorId,
+            orElse: () => null,
+          );
+    }
+  }
+
+  /// Carga solo las entregas del rango (Firestore por `fechaEntrega` + caché
+  /// Hive). Reemplaza en memoria el tramo del rango y conserva los demás días
+  /// que otras vistas (tablero) ya tengan cargados.
+  Future<void> loadRange(DateRangeValue range, {bool? isOnlineOverride}) async {
+    _range = range;
+    _currentPage = 1;
+    _isLoading = true;
+    _errorMessage = null;
+    if (isOnlineOverride != null) {
+      _isOnline = isOnlineOverride;
+    }
+    notifyListeners();
+
+    try {
+      await _loadActiveProducers();
+      final recResult = await _receptionService.listReceptionsInRange(
+        startIso: range.startIso,
+        endIso: range.endIso,
+      );
+      if (_range != range) return; // llegó otra selección mientras cargaba
+      final Map<String, MilkReceptionModel> merged =
+          <String, MilkReceptionModel>{
+        for (final MilkReceptionModel r in _receptions)
+          if (!range.containsIso(r.fechaEntrega)) r.recepcionId: r,
+      };
+      for (final MilkReceptionModel r in recResult.receptions) {
+        merged[r.recepcionId] = r;
+      }
+      _receptions = merged.values.toList()
+        ..sort(
+          (MilkReceptionModel a, MilkReceptionModel b) =>
+              b.createdAt.compareTo(a.createdAt),
+        );
+      _isFromOfflineCache = recResult.fromCache;
+      _pendingSyncCount = (await _hiveService.getPendingReceptions()).length;
+    } catch (e) {
+      _errorMessage = 'No fue posible cargar las entregas: $e';
+    } finally {
+      if (_range == range) {
+        _isLoading = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  /// Cambia el rango y recarga sus entregas.
+  Future<void> setDateRange(DateRangeValue range) => loadRange(range);
 
   void setOnlineStatus(bool isOnline) {
     if (_isOnline != isOnline) {
@@ -599,6 +688,72 @@ class ReceptionController extends ChangeNotifier {
     }
   }
 
+  /// Registra una entrega desde la planilla para un productor, día y jornada
+  /// concretos (sin tocar la selección de la captura rápida). Las fechas
+  /// pasadas conservan la hora real de captura.
+  Future<({bool saved, MilkReceptionModel? duplicateFound, String? error})>
+      registerCellDelivery({
+    required ProducerModel producer,
+    required DateTime day,
+    required String jornada,
+    required double litros,
+    required String operarioUid,
+    bool allowDuplicate = false,
+    DateTime? now,
+  }) async {
+    final DateTime clock = now ?? DateTime.now();
+    final DateTime today = DateTime(clock.year, clock.month, clock.day);
+    final DateTime target = DateTime(day.year, day.month, day.day);
+    if (target.isAfter(today)) {
+      return (
+        saved: false,
+        duplicateFound: null,
+        error: 'No se pueden registrar entregas en fechas futuras.',
+      );
+    }
+    final DateTime timestamp = DateTime(
+      target.year,
+      target.month,
+      target.day,
+      clock.hour,
+      clock.minute,
+      clock.second,
+    );
+
+    _isSaving = true;
+    _errorMessage = null;
+    _feedbackMessage = null;
+    notifyListeners();
+    try {
+      final MilkReceptionModel saved =
+          await _receptionService.registerReception(
+        producer: producer,
+        litros: litros,
+        jornada: jornada,
+        operarioUid: operarioUid,
+        timestamp: timestamp,
+        allowDuplicate: allowDuplicate,
+        isOnline: _isOnline,
+      );
+      _receptions = <MilkReceptionModel>[saved, ..._receptions];
+      _pendingSyncCount = (await _hiveService.getPendingReceptions()).length;
+      _feedbackMessage =
+          'Entrega registrada: ${saved.litros.toStringAsFixed(1)} L para ${saved.nombreProductorSnap}.';
+      return (saved: true, duplicateFound: null, error: null);
+    } on DuplicateReceptionException catch (dup) {
+      return (saved: false, duplicateFound: dup.existingReception, error: null);
+    } on ReceptionServiceException catch (e) {
+      _errorMessage = e.message;
+      return (saved: false, duplicateFound: null, error: e.message);
+    } catch (e) {
+      _errorMessage = 'No fue posible registrar la entrega: $e';
+      return (saved: false, duplicateFound: null, error: _errorMessage);
+    } finally {
+      _isSaving = false;
+      notifyListeners();
+    }
+  }
+
   Future<bool> editDeliveryLitros({
     required MilkReceptionModel existing,
     required double nuevosLitros,
@@ -624,6 +779,7 @@ class ReceptionController extends ChangeNotifier {
                 r.recepcionId == updated.recepcionId ? updated : r,
           )
           .toList();
+      _correctedIds.add(updated.recepcionId);
       _pendingSyncCount = (await _hiveService.getPendingReceptions()).length;
       _feedbackMessage =
           'Entrega corregida a ${updated.litros.toStringAsFixed(1)} L.';
@@ -810,12 +966,6 @@ class ReceptionController extends ChangeNotifier {
   void setMatrixRowsPerPage(int rows) {
     _matrixRowsPerPage = rows;
     _matrixPage = 1;
-    notifyListeners();
-  }
-
-  void setDateFilterMode(ReceptionDateFilterMode mode) {
-    _dateFilterMode = mode;
-    _currentPage = 1;
     notifyListeners();
   }
 

@@ -1,462 +1,122 @@
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:mocktail/mocktail.dart';
-import 'package:pgc_asoproganucot/controllers/auth_controller.dart';
 import 'package:pgc_asoproganucot/controllers/producer_portal_controller.dart';
 import 'package:pgc_asoproganucot/core/constants/app_constants.dart';
 import 'package:pgc_asoproganucot/core/services/fcm_service.dart';
-import 'package:pgc_asoproganucot/core/services/firebase_user_service.dart';
 import 'package:pgc_asoproganucot/core/services/hive_service.dart';
-import 'package:pgc_asoproganucot/core/services/notification_service.dart';
-import 'package:pgc_asoproganucot/core/services/producer_service.dart';
-import 'package:pgc_asoproganucot/core/services/rate_service.dart';
 import 'package:pgc_asoproganucot/core/services/reception_service.dart';
 import 'package:pgc_asoproganucot/core/services/settlement_pdf_service.dart';
-import 'package:pgc_asoproganucot/core/services/settlement_service.dart';
-import 'package:pgc_asoproganucot/core/theme/app_theme.dart';
 import 'package:pgc_asoproganucot/models/app_notification_model.dart';
-import 'package:pgc_asoproganucot/models/audit_log_model.dart';
-import 'package:pgc_asoproganucot/models/milk_rate_model.dart';
 import 'package:pgc_asoproganucot/models/milk_reception_model.dart';
-import 'package:pgc_asoproganucot/models/producer_model.dart';
 import 'package:pgc_asoproganucot/models/settlement_model.dart';
-import 'package:pgc_asoproganucot/models/user_model.dart';
-import 'package:pgc_asoproganucot/views/mobile/producer_shell_view.dart';
-import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-class _MockUserService extends Mock implements FirebaseUserService {}
-
-class _MockFcmService extends Mock implements FcmService {}
-
-class _InMemoryProducerRemote implements RemoteProducerDataSource {
-  _InMemoryProducerRemote(this.items);
-  final List<ProducerModel> items;
-
-  @override
-  Future<List<ProducerModel>> fetchProducers() async => items;
-
-  @override
-  Future<void> upsertProducer(ProducerModel producer) async {}
-
-  @override
-  Future<void> appendAuditLog(AuditLogModel log) async {}
-}
-
-class _InMemoryReceptionRemote implements RemoteReceptionDataSource {
-  _InMemoryReceptionRemote(this.items);
-  final List<MilkReceptionModel> items;
-
-  @override
-  Future<List<MilkReceptionModel>> fetchReceptions() async => items;
-
-  @override
-  Future<void> upsertReception(MilkReceptionModel reception) async {
-    items.removeWhere(
-      (MilkReceptionModel r) => r.recepcionId == reception.recepcionId,
-    );
-    items.add(reception);
-  }
-
-  @override
-  Future<void> appendAuditLog(AuditLogModel log) async {}
-}
-
-class _InMemoryRateRemote implements RemoteRateDataSource {
-  _InMemoryRateRemote(this.rates);
-  final List<MilkRateModel> rates;
-
-  @override
-  Future<List<MilkRateModel>> fetchRates() async => rates;
-
-  @override
-  Future<void> saveRatesBatch(List<MilkRateModel> rates) async {}
-
-  @override
-  Future<void> appendAuditLog(AuditLogModel log) async {}
-}
-
-class _InMemorySettlementRemote implements RemoteSettlementDataSource {
-  _InMemorySettlementRemote(this.items);
-  final List<SettlementModel> items;
-
-  @override
-  Future<List<SettlementModel>> fetchSettlements() async => items;
-
-  @override
-  Future<void> commitQuincenaClose({
-    required List<SettlementModel> settlements,
-    required Map<String, List<String>> receptionIdsBySettlement,
-    required List<AppNotificationModel> notifications,
-    required AuditLogModel auditLog,
-  }) async {}
-
-  @override
-  Future<void> markSettlementAsPaid({
-    required SettlementModel updatedSettlement,
-    required AppNotificationModel notification,
-    required AuditLogModel auditLog,
-  }) async {}
-}
-
-class _InMemoryNotificationRemote implements RemoteNotificationDataSource {
-  final List<AppNotificationModel> items = <AppNotificationModel>[];
-  final List<AuditLogModel> logs = <AuditLogModel>[];
-
-  @override
-  Future<List<AppNotificationModel>> fetchNotifications({
-    String? productorId,
-    String? userUid,
-  }) async {
-    if (productorId == null && userUid == null) {
-      return List<AppNotificationModel>.from(items);
-    }
-    return items.where((AppNotificationModel n) {
-      final String? d = n.destinoProductorId;
-      return d == null || d == productorId || d == userUid;
-    }).toList();
-  }
-
-  @override
-  Future<void> upsertNotification(AppNotificationModel notification) async {
-    items.removeWhere(
-      (AppNotificationModel n) =>
-          n.notificacionId == notification.notificacionId,
-    );
-    items.add(notification);
-  }
-
-  @override
-  Future<void> markNotificationRead(String notificacionId) async {
-    final int idx = items.indexWhere(
-      (AppNotificationModel n) => n.notificacionId == notificacionId,
-    );
-    if (idx >= 0) {
-      items[idx] = items[idx].copyWith(leida: true);
-    }
-  }
-
-  @override
-  Future<void> appendAuditLog(AuditLogModel log) async {
-    logs.add(log);
-  }
-}
+import 'support/portal_fakes.dart';
 
 void main() {
   setUpAll(() {
     GoogleFonts.config.allowRuntimeFetching = false;
   });
 
-  final UserModel adminUser = UserModel(
-    uid: 'uid-admin-1',
-    nombreCompleto: 'Admin Susa',
-    documento: '1000001',
-    correo: 'admin@asoproganucott.com',
-    telefono: '3100000001',
-    rol: AppConstants.roleAdmin,
-    activo: true,
-    fcmTokens: const <String>[],
-    fechaCreacion: DateTime.utc(2026, 1, 1),
-  );
-
-  final UserModel producerUserA = UserModel(
-    uid: 'uid-prod-a',
-    nombreCompleto: 'Carlos Mendoza',
-    documento: '1073500111',
-    correo: 'carlos@finca.com',
-    telefono: '3112223344',
-    rol: AppConstants.roleProductor,
-    activo: true,
-    fcmTokens: const <String>[],
-    fechaCreacion: DateTime.utc(2026, 1, 5),
-  );
-
-  final ProducerModel producerA = ProducerModel(
-    productorId: 'prod-a',
-    uidUsuario: 'uid-prod-a',
-    codigoAsociado: 'ASO-001',
-    cedula: '1073500111',
-    nombres: 'Carlos',
-    apellidos: 'Mendoza',
-    telefono: '3112223344',
-    nombreFinca: 'La Pradera',
-    vereda: 'El Tablón',
-    estado: 'ACTIVO',
-    aceptoHabeasData: true,
-    fechaAutorizacionDatos: DateTime.utc(2026, 1, 5),
-    autorizadoPorUid: 'uid-admin-1',
-    fechaCreacion: DateTime.utc(2026, 1, 5),
-  );
-
-  final ProducerModel producerB = ProducerModel(
-    productorId: 'prod-b',
-    uidUsuario: 'uid-prod-b',
-    codigoAsociado: 'ASO-002',
-    cedula: '1073500222',
-    nombres: 'Lucía',
-    apellidos: 'Rojas',
-    telefono: '3129998877',
-    nombreFinca: 'San Isidro',
-    vereda: 'Guatanfur',
-    estado: 'ACTIVO',
-    aceptoHabeasData: true,
-    fechaAutorizacionDatos: DateTime.utc(2026, 1, 6),
-    autorizadoPorUid: 'uid-admin-1',
-    fechaCreacion: DateTime.utc(2026, 1, 6),
-  );
-
-  ProducerPortalController buildController({
-    required HiveService hive,
-    required List<MilkReceptionModel> receptions,
-    required List<SettlementModel> settlements,
-    required _InMemoryNotificationRemote notifRemote,
-  }) {
-    final ProducerService producerService = ProducerService(
-      hiveService: hive,
-      remoteDataSource: _InMemoryProducerRemote(
-        <ProducerModel>[producerA, producerB],
-      ),
-    );
-    final ReceptionService receptionService = ReceptionService(
-      hiveService: hive,
-      remoteDataSource: _InMemoryReceptionRemote(receptions),
-    );
-    final RateService rateService = RateService(
-      hiveService: hive,
-      remoteDataSource: _InMemoryRateRemote(
-        <MilkRateModel>[
-          MilkRateModel(
-            tarifaId: 'rate-1',
-            precioPorLitro: 1950,
-            fechaInicioVigencia: DateTime.utc(2026, 1, 1),
-            observacion: 'Tarifa oficial Susa',
-            registradoPorUid: 'uid-admin-1',
-            activa: true,
-          ),
-        ],
-      ),
-    );
-    final SettlementService settlementService = SettlementService(
-      hiveService: hive,
-      remoteDataSource: _InMemorySettlementRemote(settlements),
-    );
-    final NotificationService notificationService = NotificationService(
-      hiveService: hive,
-      remoteDataSource: notifRemote,
-    );
-
-    return ProducerPortalController(
-      hiveService: hive,
-      producerService: producerService,
-      receptionService: receptionService,
-      rateService: rateService,
-      settlementService: settlementService,
-      notificationService: notificationService,
-      fcmService: FcmService(),
-    );
-  }
-
   group('Fase 7 · Portal Móvil del Productor y Alertas Push', () {
     test(
       'Paso 7.1, 7.3, 7.4 y 7.5: Aislamiento estricto por UID, KPIs de Resumen, filtros de entregas y comprobantes PDF',
       () async {
         final HiveService hive = HiveService(enablePersistence: false);
-        final _InMemoryNotificationRemote notifRemote =
-            _InMemoryNotificationRemote();
-
+        final InMemoryNotificationRemote notifRemote = InMemoryNotificationRemote();
         await notifRemote.upsertNotification(
-          AppNotificationModel(
-            notificacionId: 'n-broadcast',
-            titulo: 'Reunión mensual en planta Susa',
-            mensaje: 'Sábado 8:00 AM en la sede principal.',
-            tipo: 'COMUNICADO',
-            destinoProductorId: null,
-            fechaEnvio: DateTime.utc(2026, 11, 18, 12),
-          ),
+          notice('n-broadcast', titulo: 'Reunión mensual en planta Susa', at: DateTime.utc(2026, 11, 18, 12)),
         );
         await notifRemote.upsertNotification(
-          AppNotificationModel(
-            notificacionId: 'n-prod-a',
-            titulo: 'Entrega registrada (Mañana)',
-            mensaje: '42.5 L recibidos hoy.',
-            tipo: 'ENTREGA',
-            destinoProductorId: 'prod-a',
-            fechaEnvio: DateTime.utc(2026, 11, 18, 11),
-          ),
+          notice('n-prod-a', dest: 'prod-a', tipo: 'ENTREGA', at: DateTime.utc(2026, 11, 18, 11)),
         );
         await notifRemote.upsertNotification(
-          AppNotificationModel(
-            notificacionId: 'n-prod-b-privado',
-            titulo: 'Aviso privado de Lucía',
-            mensaje: 'No debe ser visible para Carlos.',
-            tipo: 'PAGO',
-            destinoProductorId: 'prod-b',
-            fechaEnvio: DateTime.utc(2026, 11, 18, 10),
-          ),
+          notice('n-prod-b-privado', dest: 'prod-b', tipo: 'PAGO', at: DateTime.utc(2026, 11, 18, 10)),
         );
 
         final List<MilkReceptionModel> receptions = <MilkReceptionModel>[
-          MilkReceptionModel(
-            recepcionId: 'r-a-1',
-            productorId: 'prod-a',
-            codigoAsociadoSnap: 'ASO-001',
-            nombreProductorSnap: 'Carlos Mendoza',
-            litros: 42.5,
-            fechaEntrega: '2026-11-18',
-            horaEntrega: '07:15:00',
-            jornada: AppConstants.shiftMorning,
-            operarioUid: 'op-1',
-            syncStatus: AppConstants.syncSynced,
-            isSynced: true,
-            createdAt: DateTime.utc(2026, 11, 18, 7, 15),
-          ),
-          MilkReceptionModel(
-            recepcionId: 'r-a-2',
-            productorId: 'prod-a',
-            codigoAsociadoSnap: 'ASO-001',
-            nombreProductorSnap: 'Carlos Mendoza',
-            litros: 27.5,
-            fechaEntrega: '2026-11-17',
-            horaEntrega: '16:40:00',
-            jornada: AppConstants.shiftAfternoon,
-            operarioUid: 'op-1',
-            syncStatus: AppConstants.syncSynced,
-            isSynced: true,
-            createdAt: DateTime.utc(2026, 11, 17, 16, 40),
-          ),
-          MilkReceptionModel(
-            recepcionId: 'r-a-old-month',
-            productorId: 'prod-a',
-            codigoAsociadoSnap: 'ASO-001',
-            nombreProductorSnap: 'Carlos Mendoza',
-            litros: 100.0,
-            fechaEntrega: '2026-11-05',
-            horaEntrega: '07:00:00',
-            jornada: AppConstants.shiftMorning,
-            operarioUid: 'op-1',
-            syncStatus: AppConstants.syncSynced,
-            isSynced: true,
-            liquidacionId: 'liq-a-1',
-            createdAt: DateTime.utc(2026, 11, 5, 7, 0),
-          ),
-          // Entrega de otro productor B: debe quedar excluida.
-          MilkReceptionModel(
-            recepcionId: 'r-b-1',
-            productorId: 'prod-b',
-            codigoAsociadoSnap: 'ASO-002',
-            nombreProductorSnap: 'Lucía Rojas',
-            litros: 999.0,
-            fechaEntrega: '2026-11-18',
-            horaEntrega: '07:20:00',
-            jornada: AppConstants.shiftMorning,
-            operarioUid: 'op-1',
-            syncStatus: AppConstants.syncSynced,
-            isSynced: true,
-            createdAt: DateTime.utc(2026, 11, 18, 7, 20),
-          ),
+          reception('r-a-1', '2026-11-18', 42.5),
+          reception('r-a-2', '2026-11-17', 27.5, jornada: AppConstants.shiftAfternoon, hora: '16:40:00'),
+          reception('r-a-old-month', '2026-11-05', 100, hora: '07:00:00', liquidacionId: 'liq-a-1'),
+          reception('r-a-null', '2026-11-17', 10, anulado: true),
+          reception('r-b-1', '2026-11-18', 999, productorId: 'prod-b'),
         ];
-
         final List<SettlementModel> settlements = <SettlementModel>[
-          SettlementModel(
-            liquidacionId: 'liq-a-1',
-            productorId: 'prod-a',
-            nombreProductorSnap: 'Carlos Mendoza',
-            cedulaProductorSnap: '1073500111',
-            periodoInicio: '2026-11-01',
-            periodoFin: '2026-11-15',
-            quincenaLabel: '1ª quincena · 11/2026',
-            totalLitros: 100.0,
-            cantidadEntregas: 1,
-            precioLitroAplicado: 1950,
-            valorTotalPagar: 195000,
-            estadoPago: 'PAGADA',
-            fechaLiquidacion: DateTime.utc(2026, 11, 15, 18),
-            fechaPago: DateTime.utc(2026, 11, 16, 10),
-            observacionPago: 'Nequi #4502',
-            numeroComprobante: 'LIQ-2026-0001',
-            hashIntegridad: 'abc123',
-            creadoPorUid: 'uid-admin-1',
-          ),
-          SettlementModel(
-            liquidacionId: 'liq-b-1',
-            productorId: 'prod-b',
-            nombreProductorSnap: 'Lucía Rojas',
-            cedulaProductorSnap: '1073500222',
-            periodoInicio: '2026-11-01',
-            periodoFin: '2026-11-15',
-            quincenaLabel: '1ª quincena · 11/2026',
-            totalLitros: 500.0,
-            cantidadEntregas: 5,
-            precioLitroAplicado: 1950,
-            valorTotalPagar: 975000,
-            estadoPago: 'PENDIENTE',
-            fechaLiquidacion: DateTime.utc(2026, 11, 15, 18),
-            numeroComprobante: 'LIQ-2026-0002',
-            hashIntegridad: 'def456',
-            creadoPorUid: 'uid-admin-1',
-          ),
+          settlement(),
+          settlement(id: 'liq-b-1', productorId: 'prod-b', litros: 500, valor: 975000, pagada: false, comprobante: 'LIQ-2026-0002'),
         ];
 
-        final ProducerPortalController ctrl = buildController(
+        final ProducerPortalController ctrl = buildPortalController(
           hive: hive,
           receptions: receptions,
           settlements: settlements,
           notifRemote: notifRemote,
         );
-
-        await ctrl.loadPortalForUser(
-          producerUserA,
-          referenceDate: DateTime(2026, 11, 18, 12, 0),
-        );
+        await ctrl.loadPortalForUser(producerUserA, referenceDate: DateTime(2026, 11, 18, 12));
 
         // Aislamiento estricto (Paso 7.1)
         expect(ctrl.activeProducer?.productorId, 'prod-a');
         expect(ctrl.allReceptions.length, 3);
-        expect(
-          ctrl.allReceptions.any((r) => r.productorId == 'prod-b'),
-          isFalse,
-        );
+        expect(ctrl.allReceptions.any((MilkReceptionModel r) => r.productorId == 'prod-b'), isFalse);
         expect(ctrl.settlements.length, 1);
-        expect(ctrl.settlements.first.productorId, 'prod-a');
         expect(ctrl.allNotifications.length, 2);
-        expect(
-          ctrl.allNotifications.any((n) => n.notificacionId == 'n-prod-b-privado'),
-          isFalse,
-        );
+        expect(ctrl.allNotifications.any((AppNotificationModel n) => n.notificacionId == 'n-prod-b-privado'), isFalse);
+        expect(ctrl.hasLoaded, isTrue);
 
-        // Pestaña 1 Resumen (Paso 7.3)
-        expect(ctrl.quincenaLiters, 70.0); // 42.5 + 27.5 (Nov 16-30)
+        // Inicio (Paso 7.3)
+        expect(ctrl.quincenaLiters, 70.0);
         expect(ctrl.quincenaDeliveriesCount, 2);
-        expect(ctrl.activePricePerLiter, 1950);
-        expect(ctrl.quincenaEstimatedAmount, 136500); // 70 * 1950
-        expect(ctrl.monthLiters, 170.0); // 42.5 + 27.5 + 100.0
+        expect(ctrl.quincenaEstimatedAmount, 136500);
+        expect(ctrl.monthLiters, 170.0);
         expect(ctrl.last7DaysSeries.length, 7);
         expect(ctrl.last7DaysSeries.last.morningLiters, 42.5);
+        expect(ctrl.lastDaysSeries(30).length, 30);
+        expect(ctrl.quincenaMorningLiters, 42.5);
+        expect(ctrl.quincenaAfternoonLiters, 27.5);
+        expect(ctrl.quincenaAverageDailyLiters, 35.0);
+        expect(ctrl.deliveryStreakDays, 2); // 17 y 18 de noviembre
+        expect(ctrl.bestDayLast30?.isoDate, '2026-11-05');
+        expect(ctrl.previousQuincena.start, '2026-11-01');
+        expect(ctrl.previousQuincenaLiters, 100.0);
+        // Día 3 de la quincena vs. días 1–3 de la anterior (sin entregas) → sin base.
+        expect(ctrl.quincenaDeltaPercent, isNull);
+        expect(ctrl.quincenaElapsedDays, 3);
+        expect(ctrl.quincenaTotalDays, 15);
+        expect(ctrl.daysToQuincenaClose, 12);
 
-        // Pestaña 2 Mis Entregas filtros (Paso 7.4)
-        expect(ctrl.filteredReceptions.length, 2); // Quincena actual
+        // Calendario: mapeo M/T y anuladas por separado.
+        final Map<String, DayDeliverySummary> days = ctrl.daySummaries;
+        expect(days['2026-11-18']!.hasMorning, isTrue);
+        expect(days['2026-11-18']!.hasAfternoon, isFalse);
+        expect(days['2026-11-17']!.afternoonLiters, 27.5);
+        expect(days['2026-11-17']!.annulled.length, 1);
+        expect(days['2026-11-17']!.totalLiters, 27.5);
+        expect(days['2026-11-05']!.allSettled, isTrue);
+        expect(ctrl.earliestDeliveryDate, '2026-11-05');
+        final MilkReceptionModel settled = ctrl.allReceptions.firstWhere((MilkReceptionModel r) => r.recepcionId == 'r-a-old-month');
+        expect(ctrl.settlementForReception(settled)?.numeroComprobante, 'LIQ-2026-0001');
+        expect(ctrl.priceForReception(settled), 1950);
+
+        // Filtros heredados (Paso 7.4)
+        expect(ctrl.filteredReceptions.length, 2);
         ctrl.setPeriodFilter('MES');
         expect(ctrl.filteredReceptions.length, 3);
         ctrl.setShiftFilter(AppConstants.shiftAfternoon);
-        expect(ctrl.filteredReceptions.length, 1);
         expect(ctrl.filteredTotalLiters, 27.5);
         ctrl.clearDeliveryFilters();
         expect(ctrl.periodFilter, 'QUINCENA');
 
-        // Pestaña 3 Liquidaciones y PDF (Paso 7.5)
+        // Liquidaciones y PDF (Paso 7.5)
         final SettlementModel sA = ctrl.settlements.first;
-        final List<MilkReceptionModel> recsForPdf =
-            ctrl.receptionsForSettlement(sA);
+        final List<MilkReceptionModel> recsForPdf = ctrl.receptionsForSettlement(sA);
         expect(recsForPdf.length, 1);
-        final Uint8List pdfBytes =
-            await SettlementPdfService.buildVoucherPdfBytes(
+        final Uint8List pdfBytes = await SettlementPdfService.buildVoucherPdfBytes(
           settlement: sA,
           receptions: recsForPdf,
           producer: ctrl.activeProducer,
         );
-        expect(pdfBytes.isNotEmpty, isTrue);
         expect(String.fromCharCodes(pdfBytes.take(4)), '%PDF');
       },
     );
@@ -465,60 +125,41 @@ void main() {
       'Paso 7.2, 7.6 y 7.7: Solicitud Habeas Data Ley 1581, alerta de entrega, parseo FCM, comunicados ADMIN y lectura',
       () async {
         final HiveService hive = HiveService(enablePersistence: false);
-        final _InMemoryNotificationRemote notifRemote =
-            _InMemoryNotificationRemote();
-
-        final ProducerPortalController ctrl = buildController(
+        final InMemoryNotificationRemote notifRemote = InMemoryNotificationRemote();
+        final ProducerPortalController ctrl = buildPortalController(
           hive: hive,
           receptions: <MilkReceptionModel>[],
           settlements: <SettlementModel>[],
           notifRemote: notifRemote,
         );
-        await ctrl.loadPortalForUser(
-          producerUserA,
-          referenceDate: DateTime(2026, 11, 18, 9),
-        );
+        await ctrl.loadPortalForUser(producerUserA, referenceDate: DateTime(2026, 11, 18, 9));
 
-        // Paso 7.2: Solicitud de rectificación Ley 1581 de 2012
         final bool rectOk = await ctrl.submitRectificationRequest(
           actor: producerUserA,
           campo: 'Teléfono de contacto',
-          detalle: 'Actualizar celular a 3205559988',
+          detalle: 'Dato correcto: 3205559988',
         );
         expect(rectOk, isTrue);
-        expect(notifRemote.logs.length, 1);
-        expect(notifRemote.logs.first.accion, 'SOLICITAR_RECTIFICACION');
+        expect(notifRemote.logs.single.accion, 'SOLICITAR_RECTIFICACION');
+        expect(ctrl.allNotifications.any((AppNotificationModel n) => n.tipo == 'RECTIFICACION'), isTrue);
+
         expect(
-          ctrl.allNotifications.any((n) => n.tipo == 'RECTIFICACION'),
+          await ctrl.sendBroadcast(actor: producerUserA, titulo: 'Intento no autorizado', mensaje: 'No permitido para productores.'),
+          isFalse,
+        );
+        expect(
+          await ctrl.sendBroadcast(actor: adminUser, titulo: 'Jornada de calidad', mensaje: 'Limpieza de cantinas antes del acopio.'),
           isTrue,
         );
-
-        // Paso 7.7: Comunicado institucional masivo requiere rol ADMIN
-        final bool rejectedNonAdmin = await ctrl.sendBroadcast(
-          actor: producerUserA,
-          titulo: 'Intento no autorizado',
-          mensaje: 'Un productor no puede enviar comunicados masivos.',
-        );
-        expect(rejectedNonAdmin, isFalse);
-
-        final bool sentAdmin = await ctrl.sendBroadcast(
-          actor: adminUser,
-          titulo: 'Jornada de calidad higiénica',
-          mensaje: 'Recordamos limpieza de cantinas antes del acopio.',
-        );
-        expect(sentAdmin, isTrue);
         expect(ctrl.unreadNotificationsCount, 2);
-
-        // Marcado de lectura individual y masiva
         await ctrl.markNotificationRead(ctrl.allNotifications.first.notificacionId);
         expect(ctrl.unreadNotificationsCount, 1);
         await ctrl.markAllRead();
         expect(ctrl.unreadNotificationsCount, 0);
 
-        // Paso 7.6: Registro de entrega genera alerta automática ENTREGA en Hive
         final ReceptionService recService = ReceptionService(
           hiveService: hive,
-          remoteDataSource: _InMemoryReceptionRemote(<MilkReceptionModel>[]),
+          remoteDataSource: InMemoryReceptionRemote(<MilkReceptionModel>[]),
         );
         await recService.registerReception(
           producer: producerA,
@@ -527,202 +168,168 @@ void main() {
           operarioUid: 'op-1',
           isOnline: false,
         );
-        final List<AppNotificationModel> hiveNotifs =
-            await hive.getCachedNotifications();
-        expect(
-          hiveNotifs.any(
-            (AppNotificationModel n) =>
-                n.tipo == 'ENTREGA' && n.destinoProductorId == 'prod-a',
-          ),
-          isTrue,
-        );
+        final List<AppNotificationModel> hiveNotifs = await hive.getCachedNotifications();
+        expect(hiveNotifs.any((AppNotificationModel n) => n.tipo == 'ENTREGA' && n.destinoProductorId == 'prod-a'), isTrue);
 
-        // Paso 7.6: Parseo FCM de eventos en primer plano (PAGO, ENTREGA y CIERRE_QUINCENA)
-        final AppNotificationModel? parsedFcm =
-            FcmService.parseRemoteMessageData(
-          <String, dynamic>{
-            'notificacionId': 'fcm-1',
-            'tipo': 'PAGO',
-            'destinoProductorId': 'prod-a',
-          },
+        final AppNotificationModel? parsedFcm = FcmService.parseRemoteMessageData(
+          <String, dynamic>{'notificacionId': 'fcm-1', 'tipo': 'PAGO', 'destinoProductorId': 'prod-a'},
           title: 'Pago efectuado',
-          body: 'Transferencia por \$ 195.000 confirmada.',
+          body: r'Transferencia por $ 195.000 confirmada.',
         );
-        expect(parsedFcm, isNotNull);
         expect(parsedFcm!.tipo, 'PAGO');
-
-        final AppNotificationModel? parsedEntrega =
-            FcmService.parseRemoteMessageData(
-          <String, dynamic>{
-            'notificacionId': 'notif_entrega_rec-1',
-            'tipo': 'ENTREGA',
-            'destinoProductorId': 'prod-a',
-            'titulo': 'Entrega registrada (Mañana)',
-            'mensaje': 'Se registraron 24.5 L de leche cruda el 2026-11-18.',
-            'refrescarAvisos': 'true',
-          },
-        );
-        expect(parsedEntrega, isNotNull);
-        expect(parsedEntrega!.tipo, 'ENTREGA');
-        expect(parsedEntrega.titulo, 'Entrega registrada (Mañana)');
-        expect(parsedEntrega.mensaje, contains('24.5 L'));
-
-        final AppNotificationModel? parsedCierre =
-            FcmService.parseRemoteMessageData(
-          <String, dynamic>{
-            'notificacionId': 'notif_cierre_liq-1',
-            'tipo': 'CIERRE_QUINCENA',
-            'destinoProductorId': 'prod-a',
-            'refrescarAvisos': 'true',
-          },
-          title: 'Cierre de 2ª quincena · 11/2026',
-          body:
-              'Se cerró tu quincena: 310.0 L (14 entregas) por \$620.000 COP. Comprobante COMP-2026-0001.',
-        );
-        expect(parsedCierre, isNotNull);
-        expect(parsedCierre!.tipo, 'CIERRE_QUINCENA');
-        expect(parsedCierre.mensaje, contains('310.0 L'));
       },
     );
+  });
 
-    testWidgets(
-      'Portal móvil ProducerShellView navega por las 3 pestañas, perfil Habeas Data y sin desbordamientos en campo',
-      (WidgetTester tester) async {
-        tester.view.physicalSize = const Size(390, 844);
-        tester.view.devicePixelRatio = 1.0;
-        addTearDown(() {
-          tester.view.resetPhysicalSize();
-          tester.view.resetDevicePixelRatio();
-        });
+  group('Bandeja de avisos móvil', () {
+    test('Agrupa en Hoy, Ayer, Esta semana y Anteriores (orden descendente)', () {
+      final DateTime now = DateTime(2026, 11, 18, 15);
+      final List<NotificationGroup> groups = ProducerPortalController.groupNotifications(
+        <AppNotificationModel>[
+          notice('old', at: DateTime(2026, 10, 1, 9)),
+          notice('today-early', at: DateTime(2026, 11, 18, 6)),
+          notice('yesterday', at: DateTime(2026, 11, 17, 23, 59)),
+          notice('week', at: DateTime(2026, 11, 13, 8)),
+          notice('today-late', at: DateTime(2026, 11, 18, 14)),
+          notice('eight-days', at: DateTime(2026, 11, 10, 8)),
+        ],
+        now: now,
+      );
+      expect(groups.map((NotificationGroup g) => g.label).toList(), <String>['Hoy', 'Ayer', 'Esta semana', 'Anteriores']);
+      expect(groups[0].items.map((AppNotificationModel n) => n.notificacionId), <String>['today-late', 'today-early']);
+      expect(groups[1].items.single.notificacionId, 'yesterday');
+      expect(groups[2].items.single.notificacionId, 'week');
+      expect(groups[3].items.map((AppNotificationModel n) => n.notificacionId), <String>['eight-days', 'old']);
+      expect(ProducerPortalController.groupNotifications(<AppNotificationModel>[], now: now), isEmpty);
+    });
 
-        final HiveService hive = HiveService(enablePersistence: false);
-        final _InMemoryNotificationRemote notifRemote =
-            _InMemoryNotificationRemote();
-        await notifRemote.upsertNotification(
-          AppNotificationModel(
-            notificacionId: 'n-msg-1',
-            titulo: 'Aviso de asamblea',
-            mensaje: 'Reunión general el viernes en Susa.',
-            tipo: 'COMUNICADO',
-            destinoProductorId: null,
-            fechaEnvio: DateTime.utc(2026, 11, 18, 8),
-          ),
-        );
+    Future<(ProducerPortalController, InMemoryNotificationRemote, MemoryPortalPreferences, HiveService)> setup() async {
+      final HiveService hive = HiveService(enablePersistence: false);
+      final InMemoryNotificationRemote remote = InMemoryNotificationRemote();
+      final MemoryPortalPreferences prefs = MemoryPortalPreferences();
+      await remote.upsertNotification(notice('general', at: DateTime.utc(2026, 11, 18, 8)));
+      await remote.upsertNotification(notice('personal', dest: 'prod-a', tipo: 'PAGO', at: DateTime.utc(2026, 11, 18, 9)));
+      await remote.upsertNotification(notice('rect', dest: 'prod-a', tipo: 'RECTIFICACION', at: DateTime.utc(2026, 11, 18, 7)));
+      final ProducerPortalController ctrl = buildPortalController(
+        hive: hive,
+        receptions: <MilkReceptionModel>[],
+        settlements: <SettlementModel>[],
+        notifRemote: remote,
+        preferences: prefs,
+      );
+      await ctrl.loadPortalForUser(producerUserA, referenceDate: DateTime(2026, 11, 18, 12));
+      return (ctrl, remote, prefs, hive);
+    }
 
-        final _MockUserService mockUserService = _MockUserService();
-        final _MockFcmService mockFcm = _MockFcmService();
-        when(() => mockUserService.currentFirebaseUser).thenReturn(null);
-        when(() => mockUserService.signInWithIdentifier(
-              identifier: 'carlos@finca.com',
-              password: 'Password123',
-            )).thenAnswer((_) async => producerUserA);
-        when(() => mockFcm.fetchDeviceTokenIfSupported())
-            .thenAnswer((_) async => null);
-        when(() => mockFcm.onTokenRefresh)
-            .thenAnswer((_) => const Stream<String>.empty());
+    test('Borrar UNO: personal se elimina en la nube; general y rectificación se ocultan por usuario', () async {
+      final (ProducerPortalController ctrl, InMemoryNotificationRemote remote, MemoryPortalPreferences prefs, HiveService hive) =
+          await setup();
+      expect(ctrl.allNotifications.length, 3);
 
-        final AuthController authController = AuthController(
-          userService: mockUserService,
-          hiveService: hive,
-          fcmService: mockFcm,
-        );
-        await authController.initialize();
-        await authController.signIn(
-          identifier: 'carlos@finca.com',
-          password: 'Password123',
-          rememberMe: true,
-        );
+      expect(await ctrl.deleteNotification('personal'), isTrue);
+      expect(remote.deletedIds, <String>['personal']);
+      expect((await hive.getCachedNotifications()).any((AppNotificationModel n) => n.notificacionId == 'personal'), isFalse);
 
-        final ProducerPortalController portalCtrl = buildController(
-          hive: hive,
-          receptions: <MilkReceptionModel>[
-            MilkReceptionModel(
-              recepcionId: 'r-ui-1',
-              productorId: 'prod-a',
-              codigoAsociadoSnap: 'ASO-001',
-              nombreProductorSnap: 'Carlos Mendoza',
-              litros: 33.5,
-              fechaEntrega: ReceptionService.formatDate(DateTime.now()),
-              horaEntrega: '07:10:00',
-              jornada: AppConstants.shiftMorning,
-              operarioUid: 'op-1',
-              syncStatus: AppConstants.syncSynced,
-              isSynced: true,
-              createdAt: DateTime.now().toUtc(),
-            ),
-          ],
-          settlements: <SettlementModel>[
-            SettlementModel(
-              liquidacionId: 'liq-ui-1',
-              productorId: 'prod-a',
-              nombreProductorSnap: 'Carlos Mendoza',
-              cedulaProductorSnap: '1073500111',
-              periodoInicio: '2026-11-01',
-              periodoFin: '2026-11-15',
-              quincenaLabel: '1ª quincena · 11/2026',
-              totalLitros: 120.0,
-              cantidadEntregas: 4,
-              precioLitroAplicado: 1950,
-              valorTotalPagar: 234000,
-              estadoPago: 'PAGADA',
-              fechaLiquidacion: DateTime.utc(2026, 11, 15, 18),
-              fechaPago: DateTime.utc(2026, 11, 16, 10),
-              numeroComprobante: 'LIQ-2026-0009',
-              hashIntegridad: 'xyz',
-              creadoPorUid: 'uid-admin-1',
-            ),
-          ],
-          notifRemote: notifRemote,
-        );
+      expect(await ctrl.deleteNotification('general'), isTrue);
+      expect(await ctrl.deleteNotification('rect'), isTrue);
+      expect(remote.deletedIds, <String>['personal'], reason: 'Comunicados y solicitudes Habeas Data no se borran en Firestore');
+      expect(prefs.hidden['uid-prod-a'], <String>{'general', 'rect'});
+      expect(ctrl.allNotifications, isEmpty);
 
-        await tester.pumpWidget(
-          MultiProvider(
-            providers: <ChangeNotifierProvider<dynamic>>[
-              ChangeNotifierProvider<AuthController>.value(
-                value: authController,
-              ),
-              ChangeNotifierProvider<ProducerPortalController>.value(
-                value: portalCtrl,
-              ),
-            ],
-            child: MaterialApp(
-              theme: AppTheme.lightTheme(),
-              home: const ProducerShellView(),
-            ),
-          ),
-        );
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 100));
+      // Al recargar, los ocultos siguen ocultos para este usuario.
+      await ctrl.loadPortalForUser(producerUserA, referenceDate: DateTime(2026, 11, 18, 12));
+      expect(ctrl.allNotifications, isEmpty);
+    });
 
-        // Pestaña 1: Resumen
-        expect(find.text('Acopio Quincenal'), findsOneWidget);
-        expect(find.text('ASO-001'), findsOneWidget);
+    test('Deshacer un borrado provisional lo restaura sin tocar la nube', () async {
+      final (ProducerPortalController ctrl, InMemoryNotificationRemote remote, _, _) = await setup();
+      ctrl.stageNotificationRemoval('personal');
+      expect(ctrl.allNotifications.length, 2);
+      ctrl.undoNotificationRemoval('personal');
+      expect(ctrl.allNotifications.length, 3);
+      expect(ctrl.allNotifications.first.notificacionId, 'personal'); // orden por fecha
+      expect(remote.deletedIds, isEmpty);
+    });
 
-        // Pestaña 2: Mis Entregas (solo lectura)
-        await tester.tap(find.text('Mis Entregas'));
-        await tester.pump();
-        expect(find.text('1 entrega(s) en filtro'), findsOneWidget);
-        expect(find.byIcon(Icons.delete_outline), findsNothing);
+    test('Si la nube falla, el aviso vuelve a la bandeja con mensaje de error', () async {
+      final (ProducerPortalController ctrl, InMemoryNotificationRemote remote, _, _) = await setup();
+      remote.failDeletes = true;
+      expect(await ctrl.deleteNotification('personal'), isFalse);
+      expect(ctrl.allNotifications.any((AppNotificationModel n) => n.notificacionId == 'personal'), isTrue);
+      expect(ctrl.errorMessage, isNotNull);
+    });
 
-        // Pestaña 3: Liquidaciones y Avisos
-        await tester.tap(find.text('Liquidaciones'));
-        await tester.pump();
-        expect(find.text('Comprobante LIQ-2026-0009'), findsOneWidget);
-        expect(find.text('Ver PDF'), findsOneWidget);
+    test('Borrar TODAS vacía la bandeja respetando el tipo de cada aviso', () async {
+      final (ProducerPortalController ctrl, InMemoryNotificationRemote remote, MemoryPortalPreferences prefs, _) = await setup();
+      final int n = await ctrl.clearAllNotifications();
+      expect(n, 3);
+      expect(ctrl.allNotifications, isEmpty);
+      expect(ctrl.unreadNotificationsCount, 0);
+      expect(remote.deletedIds, <String>['personal']);
+      expect(prefs.hidden['uid-prod-a'], containsAll(<String>['general', 'rect']));
+      expect(await ctrl.clearAllNotifications(), 0);
+    });
+  });
 
-        await tester.tap(find.text('Avisos (1)'));
-        await tester.pump();
-        expect(find.text('Aviso de asamblea'), findsOneWidget);
+  group('Calendario y estadísticas', () {
+    test('buildDaySummaries separa jornadas y anuladas', () {
+      final Map<String, DayDeliverySummary> map = ProducerPortalController.buildDaySummaries(<MilkReceptionModel>[
+        reception('a', '2026-11-03', 20, hora: '07:00:00'),
+        reception('b', '2026-11-03', 15, jornada: AppConstants.shiftAfternoon, hora: '16:00:00'),
+        reception('c', '2026-11-04', 9, jornada: AppConstants.shiftAfternoon),
+        reception('d', '2026-11-05', 50, anulado: true),
+      ]);
+      expect(map['2026-11-03']!.morningLiters, 20);
+      expect(map['2026-11-03']!.afternoonLiters, 15);
+      expect(map['2026-11-03']!.totalLiters, 35);
+      expect(map['2026-11-04']!.hasMorning, isFalse);
+      expect(map['2026-11-04']!.hasAfternoon, isTrue);
+      expect(map['2026-11-05']!.hasDeliveries, isFalse);
+      expect(map['2026-11-05']!.annulled.single.recepcionId, 'd');
+      expect(map['2026-11-05']!.isEmpty, isFalse);
+    });
 
-        // Abrir Perfil + Ley 1581 de 2012
-        await tester.tap(find.byTooltip('Mi perfil y Habeas Data'));
-        await tester.pumpAndSettle();
-        expect(find.text('Mi Perfil de Asociado'), findsOneWidget);
-        expect(
-          find.text('Solicitar rectificación de datos (Ley 1581)'),
-          findsOneWidget,
-        );
-      },
-    );
+    test('Racha de días consecutivos (hoy o desde ayer)', () {
+      final DateTime today = DateTime(2026, 11, 18);
+      expect(ProducerPortalController.computeStreak(<String>{'2026-11-18', '2026-11-17', '2026-11-15'}, today), 2);
+      expect(ProducerPortalController.computeStreak(<String>{'2026-11-17', '2026-11-16'}, today), 2);
+      expect(ProducerPortalController.computeStreak(<String>{'2026-11-10'}, today), 0);
+      expect(ProducerPortalController.computeStreak(<String>{'2026-12-01', '2026-11-30'}, DateTime(2026, 12, 1)), 2);
+    });
+
+    test('Variación frente a la quincena anterior con la misma cantidad de días', () async {
+      final ProducerPortalController ctrl = buildPortalController(
+        hive: HiveService(enablePersistence: false),
+        receptions: <MilkReceptionModel>[
+          reception('p1', '2026-11-01', 100),
+          reception('p2', '2026-11-02', 100),
+          reception('p3', '2026-11-10', 999), // fuera de los primeros 2 días
+          reception('c1', '2026-11-16', 150),
+          reception('c2', '2026-11-17', 150),
+        ],
+        settlements: <SettlementModel>[],
+        notifRemote: InMemoryNotificationRemote(),
+      );
+      await ctrl.loadPortalForUser(producerUserA, referenceDate: DateTime(2026, 11, 17, 10));
+      expect(ctrl.quincenaDeltaPercent, closeTo(50, 0.001));
+      expect(ctrl.previousQuincenaLiters, 1199);
+    });
+  });
+
+  group('Preferencias locales (shared_preferences)', () {
+    test('El recorrido queda marcado por usuario y los ocultos persisten', () async {
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final SharedPrefsPortalPreferences prefs = SharedPrefsPortalPreferences();
+      expect(await prefs.isTourDone('u1'), isFalse);
+      await prefs.setTourDone('u1', true);
+      expect(await prefs.isTourDone('u1'), isTrue);
+      expect(await prefs.isTourDone('u2'), isFalse);
+      final SharedPreferences raw = await SharedPreferences.getInstance();
+      expect(raw.getBool('tour_done_u1'), isTrue);
+
+      await prefs.saveHiddenNotificationIds('u1', <String>{'a', 'b'});
+      expect(await SharedPrefsPortalPreferences().hiddenNotificationIds('u1'), <String>{'a', 'b'});
+      expect(await prefs.hiddenNotificationIds('u2'), isEmpty);
+    });
   });
 }

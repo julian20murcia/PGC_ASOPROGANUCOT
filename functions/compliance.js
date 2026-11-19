@@ -3,6 +3,7 @@ const { defineString } = require('firebase-functions/params');
 const { HttpsError, onCall } = require('firebase-functions/v2/https');
 const { getAuth } = require('firebase-admin/auth');
 const { FieldValue, getFirestore } = require('firebase-admin/firestore');
+const { can } = require('./permissions');
 
 const authWebApiKey = defineString('AUTH_WEB_API_KEY');
 
@@ -199,8 +200,8 @@ async function closeForProducer(db, uid, { settlement, receptionIds, notificatio
   const voucher = db.collection('control_comprobantes').doc(numeroComprobante);
   await db.runTransaction(async (transaction) => {
     const admin = await transaction.get(db.collection('usuarios').doc(uid));
-    if (admin.get('activo') !== true || admin.get('rol') !== 'ADMIN') {
-      throw new HttpsError('permission-denied', 'El cierre requiere una cuenta de administrador activa.');
+    if (!can(admin.data(), 'liquidaciones', 'crear')) {
+      throw new HttpsError('permission-denied', 'No tienes permiso para cerrar quincenas.');
     }
     const existing = await transaction.get(receipt);
     if (existing.exists && existing.get('hashIntegridad') === settlement.hashIntegridad) return;

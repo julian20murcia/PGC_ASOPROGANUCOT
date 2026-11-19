@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
+import '../security/permissions.dart';
 import '../../models/app_notification_model.dart';
 import '../../models/audit_log_model.dart';
 import '../../models/milk_reception_model.dart';
@@ -42,6 +43,24 @@ class FirestoreReceptionDataSource implements RemoteReceptionDataSource {
   Future<List<MilkReceptionModel>> fetchReceptions() async {
     final QuerySnapshot<Map<String, dynamic>> snap =
         await _db.collection(AppConstants.receptionsCollection).get();
+    return snap.docs
+        .map(
+          (QueryDocumentSnapshot<Map<String, dynamic>> doc) =>
+              MilkReceptionModel.fromMap(doc.data(), documentId: doc.id),
+        )
+        .toList();
+  }
+
+  /// Consulta acotada por rango de `fechaEntrega` (cadenas ISO `YYYY-MM-DD`, inclusivo).
+  Future<List<MilkReceptionModel>> fetchReceptionsInRange(
+    String startIso,
+    String endIso,
+  ) async {
+    final QuerySnapshot<Map<String, dynamic>> snap = await _db
+        .collection(AppConstants.receptionsCollection)
+        .where('fechaEntrega', isGreaterThanOrEqualTo: startIso)
+        .where('fechaEntrega', isLessThanOrEqualTo: endIso)
+        .get();
     return snap.docs
         .map(
           (QueryDocumentSnapshot<Map<String, dynamic>> doc) =>
@@ -239,6 +258,55 @@ class ReceptionService {
       return (receptions: combined, fromCache: false);
     } catch (_) {
       return (receptions: local, fromCache: true);
+    }
+  }
+
+  /// Lista las entregas cuya `fechaEntrega` está entre [startIso] y [endIso]
+  /// (inclusive). Consulta Firestore solo por ese rango, conserva los
+  /// pendientes locales y actualiza la caché Hive sin borrar otros días.
+  /// Sin red devuelve lo que haya en caché para el rango.
+  Future<({List<MilkReceptionModel> receptions, bool fromCache})>
+      listReceptionsInRange({
+    required String startIso,
+    required String endIso,
+  }) async {
+    bool inRange(MilkReceptionModel r) =>
+        r.fechaEntrega.compareTo(startIso) >= 0 &&
+        r.fechaEntrega.compareTo(endIso) <= 0;
+
+    final List<MilkReceptionModel> localScoped =
+        (await _hiveService.getReceptions()).where(inRange).toList();
+    try {
+      final List<MilkReceptionModel> remote =
+          _remoteDataSource is FirestoreReceptionDataSource
+              ? await _remoteDataSource.fetchReceptionsInRange(startIso, endIso)
+              : (await _remoteDataSource.fetchReceptions())
+                  .where(inRange)
+                  .toList();
+      final Map<String, MilkReceptionModel> merged =
+          <String, MilkReceptionModel>{};
+      for (final MilkReceptionModel item in remote) {
+        if (!inRange(item)) continue;
+        merged[item.recepcionId] = item.copyWith(
+          isSynced: true,
+          syncStatus: AppConstants.syncSynced,
+        );
+      }
+      for (final MilkReceptionModel pending in localScoped) {
+        if (!pending.isSynced ||
+            pending.syncStatus != AppConstants.syncSynced) {
+          merged[pending.recepcionId] = pending;
+        }
+      }
+      final List<MilkReceptionModel> combined = merged.values.toList()
+        ..sort(
+          (MilkReceptionModel a, MilkReceptionModel b) =>
+              b.createdAt.compareTo(a.createdAt),
+        );
+      await _hiveService.cacheProducerReceptions(combined);
+      return (receptions: combined, fromCache: false);
+    } catch (_) {
+      return (receptions: localScoped, fromCache: true);
     }
   }
 
@@ -480,9 +548,12 @@ class ReceptionService {
     required Map<String, dynamic> valorAnterior,
     required Map<String, dynamic> valorNuevo,
   }) async {
-    if (!actor.isAdmin) {
+    final String needed = accion == 'ANULAR' ? PermAction.eliminar : PermAction.editar;
+    if (!actor.can(Permissions.recepcion, needed)) {
       throw ReceptionServiceException(
-        'Solo el Administrador puede corregir o anular entregas registradas.',
+        accion == 'ANULAR'
+            ? 'No tienes permiso para anular entregas.'
+            : 'No tienes permiso para corregir entregas.',
       );
     }
     if (existing.isLiquidada) {

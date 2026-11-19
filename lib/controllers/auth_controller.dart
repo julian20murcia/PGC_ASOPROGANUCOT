@@ -2,10 +2,22 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../core/services/device_session_service.dart';
 import '../core/services/fcm_service.dart';
 import '../core/services/firebase_user_service.dart';
 import '../core/services/hive_service.dart';
 import '../models/user_model.dart';
+
+/// Motivos por los que la plataforma cerró la sesión automáticamente.
+class SessionEndReason {
+  SessionEndReason._();
+  static const String inactivity =
+      'Tu sesión se cerró por inactividad (10 minutos sin uso). Ingresa de nuevo para continuar.';
+  static const String otherDevice =
+      'Tu cuenta se abrió en otro dispositivo, por eso cerramos la sesión en este.';
+  static const String suspended =
+      'Tu cuenta fue suspendida o modificada por un administrador.';
+}
 
 /// Controlador MVC de autenticación, control de roles (RBAC) y sesión persistente.
 class AuthController extends ChangeNotifier {
@@ -13,13 +25,16 @@ class AuthController extends ChangeNotifier {
     FirebaseUserService? userService,
     HiveService? hiveService,
     FcmService? fcmService,
+    DeviceSessionService? deviceSession,
   })  : _userService = userService ?? FirebaseUserService(),
         _hiveService = hiveService ?? HiveService(),
-        _fcmService = fcmService ?? FcmService();
+        _fcmService = fcmService ?? FcmService(),
+        _deviceSession = deviceSession ?? DeviceSessionService();
 
   final FirebaseUserService _userService;
   final HiveService _hiveService;
   final FcmService _fcmService;
+  final DeviceSessionService _deviceSession;
 
   StreamSubscription<String>? _tokenRefreshSub;
 
@@ -29,6 +44,7 @@ class AuthController extends ChangeNotifier {
   bool _rememberMe = true;
   String _savedIdentifier = '';
   String? _errorMessage;
+  String? _sessionEndedReason;
 
   UserModel? get currentUser => _currentUser;
   bool get isAuthenticated => _currentUser != null;
@@ -37,6 +53,16 @@ class AuthController extends ChangeNotifier {
   bool get rememberMe => _rememberMe;
   String get savedIdentifier => _savedIdentifier;
   String? get errorMessage => _errorMessage;
+
+  /// Mensaje a mostrar en el login cuando la sesión se cerró automáticamente.
+  String? get sessionEndedReason => _sessionEndedReason;
+
+  void clearSessionEndedReason() {
+    if (_sessionEndedReason != null) {
+      _sessionEndedReason = null;
+      notifyListeners();
+    }
+  }
 
   Future<void> initialize() async {
     _isInitializing = true;
@@ -53,8 +79,15 @@ class AuthController extends ChangeNotifier {
           firebaseUser.uid,
         );
         if (profile != null && profile.activo) {
-          _currentUser = profile;
-          unawaited(_registerDeviceToken(profile.uid));
+          if (await _deviceSession.isCurrent(profile.uid)) {
+            _currentUser = profile;
+            _watchDeviceSession(profile.uid);
+            unawaited(_registerDeviceToken(profile.uid));
+          } else {
+            await _userService.signOut();
+            _sessionEndedReason = SessionEndReason.otherDevice;
+            _currentUser = null;
+          }
         } else {
           await _userService.signOut();
           _currentUser = null;
@@ -78,6 +111,7 @@ class AuthController extends ChangeNotifier {
     required bool rememberMe,
   }) async {
     _errorMessage = null;
+    _sessionEndedReason = null;
     _rememberMe = rememberMe;
 
     final String cleanIdentifier = identifier.trim();
@@ -101,8 +135,20 @@ class AuthController extends ChangeNotifier {
         identifier: cleanIdentifier,
         password: password,
       );
+
+      // Sesión única en móviles: este dispositivo pasa a ser el vigente.
+      try {
+        await _deviceSession.claim(signedUser.uid);
+      } catch (_) {
+        await _userService.signOut();
+        throw UserServiceException(
+          'No se pudo asegurar la sesión en este dispositivo. Revisa tu conexión e intenta de nuevo.',
+        );
+      }
+
       _currentUser = signedUser;
       _savedIdentifier = cleanIdentifier;
+      _watchDeviceSession(signedUser.uid);
 
       await _registerDeviceToken(signedUser.uid);
 
@@ -147,6 +193,14 @@ class AuthController extends ChangeNotifier {
     }
   }
 
+  void _watchDeviceSession(String uid) {
+    _deviceSession.watch(uid, (bool suspended) {
+      if (_currentUser?.uid == uid) {
+        signOut(reason: suspended ? SessionEndReason.suspended : SessionEndReason.otherDevice);
+      }
+    });
+  }
+
   void clearError() {
     if (_errorMessage != null) {
       _errorMessage = null;
@@ -154,16 +208,21 @@ class AuthController extends ChangeNotifier {
     }
   }
 
-  Future<void> signOut() async {
+  /// Cierra la sesión. [reason] se muestra luego en la pantalla de ingreso
+  /// (por ejemplo, cierre por inactividad o por otro dispositivo).
+  Future<void> signOut({String? reason}) async {
+    if (_currentUser == null && reason != null) return;
     _isLoading = true;
     notifyListeners();
     try {
+      await _deviceSession.stop();
       await _tokenRefreshSub?.cancel();
       _tokenRefreshSub = null;
       await _userService.signOut();
       await _hiveService.clearActiveSession(keepIdentifier: _rememberMe);
       _currentUser = null;
       _errorMessage = null;
+      _sessionEndedReason = reason;
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -172,6 +231,7 @@ class AuthController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _deviceSession.stop();
     unawaited(_tokenRefreshSub?.cancel());
     super.dispose();
   }

@@ -530,6 +530,7 @@ class _AppSelectState<T> extends State<AppSelect<T>>
         child: TextField(
           controller: _searchCtrl,
           focusNode: _searchFocus,
+          inputFormatters: <TextInputFormatter>[LengthLimitingTextInputFormatter(60)],
           style: const TextStyle(fontSize: 13.5),
           onChanged: (_) {
             setState(() => _highlight = _filtered.isEmpty ? -1 : 0);

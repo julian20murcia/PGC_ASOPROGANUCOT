@@ -5,6 +5,7 @@ import '../../models/audit_log_model.dart';
 import '../../models/milk_rate_model.dart';
 import '../../models/user_model.dart';
 import '../constants/app_constants.dart';
+import '../security/permissions.dart';
 import '../utils/formatters.dart';
 import 'hive_service.dart';
 
@@ -126,9 +127,9 @@ class RateService {
     required DateTime fechaInicioVigencia,
     required String observacion,
   }) async {
-    if (!actor.isAdmin) {
+    if (!actor.can(Permissions.tarifas, PermAction.crear)) {
       throw RateServiceException(
-        'Solo el Administrador Central puede actualizar la tarifa por litro.',
+        'Tu usuario no tiene permiso para publicar tarifas por litro.',
       );
     }
 

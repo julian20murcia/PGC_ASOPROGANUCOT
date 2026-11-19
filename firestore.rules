@@ -26,6 +26,22 @@ service cloud.firestore {
       return isActiveUser() && profile().rol in ['ADMIN', 'OPERARIO'];
     }
 
+    // Árbol de permisos (espejo de lib/core/security/permissions.dart).
+    function perms() {
+      return profile().get('permisos', null);
+    }
+
+    function operatorDefault(m, a) {
+      return (m == 'recepcion' && a in ['ver', 'crear', 'exportar']) ||
+        (a == 'ver' && m in ['dashboard', 'productores', 'liquidaciones', 'tarifas', 'comunicados', 'asistente']);
+    }
+
+    function can(m, a) {
+      return isAdmin() || (isActiveUser() && profile().rol == 'OPERARIO' && (
+        perms() == null ? operatorDefault(m, a) : (m in perms() && a in perms()[m])
+      ));
+    }
+
     function isProducer() {
       return isActiveUser() && profile().rol == 'PRODUCTOR';
     }
@@ -86,8 +102,9 @@ service cloud.firestore {
     }
 
     match /usuarios/{uid} {
-      allow get: if isAdmin() || (hasPortalSession() && request.auth.uid == uid);
-      allow list: if isAdmin();
+      allow get: if isAdmin() || can('usuarios', 'ver') || can('reportes', 'ver') ||
+        (hasPortalSession() && request.auth.uid == uid);
+      allow list: if isAdmin() || can('usuarios', 'ver') || can('reportes', 'ver');
       allow create: if isAdmin() && request.resource.data.uid == uid &&
         request.resource.data.rol in ['ADMIN', 'OPERARIO', 'PRODUCTOR'];
       allow update: if (isAdmin() &&
@@ -97,6 +114,11 @@ service cloud.firestore {
         (isActiveUser() && request.auth.uid == uid && (
           (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fcmTokens']) &&
             request.resource.data.fcmTokens is list && request.resource.data.fcmTokens.size() <= 30) ||
+          // Sesión única en la app móvil: el último dispositivo en iniciar sesión gana.
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['sesionMovilId', 'sesionMovilAt']) &&
+            request.resource.data.sesionMovilId is string &&
+            request.resource.data.sesionMovilId.size() >= 16 && request.resource.data.sesionMovilId.size() <= 64 &&
+            request.resource.data.sesionMovilAt == request.time) ||
           (request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['ultimoAcceso', 'ultimoAccesoLogId']) && validLogin(uid))
         ));
@@ -112,11 +134,25 @@ service cloud.firestore {
       allow get: if isAdmin() || (isProducer() && request.auth.uid == uid);
     }
 
+    match /configuracion/finanzas {
+      allow get: if isStaff();
+      allow write: if can('tarifas', 'crear') &&
+        request.resource.data.keys().hasOnly(['precioVentaLitro', 'costoOperativoMensual', 'actualizadoEn', 'actualizadoPorUid']) &&
+        request.resource.data.precioVentaLitro is number &&
+        request.resource.data.precioVentaLitro >= 0 && request.resource.data.precioVentaLitro <= 99999 &&
+        request.resource.data.costoOperativoMensual is number &&
+        request.resource.data.costoOperativoMensual >= 0 && request.resource.data.costoOperativoMensual <= 999999999 &&
+        request.resource.data.actualizadoEn == request.time &&
+        request.resource.data.actualizadoPorUid == request.auth.uid;
+    }
+
     match /productores/{productorId} {
       allow read: if isStaff() || (isProducer() && resource.data.uidUsuario == request.auth.uid);
-      allow create: if isAdmin() && request.resource.data.productorId == productorId &&
+      allow create: if can('productores', 'crear') && request.resource.data.productorId == productorId &&
         validConsent() && validAudit('productores', productorId, 'CREAR', null);
-      allow update: if isAdmin() &&
+      allow update: if (can('productores', 'editar') || (can('productores', 'eliminar') &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'estado', 'isSynced', 'auditLogId', 'updatedAt', 'updatedByUid']))) &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'uidUsuario', 'codigoAsociado', 'cedula', 'nombres', 'apellidos', 'telefono',
           'nombreFinca', 'vereda', 'estado', 'isSynced', 'auditLogId', 'updatedAt', 'updatedByUid'
@@ -125,10 +161,10 @@ service cloud.firestore {
 
     match /tarifas_leche/{tarifaId} {
       allow read: if isActiveUser();
-      allow create: if isAdmin() &&
+      allow create: if can('tarifas', 'crear') &&
         request.resource.data.precioPorLitro is number &&
-        request.resource.data.precioPorLitro > 0;
-      allow update: if isAdmin() &&
+        request.resource.data.precioPorLitro > 0 && request.resource.data.precioPorLitro <= 99999;
+      allow update: if can('tarifas', 'crear') &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fechaFinVigencia', 'activa']);
     }
 
@@ -145,29 +181,29 @@ service cloud.firestore {
           resource.data.get('anulado', false) == false &&
           next.get('auditLogId', null) is string && next.get('updatedAt', null) == request.time &&
           audit(next.auditLogId).motivo is string && audit(next.auditLogId).motivo.size() >= 5 &&
-          ((changed.hasOnly(['litros', 'auditLogId', 'updatedAt', 'updatedByUid']) &&
+          ((can('recepcion', 'editar') && changed.hasOnly(['litros', 'auditLogId', 'updatedAt', 'updatedByUid']) &&
             changed.hasAny(['litros']) && validLiters() &&
             validAudit('recepciones_leche', recepcionId, 'EDITAR', resource.data)) ||
-          (changed.hasOnly(['anulado', 'motivoAnulacion', 'auditLogId', 'updatedAt', 'updatedByUid']) &&
+          (can('recepcion', 'eliminar') && changed.hasOnly(['anulado', 'motivoAnulacion', 'auditLogId', 'updatedAt', 'updatedByUid']) &&
             next.anulado == true && next.motivoAnulacion == audit(next.auditLogId).motivo &&
             validAudit('recepciones_leche', recepcionId, 'ANULAR', resource.data)));
       }
 
       allow read: if isStaff() || ownsProducer(resource.data.productorId);
-      allow create: if isStaff() && request.resource.data.recepcionId == recepcionId &&
+      allow create: if can('recepcion', 'crear') && request.resource.data.recepcionId == recepcionId &&
         request.resource.data.operarioUid == request.auth.uid &&
         request.resource.data.productorId is string &&
         request.resource.data.createdAt is string && request.resource.data.createdAt.size() > 0 &&
         request.resource.data.liquidacionId == null && request.resource.data.anulado == false &&
         request.resource.data.isSynced == true && request.resource.data.syncStatus == 'SINCRONIZADO' &&
         validLiters() && validAudit('recepciones_leche', recepcionId, 'CREAR', null);
-      allow update: if isAdmin() && validCorrection();
+      allow update: if isStaff() && validCorrection();
     }
 
     match /liquidaciones/{liquidacionId} {
       allow read: if isStaff() || ownsProducer(resource.data.productorId);
       // La emisión y el bloqueo de entregas se ejecutan en la función de cierre.
-      allow update: if isAdmin() && resource != null &&
+      allow update: if can('liquidaciones', 'editar') && resource != null &&
         resource.data.get('estadoPago', null) == 'PENDIENTE' &&
         request.resource.data.estadoPago == 'PAGADA' &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
@@ -186,7 +222,8 @@ service cloud.firestore {
 
       allow read: if isStaff() || belongsToProducer() ||
         (isProducer() && resource.data.destinoProductorId == null && resource.data.tipo == 'COMUNICADO');
-      allow create: if isStaff() || (
+      allow create: if (isStaff() && (request.resource.data.tipo != 'COMUNICADO' ||
+          can('comunicados', 'crear'))) || (
         request.resource.data.tipo == 'RECTIFICACION' && request.resource.data.leida == false &&
         ownsProducer(request.resource.data.destinoProductorId)
       );
@@ -194,7 +231,10 @@ service cloud.firestore {
         belongsToProducer() && request.resource.data.leida == true &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['leida'])
       );
-      allow delete: if isAdmin();
+      // El personal con permiso borra comunicados; el productor borra sus avisos personales.
+      allow delete: if can('comunicados', 'eliminar') || (belongsToProducer() &&
+        resource.data.get('destinoProductorId', null) != null &&
+        resource.data.get('tipo', '') != 'RECTIFICACION');
     }
 
     match /auditoria_logs/{logId} {
@@ -211,7 +251,7 @@ service cloud.firestore {
           user.ultimoAccesoLogId == logId && user.ultimoAcceso == request.time;
       }
 
-      allow read: if isAdmin();
+      allow read: if isAdmin() || can('reportes', 'ver') || can('usuarios', 'ver');
       allow create: if isActiveUser() && request.resource.data.logId == logId &&
         request.resource.data.usuarioUid == request.auth.uid && (
           (request.resource.data.entidadAfectada in ['recepciones_leche', 'productores', 'liquidaciones'] &&
@@ -221,8 +261,13 @@ service cloud.firestore {
           (request.resource.data.accion == 'SOLICITAR_RECTIFICACION' &&
             request.resource.data.entidadAfectada == 'productores' &&
             ownsProducer(request.resource.data.registroId)) ||
-          (isAdmin() && request.resource.data.entidadAfectada in ['usuarios', 'tarifas_leche', 'notificaciones'] &&
-            request.resource.data.accion != 'INICIAR_SESION')
+          (request.resource.data.accion != 'INICIAR_SESION' && (
+            (request.resource.data.entidadAfectada == 'usuarios' && isAdmin()) ||
+            (request.resource.data.entidadAfectada == 'tarifas_leche' && can('tarifas', 'crear')) ||
+            (request.resource.data.entidadAfectada == 'configuracion' && can('tarifas', 'crear')) ||
+            (request.resource.data.entidadAfectada == 'notificaciones' &&
+              (can('comunicados', 'crear') || can('comunicados', 'eliminar')))
+          ))
         );
     }
   }

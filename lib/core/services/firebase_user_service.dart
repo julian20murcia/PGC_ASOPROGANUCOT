@@ -1,9 +1,9 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:uuid/uuid.dart';
 
-import '../../firebase_options.dart';
 import '../../models/user_model.dart';
 import '../constants/app_constants.dart';
 import 'firebase_callable.dart';
@@ -28,7 +28,6 @@ class FirebaseUserService {
         _firestoreOverride = firestore,
         _hiveService = hiveService ?? HiveService();
 
-  static const String _secondaryAppName = 'SecondaryUserCreator';
   static const Uuid _uuid = Uuid();
 
   final FirebaseAuth? _authOverride;
@@ -180,8 +179,28 @@ class FirebaseUserService {
     }
   }
 
-  /// Crea una cuenta real en Firebase Auth usando una instancia secundaria
-  /// (para no cerrar la sesión administrativa activa) y guarda el perfil en Firestore + Hive.
+  Future<Map<String, dynamic>> _callAdmin(String name, Map<String, dynamic> data) async {
+    final User? me = _auth.currentUser;
+    if (me == null) {
+      throw UserServiceException('Tu sesión expiró. Vuelve a iniciar sesión.');
+    }
+    try {
+      final String? token = await me.getIdToken();
+      return await callFirebaseFunction(name, data, idToken: token, timeout: const Duration(seconds: 30));
+    } on StateError catch (e) {
+      throw UserServiceException(e.message);
+    } on FormatException {
+      throw UserServiceException('El servicio de usuarios no está disponible en este momento. Intenta más tarde.');
+    } on TimeoutException {
+      throw UserServiceException('El servidor tardó demasiado en responder. Intenta de nuevo.');
+    } catch (e) {
+      throw UserServiceException('No hay conexión con el servidor. Verifica tu internet e intenta de nuevo.');
+    }
+  }
+
+  /// Crea la cuenta (Auth + perfil + auditoría) en el servidor de forma
+  /// atómica mediante la función `adminCreateUser`. Si algo falla, el servidor
+  /// revierte la cuenta de Auth para no dejar usuarios huérfanos.
   Future<UserModel> createUser({
     required String nombreCompleto,
     required String documento,
@@ -191,87 +210,37 @@ class FirebaseUserService {
     required String password,
     required bool activo,
     required String actorUid,
+    Map<String, List<String>>? permisos,
+    String? productorId,
   }) async {
-    final String cleanName = nombreCompleto.trim();
+    final String cleanName = nombreCompleto.trim().replaceAll(RegExp(r'\s+'), ' ');
     final String cleanDoc = documento.trim();
     final String cleanEmail = correo.trim().toLowerCase();
-    final String cleanPhone = telefono.trim();
     final String cleanRole = rol.trim().toUpperCase();
-
-    if (cleanName.isEmpty ||
-        cleanDoc.isEmpty ||
-        cleanEmail.isEmpty ||
-        password.isEmpty) {
-      throw UserServiceException(
-        'Completa nombre, documento, correo y contraseña para crear el usuario.',
-      );
+    if (cleanName.isEmpty || cleanDoc.isEmpty || cleanEmail.isEmpty || password.isEmpty) {
+      throw UserServiceException('Completa nombre, documento, correo y contraseña para crear el usuario.');
     }
-
-    if (password.length < 6) {
-      throw UserServiceException(
-        'La contraseña debe tener al menos 6 caracteres.',
-      );
+    if (password.length < 8) {
+      throw UserServiceException('La contraseña debe tener al menos 8 caracteres.');
     }
-
-    await _ensureUniqueDocumentAndEmail(
-      documento: cleanDoc,
-      correo: cleanEmail,
-    );
-
-    final FirebaseApp secondaryApp = await _getOrCreateSecondaryApp();
-    final FirebaseAuth secondaryAuth = FirebaseAuth.instanceFor(app: secondaryApp);
-
-    try {
-      final UserCredential credential =
-          await secondaryAuth.createUserWithEmailAndPassword(
-        email: cleanEmail,
-        password: password,
-      );
-      final User? createdAuthUser = credential.user;
-      if (createdAuthUser == null) {
-        throw UserServiceException(
-          'No fue posible registrar las credenciales del usuario.',
-        );
-      }
-
-      await createdAuthUser.updateDisplayName(cleanName);
-
-      final DateTime now = DateTime.now().toUtc();
-      final UserModel newUser = UserModel(
-        uid: createdAuthUser.uid,
-        nombreCompleto: cleanName,
-        documento: cleanDoc,
-        correo: cleanEmail,
-        telefono: cleanPhone,
-        rol: cleanRole,
-        activo: activo,
-        fcmTokens: const <String>[],
-        fechaCreacion: now,
-      );
-
-      await _firestore
-          .collection(AppConstants.usersCollection)
-          .doc(newUser.uid)
-          .set(newUser.toMap());
-
-      await _hiveService.upsertUser(newUser);
-
-      await _appendAuditLog(
-        registroId: newUser.uid,
-        accion: 'CREAR',
-        valorAnterior: null,
-        valorNuevo: newUser.toMap(),
-        usuarioUid: actorUid,
-      );
-
-      return newUser;
-    } on FirebaseAuthException catch (e) {
-      throw UserServiceException(_mapAuthError(e));
-    } finally {
-      await secondaryAuth.signOut();
-    }
+    final Map<String, dynamic> result = await _callAdmin('adminCreateUser', <String, dynamic>{
+      'nombreCompleto': cleanName,
+      'documento': cleanDoc,
+      'correo': cleanEmail,
+      'telefono': telefono.trim(),
+      'rol': cleanRole,
+      'password': password,
+      'activo': activo,
+      'permisos': ?permisos,
+      if (productorId != null && productorId.isNotEmpty) 'productorId': productorId,
+    });
+    final Map<String, dynamic> profile = Map<String, dynamic>.from(result['user'] as Map);
+    final UserModel created = UserModel.fromMap(profile, documentId: profile['uid'] as String?);
+    await _hiveService.upsertUser(created);
+    return created;
   }
 
+  /// Actualiza perfil, rol, estado, permisos y opcionalmente la contraseña.
   Future<UserModel> updateUser({
     required UserModel previousUser,
     required String nombreCompleto,
@@ -280,45 +249,24 @@ class FirebaseUserService {
     required String rol,
     required bool activo,
     required String actorUid,
+    Map<String, List<String>>? permisos,
+    bool resetPermisosToRole = false,
+    String? newPassword,
   }) async {
-    final String cleanDoc = documento.trim();
-    if (cleanDoc != previousUser.documento.trim()) {
-      await _ensureUniqueDocumentAndEmail(
-        documento: cleanDoc,
-        correo: previousUser.correo,
-        ignoreUid: previousUser.uid,
-      );
-    }
-
-    final UserModel updated = previousUser.copyWith(
-      nombreCompleto: nombreCompleto.trim(),
-      documento: cleanDoc,
-      telefono: telefono.trim(),
-      rol: rol.trim().toUpperCase(),
-      activo: activo,
-    );
-
-    await _firestore
-        .collection(AppConstants.usersCollection)
-        .doc(updated.uid)
-        .update(<String, dynamic>{
-      'nombreCompleto': updated.nombreCompleto,
-      'documento': updated.documento,
-      'telefono': updated.telefono,
-      'rol': updated.rol,
-      'activo': updated.activo,
+    final Map<String, dynamic> result = await _callAdmin('adminUpdateUser', <String, dynamic>{
+      'uid': previousUser.uid,
+      'nombreCompleto': nombreCompleto.trim().replaceAll(RegExp(r'\s+'), ' '),
+      'documento': documento.trim(),
+      'telefono': telefono.trim(),
+      'rol': rol.trim().toUpperCase(),
+      'activo': activo,
+      'permisos': ?permisos,
+      if (resetPermisosToRole) 'resetPermisos': true,
+      if (newPassword != null && newPassword.isNotEmpty) 'password': newPassword,
     });
-
+    final Map<String, dynamic> profile = Map<String, dynamic>.from(result['user'] as Map);
+    final UserModel updated = UserModel.fromMap(profile, documentId: previousUser.uid);
     await _hiveService.upsertUser(updated);
-
-    await _appendAuditLog(
-      registroId: updated.uid,
-      accion: 'EDITAR',
-      valorAnterior: previousUser.toMap(),
-      valorNuevo: updated.toMap(),
-      usuarioUid: actorUid,
-    );
-
     return updated;
   }
 
@@ -326,25 +274,17 @@ class FirebaseUserService {
     required UserModel user,
     required bool newStatus,
     required String actorUid,
-  }) async {
-    final UserModel updated = user.copyWith(activo: newStatus);
-
-    await _firestore
-        .collection(AppConstants.usersCollection)
-        .doc(user.uid)
-        .update(<String, dynamic>{'activo': newStatus});
-
-    await _hiveService.upsertUser(updated);
-
-    await _appendAuditLog(
-      registroId: user.uid,
-      accion: 'EDITAR',
-      valorAnterior: <String, dynamic>{'activo': user.activo},
-      valorNuevo: <String, dynamic>{'activo': newStatus},
-      usuarioUid: actorUid,
+  }) {
+    return updateUser(
+      previousUser: user,
+      nombreCompleto: user.nombreCompleto,
+      documento: user.documento,
+      telefono: user.telefono,
+      rol: user.rol,
+      activo: newStatus,
+      actorUid: actorUid,
+      permisos: user.permisos,
     );
-
-    return updated;
   }
 
   Future<void> sendPasswordReset(String email) async {
@@ -380,75 +320,6 @@ class FirebaseUserService {
 
   Future<void> signOut() async {
     await _auth.signOut();
-  }
-
-  Future<void> _ensureUniqueDocumentAndEmail({
-    required String documento,
-    required String correo,
-    String? ignoreUid,
-  }) async {
-    final QuerySnapshot<Map<String, dynamic>> docMatches = await _firestore
-        .collection(AppConstants.usersCollection)
-        .where('documento', isEqualTo: documento)
-        .get();
-
-    for (final QueryDocumentSnapshot<Map<String, dynamic>> doc in docMatches.docs) {
-      if (doc.id != ignoreUid) {
-        throw UserServiceException(
-          'Ya existe un usuario registrado con el documento "$documento".',
-        );
-      }
-    }
-
-    if (ignoreUid == null) {
-      final QuerySnapshot<Map<String, dynamic>> emailMatches = await _firestore
-          .collection(AppConstants.usersCollection)
-          .where('correo', isEqualTo: correo.toLowerCase())
-          .get();
-      if (emailMatches.docs.isNotEmpty) {
-        throw UserServiceException(
-          'Ya existe un usuario registrado con el correo "$correo".',
-        );
-      }
-    }
-  }
-
-  Future<FirebaseApp> _getOrCreateSecondaryApp() async {
-    try {
-      return Firebase.app(_secondaryAppName);
-    } on FirebaseException {
-      return Firebase.initializeApp(
-        name: _secondaryAppName,
-        options: DefaultFirebaseOptions.currentPlatform,
-      );
-    }
-  }
-
-  Future<void> _appendAuditLog({
-    required String registroId,
-    required String accion,
-    required Map<String, dynamic>? valorAnterior,
-    required Map<String, dynamic> valorNuevo,
-    required String usuarioUid,
-  }) async {
-    final String logId = _uuid.v4();
-    try {
-      await _firestore
-          .collection(AppConstants.auditLogsCollection)
-          .doc(logId)
-          .set(<String, dynamic>{
-        'logId': logId,
-        'entidadAfectada': AppConstants.usersCollection,
-        'registroId': registroId,
-        'accion': accion,
-        'valorAnterior': valorAnterior,
-        'valorNuevo': valorNuevo,
-        'usuarioUid': usuarioUid,
-        'timestamp': FieldValue.serverTimestamp(),
-      });
-    } catch (_) {
-      // Si hay error temporal en auditoría, no revertir la operación principal ya creada.
-    }
   }
 
   String _mapAuthError(FirebaseAuthException e) {

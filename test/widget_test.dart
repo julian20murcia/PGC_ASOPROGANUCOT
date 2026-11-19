@@ -289,38 +289,76 @@ void main() {
     await tester.pump(const Duration(milliseconds: 800));
     await tester.pump(const Duration(milliseconds: 50));
 
-    expect(find.text('Usuarios'), findsAtLeastNWidgets(1));
-    expect(find.text('Recepción de Leche'), findsOneWidget);
-    expect(find.text('Operación en planta'), findsOneWidget);
+    // Shell nuevo: barra lateral agrupada y filtrada por permisos; abre en Inicio.
+    Future<void> goTo(String label) async {
+      await tester.tap(find.text(label).first);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+    }
+
+    expect(find.text('OPERACIÓN'), findsOneWidget);
+    expect(find.text('GESTIÓN'), findsOneWidget);
+    for (final String label in <String>[
+      'Inicio', 'Recepción de Leche', 'Productores', 'Liquidaciones', 'Tarifas por Litro',
+      'Reportes y Auditoría', 'Comunicados', 'Usuarios', 'Asistente IA',
+    ]) {
+      expect(find.text(label), findsAtLeastNWidgets(1), reason: label);
+    }
+    expect(find.text('Resumen Operativo de Planta'), findsOneWidget);
+    expect(find.text('Litros acopiados hoy'), findsOneWidget);
+
+    // Usuarios
+    await goTo('Usuarios');
     expect(find.text('Nuevo usuario'), findsOneWidget);
     expect(find.text('Bradley Ballen'), findsAtLeastNWidgets(1));
 
-    // Navegar al módulo de Productores
-    await tester.tap(find.text('Productores').first);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-
+    // Productores
+    await goTo('Productores');
     expect(find.text('Nuevo productor'), findsOneWidget);
     expect(find.text('Productores activos'), findsOneWidget);
 
-    // Abrir diálogo de creación y verificar bloqueo sin Habeas Data
+    // Abrir el asistente de registro y verificar el bloqueo sin Habeas Data
     await tester.tap(find.text('Nuevo productor'));
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pump();
     expect(
-      find.text('Aviso de privacidad'),
+      find.descendant(
+        of: find.byType(Dialog),
+        matching: find.text('Registrar productor'),
+      ),
       findsOneWidget,
     );
-    expect(find.text('Guardar productor'), findsOneWidget);
-    final Finder saveProducer = find.widgetWithText(
-      PrimaryActionButton,
-      'Guardar productor',
-    );
-    expect(tester.widget<PrimaryActionButton>(saveProducer).onPressed, isNull);
+    expect(find.text('Paso 1 de 4'), findsOneWidget);
+    Finder wizardField(String key) => find.descendant(
+          of: find.byKey(Key(key)),
+          matching: find.byType(EditableText),
+        );
+    final Finder wizardNext = find.byKey(const Key('producer-wizard-next'));
+    await tester.enterText(wizardField('producer-field-nombres'), 'Lucía');
+    await tester.enterText(wizardField('producer-field-apellidos'), 'Pineda');
+    await tester.enterText(wizardField('producer-field-cedula'), '1073500222');
+    await tester.enterText(wizardField('producer-field-telefono'), '3112223344');
+    await tester.tap(wizardNext);
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
+    expect(find.text('Paso 2 de 4'), findsOneWidget);
+    await tester.enterText(wizardField('producer-field-finca'), 'San Isidro');
+    await tester.enterText(wizardField('producer-field-vereda'), 'El Crucero');
+    await tester.tap(wizardNext);
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
+    expect(find.text('Paso 3 de 4'), findsOneWidget);
     expect(find.textContaining('registrar entregas de leche'), findsOneWidget);
     expect(find.textContaining('configuracion/privacidad'), findsOneWidget);
-    expect(find.text('Ver copia de la política (PDF)'), findsOneWidget);
-    expect(find.text('Referencia del soporte firmado o electrónico'), findsNothing);
+
+    // Sin aviso cargado no se puede avanzar.
+    await tester.tap(wizardNext);
+    await tester.pump();
+    expect(
+      find.text('Espera a que cargue el aviso de privacidad para continuar.'),
+      findsOneWidget,
+    );
+    expect(find.text('Paso 3 de 4'), findsOneWidget);
 
     await tester.tap(find.text('Reintentar'));
     await tester.pump();
@@ -328,7 +366,6 @@ void main() {
     expect(noticeReads, 2);
     expect(find.text('Cargando el aviso institucional…'), findsOneWidget);
     expect(find.text('Reintentar'), findsNothing);
-    expect(tester.widget<PrimaryActionButton>(saveProducer).onPressed, isNull);
 
     retriedNotice.complete(PrivacyNotice.fromMap(const <String, dynamic>{
       'version': '1.0 de prueba',
@@ -342,53 +379,53 @@ void main() {
     }));
     await tester.pump();
     expect(find.text('Versión 1.0 de prueba'), findsOneWidget);
-    expect(find.text('Ver política de tratamiento'), findsOneWidget);
     expect(find.textContaining('privacidad@example.com'), findsOneWidget);
-    expect(tester.widget<PrimaryActionButton>(saveProducer).onPressed, isNull);
 
     await tester.tap(find.textContaining('Entregué el aviso y el productor'));
     await tester.pump();
-    expect(find.text('Referencia del soporte firmado o electrónico'), findsNothing);
-    expect(find.textContaining('Constancia digital automática'), findsOneWidget);
-    expect(tester.widget<PrimaryActionButton>(saveProducer).onPressed, isNotNull);
-
-    // Cerrar diálogo y navegar a Recepción de Leche
-    await tester.tap(find.text('Cancelar'));
-    await tester.pump(const Duration(milliseconds: 250));
-    await tester.tap(find.text('Recepción de Leche').first);
-    await tester.pump();
+    await tester.enterText(
+      wizardField('producer-field-soporte'),
+      'Formato firmado 045',
+    );
+    await tester.tap(wizardNext);
     await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
+    expect(find.text('Paso 4 de 4'), findsOneWidget);
+    expect(find.text('Guardar productor'), findsOneWidget);
+
+    // Cerrar el asistente y navegar a Recepción de Leche
+    await tester.tap(find.descendant(
+      of: find.byType(Dialog),
+      matching: find.byTooltip('Cerrar'),
+    ));
+    await tester.pump(const Duration(milliseconds: 250));
+
+    await goTo('Recepción de Leche');
     expect(find.text('Captura rápida en planta'), findsOneWidget);
     expect(find.text('Litros recibidos hoy'), findsOneWidget);
     expect(find.text('Registrar entrega'), findsOneWidget);
-    expect(find.text('Planilla por días'), findsOneWidget);
-    expect(find.text('Lista detallada'), findsOneWidget);
 
-    // Navegar a Tarifas por Litro y Liquidaciones
-    await tester.tap(find.text('Tarifas por Litro').first);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
+    await goTo('Tarifas por Litro');
     expect(find.text('Nueva tarifa vigente'), findsOneWidget);
     expect(find.text('Tarifa vigente actual'), findsOneWidget);
 
-    await tester.tap(find.text('Liquidaciones').first);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
+    await goTo('Liquidaciones');
     expect(find.text('Liquidaciones Quincenales'), findsOneWidget);
-    expect(find.text('Ejecutar cierre quincenal'), findsOneWidget);
+    expect(find.text('Ejecutar cierre quincenal'), findsAtLeastNWidgets(1));
 
-    // Navegar a Inicio (Dashboard) y Reportes y Auditoría
-    await tester.tap(find.text('Inicio').first);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
+    await goTo('Reportes y Auditoría');
+    expect(find.text('Resumen por productor'), findsAtLeastNWidgets(1));
+    expect(find.text('Actividad de usuarios'), findsAtLeastNWidgets(1));
+
+    await goTo('Comunicados');
+    expect(find.text('Redactar comunicado'), findsOneWidget);
+
+    await goTo('Asistente IA');
+    expect(find.text('Nueva conversación'), findsOneWidget);
+
+    await goTo('Inicio');
     expect(find.text('Resumen Operativo de Planta'), findsOneWidget);
-    expect(find.text('Litros acopiados hoy'), findsOneWidget);
-
-    await tester.tap(find.text('Reportes y Auditoría').first);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('Producción por ganadero'), findsOneWidget);
-    expect(find.text('Bitácora de auditoría'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets(
@@ -442,7 +479,8 @@ void main() {
     expect(find.text('Iniciar sesión'), findsOneWidget);
     expect(find.text('Ingresar al sistema'), findsOneWidget);
 
-    final registration = find.text('Crear cuenta de productor');
+    // Alta digital del productor (flujo de main) desde el login móvil.
+    final Finder registration = find.text('Crear cuenta de productor');
     await tester.ensureVisible(registration);
     await tester.tap(registration);
     await tester.pump(const Duration(milliseconds: 400));

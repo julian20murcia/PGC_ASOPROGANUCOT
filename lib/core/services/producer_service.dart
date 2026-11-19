@@ -2,10 +2,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../models/audit_log_model.dart';
+import '../../models/milk_reception_model.dart';
 import '../../models/producer_model.dart';
 import '../../models/privacy_notice.dart';
 import '../../models/user_model.dart';
 import '../constants/app_constants.dart';
+import '../utils/input_rules.dart';
 import 'firebase_user_service.dart';
 import 'firestore_audit.dart';
 import 'hive_service.dart';
@@ -35,8 +37,9 @@ class FirestoreProducerDataSource implements RemoteProducerDataSource {
 
   @override
   Future<List<ProducerModel>> fetchProducers() async {
-    final QuerySnapshot<Map<String, dynamic>> snap =
-        await _db.collection(AppConstants.producersCollection).get();
+    final QuerySnapshot<Map<String, dynamic>> snap = await _db
+        .collection(AppConstants.producersCollection)
+        .get();
     return snap.docs
         .map(
           (QueryDocumentSnapshot<Map<String, dynamic>> doc) =>
@@ -72,17 +75,25 @@ class FirestoreProducerDataSource implements RemoteProducerDataSource {
     AuditLogModel event, {
     ProducerModel? previous,
   }) async {
-    final record = _db.collection(AppConstants.producersCollection).doc(producer.productorId);
+    final record = _db
+        .collection(AppConstants.producersCollection)
+        .doc(producer.productorId);
     final saved = producer.copyWith(isSynced: true, auditLogId: event.logId);
     await _db.runTransaction((Transaction transaction) async {
       final before = (await transaction.get(record)).data();
       if ((before == null) != (previous == null) ||
           before?['auditLogId'] != previous?.auditLogId) {
-        throw ProducerServiceException('El productor cambió. Actualiza el padrón e intenta de nuevo.');
+        throw ProducerServiceException(
+          'El productor cambió. Actualiza el padrón e intenta de nuevo.',
+        );
       }
       final after = <String, dynamic>{...?before, ...saved.toMap()};
       if (before != null) {
-        for (final key in <String>['fechaCreacion', 'fechaAutorizacionDatos', 'autorizadoPorUid']) {
+        for (final key in <String>[
+          'fechaCreacion',
+          'fechaAutorizacionDatos',
+          'autorizadoPorUid',
+        ]) {
           if (before.containsKey(key)) {
             after[key] = before[key];
           } else {
@@ -90,8 +101,14 @@ class FirestoreProducerDataSource implements RemoteProducerDataSource {
           }
         }
       }
-      writeAuditedVersion(db: _db, transaction: transaction, record: record,
-          before: before, after: after, event: event);
+      writeAuditedVersion(
+        db: _db,
+        transaction: transaction,
+        record: record,
+        before: before,
+        after: after,
+        event: event,
+      );
     });
     return saved;
   }
@@ -123,10 +140,7 @@ abstract class ProducerAccountLinker {
 }
 
 class FirebaseProducerAccountLinker implements ProducerAccountLinker {
-  FirebaseProducerAccountLinker({
-    required this.hiveService,
-    this.userService,
-  });
+  FirebaseProducerAccountLinker({required this.hiveService, this.userService});
 
   final HiveService hiveService;
   final FirebaseUserService? userService;
@@ -181,39 +195,279 @@ class FirebaseProducerAccountLinker implements ProducerAccountLinker {
   }
 }
 
+/// Datos de un productor ya normalizados (espacios colapsados, mayúsculas en
+/// el código, nombres capitalizados) y validados con las reglas oficiales.
+class ProducerInput {
+  const ProducerInput({
+    required this.codigoAsociado,
+    required this.cedula,
+    required this.nombres,
+    required this.apellidos,
+    required this.telefono,
+    required this.nombreFinca,
+    required this.vereda,
+    required this.estado,
+  });
+
+  final String codigoAsociado;
+  final String cedula;
+  final String nombres;
+  final String apellidos;
+  final String telefono;
+  final String nombreFinca;
+  final String vereda;
+  final String estado;
+}
+
+/// Reglas de validación del padrón compartidas por servicio, controlador y UI.
+class ProducerRules {
+  ProducerRules._();
+
+  static final RegExp _codePattern = RegExp(r'^[A-Z0-9]+(-[A-Z0-9]+)*$');
+  static final RegExp _placeChars = RegExp(
+    r"^[\p{L}\p{M}\p{N} .,'#°()/&\-]+$",
+    unicode: true,
+  );
+  static final RegExp _hasLetter = RegExp(r'\p{L}', unicode: true);
+
+  /// Quita espacios al inicio/fin y colapsa espacios internos repetidos.
+  static String collapse(String? value) =>
+      (value ?? '').replaceAll(RegExp(r'\s+'), ' ').trim();
+
+  /// "jUAN  carlos" -> "Juan Carlos" (respeta guiones y apóstrofos).
+  static String titleCase(String value) {
+    final String clean = collapse(value).toLowerCase();
+    final StringBuffer out = StringBuffer();
+    bool upperNext = true;
+    for (final int rune in clean.runes) {
+      final String ch = String.fromCharCode(rune);
+      out.write(upperNext ? ch.toUpperCase() : ch);
+      upperNext = ch == ' ' || ch == '-' || ch == "'";
+    }
+    return out.toString();
+  }
+
+  static String digitsOnly(String? value) =>
+      (value ?? '').replaceAll(RegExp(r'\s'), '');
+
+  static String? code(String? value) {
+    final String s = collapse(value).toUpperCase();
+    if (s.isEmpty) return 'El código de asociado es obligatorio';
+    if (s.length > FieldLimits.code) {
+      return 'Máximo ${FieldLimits.code} caracteres';
+    }
+    if (!_codePattern.hasMatch(s)) {
+      return 'Usa letras, números y guion (ej. ASO-001)';
+    }
+    return null;
+  }
+
+  static String? place(
+    String? value, {
+    required String label,
+    required int max,
+  }) {
+    final String s = collapse(value);
+    final String? base = AppValidators.text(s, label: label, max: max);
+    if (base != null) return base;
+    if (!_placeChars.hasMatch(s)) {
+      return 'Solo letras, números y puntuación básica';
+    }
+    if (!_hasLetter.hasMatch(s)) return '$label debe contener letras';
+    return null;
+  }
+
+  static String? farm(String? value) =>
+      place(value, label: 'El nombre de la finca', max: FieldLimits.farmName);
+
+  static String? vereda(String? value) =>
+      place(value, label: 'La vereda', max: FieldLimits.vereda);
+
+  static String? names(String? value) =>
+      AppValidators.personName(collapse(value), label: 'Los nombres');
+
+  static String? surnames(String? value) =>
+      AppValidators.personName(collapse(value), label: 'Los apellidos');
+
+  static String? document(String? value) =>
+      AppValidators.document(digitsOnly(value));
+
+  static String? phone(String? value) => AppValidators.phone(digitsOnly(value));
+
+  static String? authorizationReference(String? value) {
+    final String s = collapse(value);
+    if (s.isEmpty) return null; // Opcional: se genera una constancia automática.
+    if (s.length < 3) return 'Mínimo 3 caracteres';
+    if (s.length > FieldLimits.shortText) {
+      return 'Máximo ${FieldLimits.shortText} caracteres';
+    }
+    if (RegExp(r'(.)\1{4,}').hasMatch(s)) return 'Revisa caracteres repetidos';
+    return null;
+  }
+
+  /// Normaliza y valida todos los campos. Lanza [ProducerServiceException]
+  /// con el primer error encontrado (campo + motivo).
+  static ProducerInput normalize({
+    required String codigoAsociado,
+    required String cedula,
+    required String nombres,
+    required String apellidos,
+    required String telefono,
+    required String nombreFinca,
+    required String vereda,
+    required String estado,
+  }) {
+    void check(String field, String? error) {
+      if (error != null) throw ProducerServiceException('$field: $error.');
+    }
+
+    check('Nombres', names(nombres));
+    check('Apellidos', surnames(apellidos));
+    check('Cédula', document(cedula));
+    check('Teléfono', phone(telefono));
+    check('Código de asociado', code(codigoAsociado));
+    check('Finca', farm(nombreFinca));
+    check('Vereda', ProducerRules.vereda(vereda));
+
+    final String cleanEstado = collapse(estado).toUpperCase();
+    return ProducerInput(
+      codigoAsociado: collapse(codigoAsociado).toUpperCase(),
+      cedula: digitsOnly(cedula),
+      nombres: titleCase(nombres),
+      apellidos: titleCase(apellidos),
+      telefono: digitsOnly(telefono),
+      nombreFinca: collapse(nombreFinca),
+      vereda: collapse(vereda),
+      estado: cleanEstado == 'INACTIVO' ? 'INACTIVO' : 'ACTIVO',
+    );
+  }
+}
+
+/// Fuente de entregas de leche por rango de fechas (estadísticas del padrón).
+abstract class ProducerDeliverySource {
+  Future<List<MilkReceptionModel>> fetchDeliveries({
+    required String startIso,
+    required String endIso,
+  });
+}
+
+/// Consulta `recepciones_leche` acotada por `fechaEntrega` (índice simple).
+class FirestoreProducerDeliverySource implements ProducerDeliverySource {
+  FirestoreProducerDeliverySource({this.firestore});
+
+  final FirebaseFirestore? firestore;
+
+  @override
+  Future<List<MilkReceptionModel>> fetchDeliveries({
+    required String startIso,
+    required String endIso,
+  }) async {
+    final FirebaseFirestore db = firestore ?? FirebaseFirestore.instance;
+    final QuerySnapshot<Map<String, dynamic>> snap = await db
+        .collection(AppConstants.receptionsCollection)
+        .where('fechaEntrega', isGreaterThanOrEqualTo: startIso)
+        .where('fechaEntrega', isLessThanOrEqualTo: endIso)
+        .get();
+    return snap.docs
+        .map(
+          (QueryDocumentSnapshot<Map<String, dynamic>> doc) =>
+              MilkReceptionModel.fromMap(doc.data(), documentId: doc.id),
+        )
+        .toList();
+  }
+}
+
 /// Servicio MVC cliente-servidor + Hive para Gestión de Productores y Habeas Data (`RF-04` a `RF-07`).
 class ProducerService {
   ProducerService({
     HiveService? hiveService,
     RemoteProducerDataSource? remoteDataSource,
     ProducerAccountLinker? accountLinker,
-  })  : _hiveService = hiveService ?? HiveService(),
-        _remoteDataSource = remoteDataSource ?? FirestoreProducerDataSource(),
-        _accountLinkerOverride = accountLinker;
+    ProducerDeliverySource? deliverySource,
+  }) : _hiveService = hiveService ?? HiveService(),
+       _remoteDataSource = remoteDataSource ?? FirestoreProducerDataSource(),
+       _accountLinkerOverride = accountLinker,
+       _deliverySourceOverride = deliverySource;
 
   static const Uuid _uuid = Uuid();
 
   final HiveService _hiveService;
   final RemoteProducerDataSource _remoteDataSource;
   final ProducerAccountLinker? _accountLinkerOverride;
+  final ProducerDeliverySource? _deliverySourceOverride;
 
   ProducerAccountLinker get _accountLinker =>
       _accountLinkerOverride ??
       FirebaseProducerAccountLinker(hiveService: _hiveService);
 
-  Future<({List<ProducerModel> producers, bool fromCache})> listProducers() async {
+  ProducerDeliverySource? get _deliverySource {
+    final ProducerDeliverySource? override = _deliverySourceOverride;
+    if (override != null) return override;
+    final RemoteProducerDataSource remote = _remoteDataSource;
+    if (remote is FirestoreProducerDataSource) {
+      return FirestoreProducerDeliverySource(firestore: remote.firestore);
+    }
+    return null;
+  }
+
+  /// Entregas no anuladas entre [startIso] y [endIso] (YYYY-MM-DD, inclusive).
+  /// Combina la nube con las entregas locales pendientes; sin red usa Hive.
+  Future<({List<MilkReceptionModel> deliveries, bool fromCache})>
+  listDeliveries({required String startIso, required String endIso}) async {
+    bool inRange(MilkReceptionModel r) =>
+        !r.anulado &&
+        r.fechaEntrega.compareTo(startIso) >= 0 &&
+        r.fechaEntrega.compareTo(endIso) <= 0;
+
+    List<MilkReceptionModel> local = const <MilkReceptionModel>[];
     try {
-      final List<ProducerModel> remote =
-          await _remoteDataSource.fetchProducers();
+      local = (await _hiveService.getReceptions()).where(inRange).toList();
+    } catch (_) {
+      // Caché no disponible: continuar solo con la nube.
+    }
+
+    final ProducerDeliverySource? source = _deliverySource;
+    if (source == null) {
+      return (deliveries: local, fromCache: false);
+    }
+    try {
+      final List<MilkReceptionModel> remote = await source.fetchDeliveries(
+        startIso: startIso,
+        endIso: endIso,
+      );
+      final Map<String, MilkReceptionModel> merged =
+          <String, MilkReceptionModel>{
+            for (final MilkReceptionModel r in remote) r.recepcionId: r,
+          };
+      for (final MilkReceptionModel r in local) {
+        if (!r.isSynced || r.syncStatus != AppConstants.syncSynced) {
+          merged[r.recepcionId] = r;
+        }
+      }
+      return (
+        deliveries: merged.values.where(inRange).toList(),
+        fromCache: false,
+      );
+    } catch (_) {
+      return (deliveries: local, fromCache: true);
+    }
+  }
+
+  Future<({List<ProducerModel> producers, bool fromCache})>
+  listProducers() async {
+    try {
+      final List<ProducerModel> remote = await _remoteDataSource
+          .fetchProducers();
       remote.sort(
-        (ProducerModel a, ProducerModel b) =>
-            a.nombreCompleto.toLowerCase().compareTo(b.nombreCompleto.toLowerCase()),
+        (ProducerModel a, ProducerModel b) => a.nombreCompleto
+            .toLowerCase()
+            .compareTo(b.nombreCompleto.toLowerCase()),
       );
       await _hiveService.cacheProducers(remote);
       return (producers: remote, fromCache: false);
     } catch (_) {
-      final List<ProducerModel> cached =
-          await _hiveService.getCachedProducers();
+      final List<ProducerModel> cached = await _hiveService
+          .getCachedProducers();
       return (producers: cached, fromCache: true);
     }
   }
@@ -242,8 +496,8 @@ class ProducerService {
 
     if (_remoteDataSource is FirestoreProducerDataSource) {
       try {
-        final ProducerModel? remote =
-            await _remoteDataSource.fetchProducerByUid(user.uid);
+        final ProducerModel? remote = await _remoteDataSource
+            .fetchProducerByUid(user.uid);
         if (remote != null) {
           await _hiveService.upsertProducer(remote);
         }
@@ -253,8 +507,8 @@ class ProducerService {
           rethrow;
         }
       }
-      final List<ProducerModel> cached =
-          await _hiveService.getCachedProducers();
+      final List<ProducerModel> cached = await _hiveService
+          .getCachedProducers();
       for (final producer in cached) {
         if (producer.uidUsuario == user.uid) return producer;
       }
@@ -341,25 +595,24 @@ class ProducerService {
     String? mobileEmail,
     String? mobilePassword,
   }) async {
-    final String cleanCode = codigoAsociado.trim().toUpperCase();
-    final String cleanCedula = cedula.trim();
-    final String cleanNombres = nombres.trim();
-    final String cleanApellidos = apellidos.trim();
-    final String cleanPhone = telefono.trim();
-    final String cleanFinca = nombreFinca.trim();
-    final String cleanVereda = vereda.trim();
-    final String cleanEstado = estado.trim().toUpperCase();
-
-    if (cleanCode.isEmpty ||
-        cleanCedula.length < 5 ||
-        cleanNombres.isEmpty ||
-        cleanApellidos.isEmpty ||
-        cleanFinca.isEmpty ||
-        cleanVereda.isEmpty) {
-      throw ProducerServiceException(
-        'Completa código, cédula, nombres, apellidos, finca y vereda del productor.',
-      );
-    }
+    final ProducerInput input = ProducerRules.normalize(
+      codigoAsociado: codigoAsociado,
+      cedula: cedula,
+      nombres: nombres,
+      apellidos: apellidos,
+      telefono: telefono,
+      nombreFinca: nombreFinca,
+      vereda: vereda,
+      estado: estado,
+    );
+    final String cleanCode = input.codigoAsociado;
+    final String cleanCedula = input.cedula;
+    final String cleanNombres = input.nombres;
+    final String cleanApellidos = input.apellidos;
+    final String cleanPhone = input.telefono;
+    final String cleanFinca = input.nombreFinca;
+    final String cleanVereda = input.vereda;
+    final String cleanEstado = input.estado;
 
     if (!aceptoHabeasData) {
       throw ProducerServiceException(
@@ -367,25 +620,26 @@ class ProducerService {
       );
     }
 
+    final String? rawReference = authorizationReference == null
+        ? null
+        : ProducerRules.collapse(authorizationReference);
+    if (rawReference != null && rawReference.length > FieldLimits.shortText) {
+      throw ProducerServiceException(
+        'El soporte de autorización admite máximo ${FieldLimits.shortText} caracteres.',
+      );
+    }
     if (_remoteDataSource is FirestoreProducerDataSource && privacyNotice == null) {
       throw ProducerServiceException(
         'No se pudo cargar el aviso de privacidad vigente. Reintenta antes de guardar.',
       );
     }
-
-    final DateTime now = DateTime.now().toUtc();
-    final String rawRef = (authorizationReference ?? '').trim();
-    if (rawRef.length > 120) {
-      throw ProducerServiceException(
-        'La referencia de autorización supera el límite de 120 caracteres.',
-      );
-    }
-    final String resolvedReference = rawRef.isNotEmpty
-        ? rawRef
-        : buildAutomaticAuthorizationReference(
+    // Sin referencia escrita se genera una constancia digital automática (AUT-PLANTA-…).
+    final String reference = (rawReference == null || rawReference.isEmpty)
+        ? buildAutomaticAuthorizationReference(
             codigoAsociado: cleanCode,
-            timestampUtc: now,
-          );
+            timestampUtc: DateTime.now().toUtc(),
+          )
+        : rawReference;
 
     await validateUniqueCedulaAndCode(
       cedula: cleanCedula,
@@ -396,9 +650,10 @@ class ProducerService {
     if (createMobileAccount) {
       final String email = (mobileEmail ?? '').trim().toLowerCase();
       final String pass = mobilePassword ?? '';
-      if (!email.contains('@') || pass.length < 6) {
+      if (AppValidators.email(email) != null ||
+          AppValidators.password(pass) != null) {
         throw ProducerServiceException(
-          'Para habilitar acceso móvil ingresa un correo válido y contraseña de al menos 6 caracteres.',
+          'Para habilitar acceso móvil ingresa un correo válido y una contraseña de al menos 8 caracteres con letras y números.',
         );
       }
       linkedUid = await _accountLinker.linkOrCreateProducerAccount(
@@ -412,6 +667,7 @@ class ProducerService {
       );
     }
 
+    final DateTime now = DateTime.now().toUtc();
     ProducerModel model = ProducerModel(
       productorId: _uuid.v4(),
       uidUsuario: linkedUid,
@@ -427,7 +683,7 @@ class ProducerService {
       fechaAutorizacionDatos: now,
       autorizadoPorUid: actorUid,
       avisoPrivacidad: privacyNotice?.data,
-      soporteAutorizacion: resolvedReference,
+      soporteAutorizacion: reference,
       fechaCreacion: now,
       isSynced: false,
     );
@@ -475,25 +731,24 @@ class ProducerService {
     String? mobileEmail,
     String? mobilePassword,
   }) async {
-    final String cleanCode = codigoAsociado.trim().toUpperCase();
-    final String cleanCedula = cedula.trim();
-    final String cleanNombres = nombres.trim();
-    final String cleanApellidos = apellidos.trim();
-    final String cleanPhone = telefono.trim();
-    final String cleanFinca = nombreFinca.trim();
-    final String cleanVereda = vereda.trim();
-    final String cleanEstado = estado.trim().toUpperCase();
-
-    if (cleanCode.isEmpty ||
-        cleanCedula.length < 5 ||
-        cleanNombres.isEmpty ||
-        cleanApellidos.isEmpty ||
-        cleanFinca.isEmpty ||
-        cleanVereda.isEmpty) {
-      throw ProducerServiceException(
-        'Completa código, cédula, nombres, apellidos, finca y vereda del productor.',
-      );
-    }
+    final ProducerInput input = ProducerRules.normalize(
+      codigoAsociado: codigoAsociado,
+      cedula: cedula,
+      nombres: nombres,
+      apellidos: apellidos,
+      telefono: telefono,
+      nombreFinca: nombreFinca,
+      vereda: vereda,
+      estado: estado,
+    );
+    final String cleanCode = input.codigoAsociado;
+    final String cleanCedula = input.cedula;
+    final String cleanNombres = input.nombres;
+    final String cleanApellidos = input.apellidos;
+    final String cleanPhone = input.telefono;
+    final String cleanFinca = input.nombreFinca;
+    final String cleanVereda = input.vereda;
+    final String cleanEstado = input.estado;
 
     if (!aceptoHabeasData) {
       throw ProducerServiceException(
@@ -511,9 +766,10 @@ class ProducerService {
     if (createMobileAccount && (linkedUid == null || linkedUid.isEmpty)) {
       final String email = (mobileEmail ?? '').trim().toLowerCase();
       final String pass = mobilePassword ?? '';
-      if (!email.contains('@') || pass.length < 6) {
+      if (AppValidators.email(email) != null ||
+          AppValidators.password(pass) != null) {
         throw ProducerServiceException(
-          'Para habilitar acceso móvil ingresa un correo válido y contraseña de al menos 6 caracteres.',
+          'Para habilitar acceso móvil ingresa un correo válido y una contraseña de al menos 8 caracteres con letras y números.',
         );
       }
       linkedUid = await _accountLinker.linkOrCreateProducerAccount(
@@ -543,7 +799,11 @@ class ProducerService {
     );
 
     if (_remoteDataSource is FirestoreProducerDataSource) {
-      return _saveAuditedProducer(updated, previous: previous, actorUid: actorUid);
+      return _saveAuditedProducer(
+        updated,
+        previous: previous,
+        actorUid: actorUid,
+      );
     }
 
     try {
@@ -581,8 +841,12 @@ class ProducerService {
     );
 
     if (_remoteDataSource is FirestoreProducerDataSource) {
-      return _saveAuditedProducer(updated, previous: producer, actorUid: actorUid,
-          reason: 'Cambio de estado operativo del productor.');
+      return _saveAuditedProducer(
+        updated,
+        previous: producer,
+        actorUid: actorUid,
+        reason: 'Cambio de estado operativo del productor.',
+      );
     }
 
     try {
@@ -616,11 +880,19 @@ class ProducerService {
     String? reason,
   }) async {
     final source = _remoteDataSource as FirestoreProducerDataSource;
-    final saved = await source.saveAuditedProducer(producer, AuditLogModel(
-      logId: _uuid.v4(), entidadAfectada: AppConstants.producersCollection,
-      registroId: producer.productorId, accion: previous == null ? 'CREAR' : 'EDITAR',
-      usuarioUid: actorUid, motivo: reason, timestamp: DateTime.now().toUtc(),
-    ), previous: previous);
+    final saved = await source.saveAuditedProducer(
+      producer,
+      AuditLogModel(
+        logId: _uuid.v4(),
+        entidadAfectada: AppConstants.producersCollection,
+        registroId: producer.productorId,
+        accion: previous == null ? 'CREAR' : 'EDITAR',
+        usuarioUid: actorUid,
+        motivo: reason,
+        timestamp: DateTime.now().toUtc(),
+      ),
+      previous: previous,
+    );
     await _hiveService.upsertProducer(saved);
     return saved;
   }

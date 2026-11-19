@@ -13,6 +13,7 @@ import '../../models/milk_reception_model.dart';
 import '../../models/settlement_model.dart';
 import '../constants/app_constants.dart';
 import '../utils/formatters.dart';
+import 'file_export_service.dart';
 import 'report_service.dart';
 import 'settlement_calculator.dart';
 
@@ -22,11 +23,14 @@ class ReportExportService {
 
   static const CsvEncoder _excelCsvEncoder = CsvEncoder(addBom: true);
 
-  static const PdfColor _inkBlack = PdfColor.fromInt(0xFF0C3B24);
-  static const PdfColor _emerald = PdfColor.fromInt(0xFF168A3E);
-  static const PdfColor _mutedBg = PdfColor.fromInt(0xFFECF3EE);
-  static const PdfColor _border = PdfColor.fromInt(0xFFD5E4DA);
-  static const PdfColor _textSecondary = PdfColor.fromInt(0xFF395445);
+  // Paleta "Pradera".
+  static const PdfColor _inkBlack = PdfColor.fromInt(0xFF0B3B37);
+  static const PdfColor _emerald = PdfColor.fromInt(0xFF0F766E);
+  static const PdfColor _mutedBg = PdfColor.fromInt(0xFFE7F5F2);
+  static const PdfColor _border = PdfColor.fromInt(0xFFE2E7EA);
+  static const PdfColor _textSecondary = PdfColor.fromInt(0xFF4B5B61);
+  static const PdfColor _textPrimary = PdfColor.fromInt(0xFF0F1B1E);
+  static const PdfColor _zebra = PdfColor.fromInt(0xFFF7F9FA);
 
   /// Genera CSV UTF-8 con BOM para Excel con el resumen de producción por ganadero (`RF-17`, `RF-18`).
   static String buildProducerSummaryCsv(
@@ -336,7 +340,7 @@ class ReportExportService {
                     'Filtro de productor: $producerFilterLabel',
                     style: const pw.TextStyle(
                       fontSize: 9,
-                      color: PdfColor.fromInt(0xFFD1FAE5),
+                      color: PdfColor.fromInt(0xFFCDEAE4),
                     ),
                   ),
               ],
@@ -410,7 +414,7 @@ class ReportExportService {
           child: pw.Container(
             padding: const pw.EdgeInsets.all(9),
             decoration: pw.BoxDecoration(
-              color: const PdfColor.fromInt(0xFFE7F7EC),
+              color: _mutedBg,
               border: pw.Border.all(color: _emerald),
               borderRadius: pw.BorderRadius.circular(5),
             ),
@@ -535,6 +539,304 @@ class ReportExportService {
       oddRowDecoration: const pw.BoxDecoration(color: _mutedBg),
       border: pw.TableBorder.all(color: _border, width: 0.6),
       cellPadding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+    );
+  }
+  // ════════════════════════════════════════════════════════════════════
+  // Exportación genérica de un [ReportDataset] (PDF, Excel y CSV).
+  // ════════════════════════════════════════════════════════════════════
+
+  static pw.ThemeData? _cachedTheme;
+
+  /// Tipografía Inter (incluye tildes, ñ, flechas y signos). Si no se puede
+  /// cargar (p. ej. en pruebas sin assets) se usa la fuente estándar.
+  static Future<pw.ThemeData?> _pdfTheme() async {
+    if (_cachedTheme != null) return _cachedTheme;
+    try {
+      final ByteData regular = await rootBundle.load('assets/fonts/Inter-Regular.ttf');
+      final ByteData bold = await rootBundle.load('assets/fonts/Inter-SemiBold.ttf');
+      _cachedTheme = pw.ThemeData.withFont(base: pw.Font.ttf(regular), bold: pw.Font.ttf(bold));
+    } catch (_) {
+      _cachedTheme = null;
+    }
+    return _cachedTheme;
+  }
+
+  static XlsxCellType _xlsxType(ReportColumnType t) => switch (t) {
+        ReportColumnType.text => XlsxCellType.text,
+        ReportColumnType.integer => XlsxCellType.integer,
+        ReportColumnType.liters => XlsxCellType.liters,
+        ReportColumnType.money => XlsxCellType.money,
+        ReportColumnType.date => XlsxCellType.date,
+        ReportColumnType.percent => XlsxCellType.number,
+      };
+
+  /// Nombre base del archivo: "consolidado_de_recepcion_1ra_Quincena_Nov_2026".
+  static String datasetFileName(ReportDataset d, {String? suffix}) {
+    String clean(String s) => s
+        .replaceAll(RegExp(r'[áàä]'), 'a')
+        .replaceAll(RegExp(r'[éèë]'), 'e')
+        .replaceAll(RegExp(r'[íìï]'), 'i')
+        .replaceAll(RegExp(r'[óòö]'), 'o')
+        .replaceAll(RegExp(r'[úùü]'), 'u')
+        .replaceAll('ñ', 'n')
+        .replaceAll(RegExp(r'[^A-Za-z0-9]+'), '_')
+        .replaceAll(RegExp(r'^_+|_+$'), '');
+    final String base = clean(d.title.toLowerCase());
+    final String period = clean(d.periodLabel);
+    final String extra = suffix == null ? '' : '_${clean(suffix)}';
+    final String name = '${base}_$period$extra';
+    return name.length > 90 ? name.substring(0, 90) : name;
+  }
+
+  /// Hoja tabular para Excel/CSV. Los porcentajes se exportan en 0–100.
+  static TableSheet datasetToSheet(ReportDataset d, {String? filterLabel}) {
+    List<Object?> normalize(List<Object?> row) {
+      final List<Object?> out = <Object?>[];
+      for (int i = 0; i < d.columns.length; i++) {
+        final Object? v = i < row.length ? row[i] : null;
+        if (v is num && d.columns[i].type == ReportColumnType.percent) {
+          out.add(double.parse((v * 100).toStringAsFixed(1)));
+        } else {
+          out.add(v);
+        }
+      }
+      return out;
+    }
+
+    return TableSheet(
+      name: d.title,
+      title: '${AppConstants.appName} · ${d.title}',
+      subtitle: <String>[
+        'Período: ${d.periodLabel}',
+        if (filterLabel != null && filterLabel.isNotEmpty) filterLabel,
+        if (d.subtitle != null) d.subtitle!,
+        'Generado: ${AppFormatters.formatDateTime(DateTime.now())}',
+      ].join(' · '),
+      columns: <XlsxColumn>[
+        for (final ReportColumn c in d.columns)
+          XlsxColumn(
+            c.type == ReportColumnType.percent ? '${c.header} (%)' : c.header,
+            type: _xlsxType(c.type),
+            width: (10 + c.flex * 5).toDouble().clamp(10, 48),
+          ),
+      ],
+      rows: d.rows.map(normalize).toList(),
+      totals: d.totals == null ? null : normalize(d.totals!),
+    );
+  }
+
+  static Future<Uint8List> exportDataset(
+    ReportDataset d,
+    ExportFormat format, {
+    String? filterLabel,
+    String? generatedBy,
+  }) async {
+    switch (format) {
+      case ExportFormat.pdf:
+        return buildDatasetPdf(d, filterLabel: filterLabel, generatedBy: generatedBy);
+      case ExportFormat.xlsx:
+        return XlsxBuilder.build(<TableSheet>[datasetToSheet(d, filterLabel: filterLabel)]);
+      case ExportFormat.csv:
+        return CsvBuilder.build(datasetToSheet(d, filterLabel: filterLabel));
+    }
+  }
+
+  /// PDF institucional de cualquier reporte del catálogo.
+  static Future<Uint8List> buildDatasetPdf(
+    ReportDataset d, {
+    String? filterLabel,
+    String? generatedBy,
+    Uint8List? logoBytes,
+  }) async {
+    final pw.ThemeData? theme = await _pdfTheme();
+    final Uint8List? logo = logoBytes ?? await _tryLoadLogoBytes();
+    final pw.MemoryImage? logoImage = logo == null ? null : pw.MemoryImage(logo);
+    final bool landscape = d.columns.length > 7;
+    final pw.Document pdf = pw.Document(
+      title: '${d.title} · ${d.periodLabel}',
+      author: AppConstants.appName,
+      theme: theme,
+    );
+
+    final int totalFlex = d.columns.fold<int>(0, (int s, ReportColumn c) => s + c.flex);
+    final Map<int, pw.TableColumnWidth> widths = <int, pw.TableColumnWidth>{
+      for (int i = 0; i < d.columns.length; i++) i: pw.FlexColumnWidth(d.columns[i].flex / totalFlex * 10),
+    };
+    final Map<int, pw.Alignment> aligns = <int, pw.Alignment>{
+      for (int i = 0; i < d.columns.length; i++)
+        i: d.columns[i].alignRight ? pw.Alignment.centerRight : pw.Alignment.centerLeft,
+    };
+    List<String> fmt(List<Object?> row) => <String>[
+          for (int i = 0; i < d.columns.length; i++)
+            ReportDataset.formatCell(i < row.length ? row[i] : null, d.columns[i].type),
+        ];
+    final int totalsRow = d.rows.length + 1;
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: landscape ? PdfPageFormat.letter.landscape : PdfPageFormat.letter,
+        margin: const pw.EdgeInsets.fromLTRB(28, 26, 28, 26),
+        footer: (pw.Context ctx) => pw.Container(
+          margin: const pw.EdgeInsets.only(top: 8),
+          padding: const pw.EdgeInsets.only(top: 6),
+          decoration: const pw.BoxDecoration(
+            border: pw.Border(top: pw.BorderSide(color: _border, width: 0.6)),
+          ),
+          child: pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: <pw.Widget>[
+              pw.Text(
+                '${AppConstants.appName} · ${d.title} · ${d.periodLabel}',
+                style: const pw.TextStyle(fontSize: 7.5, color: _textSecondary),
+              ),
+              pw.Text(
+                'Página ${ctx.pageNumber} de ${ctx.pagesCount}',
+                style: const pw.TextStyle(fontSize: 7.5, color: _textSecondary),
+              ),
+            ],
+          ),
+        ),
+        build: (pw.Context context) => <pw.Widget>[
+          _institutionalHeader(
+            title: d.title,
+            lines: <String>[
+              'Período: ${d.periodLabel}',
+              if (filterLabel != null && filterLabel.isNotEmpty) filterLabel,
+              if (d.subtitle != null) d.subtitle!,
+            ],
+            generatedBy: generatedBy,
+            logo: logoImage,
+          ),
+          if (d.kpis.isNotEmpty) ...<pw.Widget>[
+            pw.SizedBox(height: 12),
+            _kpiStrip(d.kpis),
+          ],
+          pw.SizedBox(height: 14),
+          if (d.rows.isEmpty)
+            pw.Container(
+              padding: const pw.EdgeInsets.all(14),
+              decoration: pw.BoxDecoration(
+                border: pw.Border.all(color: _border),
+                borderRadius: pw.BorderRadius.circular(4),
+              ),
+              child: pw.Text(d.emptyMessage, style: const pw.TextStyle(fontSize: 9.5, color: _textSecondary)),
+            )
+          else
+            pw.TableHelper.fromTextArray(
+              headers: d.columns.map((ReportColumn c) => c.header.toUpperCase()).toList(),
+              data: <List<String>>[
+                ...d.rows.map(fmt),
+                if (d.totals != null) fmt(d.totals!),
+              ],
+              columnWidths: widths,
+              headerAlignments: aligns,
+              cellAlignments: aligns,
+              headerStyle: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold, color: PdfColors.white),
+              headerDecoration: const pw.BoxDecoration(color: _emerald),
+              cellStyle: const pw.TextStyle(fontSize: 7.8, color: _textPrimary),
+              oddRowDecoration: const pw.BoxDecoration(color: _zebra),
+              border: const pw.TableBorder(
+                horizontalInside: pw.BorderSide(color: _border, width: 0.5),
+                bottom: pw.BorderSide(color: _border, width: 0.5),
+              ),
+              cellPadding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 4),
+              cellDecoration: (int index, dynamic data, int rowNum) =>
+                  d.totals != null && rowNum == totalsRow
+                      ? const pw.BoxDecoration(color: _mutedBg)
+                      : const pw.BoxDecoration(),
+            ),
+        ],
+      ),
+    );
+    return pdf.save();
+  }
+
+  static pw.Widget _institutionalHeader({
+    required String title,
+    required List<String> lines,
+    String? generatedBy,
+    pw.MemoryImage? logo,
+  }) {
+    const PdfColor soft = PdfColor.fromInt(0xFFCDEAE4);
+    return pw.Container(
+      padding: const pw.EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: pw.BoxDecoration(color: _inkBlack, borderRadius: pw.BorderRadius.circular(6)),
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.center,
+        children: <pw.Widget>[
+          if (logo != null) ...<pw.Widget>[
+            pw.SizedBox(width: 40, height: 40, child: pw.Image(logo, fit: pw.BoxFit.contain)),
+            pw.SizedBox(width: 12),
+          ],
+          pw.Expanded(
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: <pw.Widget>[
+                pw.Text(
+                  '${AppConstants.appName} · ${AppConstants.appTagline}',
+                  style: const pw.TextStyle(fontSize: 7.5, color: soft),
+                ),
+                pw.SizedBox(height: 2),
+                pw.Text(
+                  title,
+                  style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: PdfColors.white),
+                ),
+                pw.SizedBox(height: 3),
+                for (final String l in lines) pw.Text(l, style: const pw.TextStyle(fontSize: 8.5, color: soft)),
+              ],
+            ),
+          ),
+          pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.end,
+            children: <pw.Widget>[
+              pw.Text('Generado', style: const pw.TextStyle(fontSize: 7.5, color: soft)),
+              pw.Text(
+                AppFormatters.formatDateTime(DateTime.now()),
+                style: pw.TextStyle(fontSize: 8.5, color: PdfColors.white, fontWeight: pw.FontWeight.bold),
+              ),
+              if (generatedBy != null && generatedBy.isNotEmpty)
+                pw.Text(generatedBy, style: const pw.TextStyle(fontSize: 7.5, color: soft)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  static pw.Widget _kpiStrip(List<ReportKpi> kpis) {
+    return pw.Container(
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: _border),
+        borderRadius: pw.BorderRadius.circular(5),
+      ),
+      child: pw.Row(
+        children: <pw.Widget>[
+          for (int i = 0; i < kpis.length; i++)
+            pw.Expanded(
+              child: pw.Container(
+                padding: const pw.EdgeInsets.fromLTRB(10, 8, 10, 8),
+                decoration: i == 0
+                    ? null
+                    : const pw.BoxDecoration(
+                        border: pw.Border(left: pw.BorderSide(color: _border, width: 0.6)),
+                      ),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: <pw.Widget>[
+                    pw.Text(kpis[i].label, style: const pw.TextStyle(fontSize: 7.2, color: _textSecondary)),
+                    pw.SizedBox(height: 3),
+                    pw.Text(
+                      kpis[i].value,
+                      style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: _inkBlack),
+                    ),
+                    if (kpis[i].hint != null)
+                      pw.Text(kpis[i].hint!, style: const pw.TextStyle(fontSize: 6.8, color: _textSecondary)),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

@@ -1,0 +1,50 @@
+// Copia parchada de flutter_tts 4.2.5 para Kotlin integrado de AGP 9:
+// se quitó `apply plugin: 'kotlin-android'` y el classpath de KGP, que Flutter
+// dejará de soportar. Eliminar este override cuando el autor publique la corrección.
+def args = ["-Xlint:deprecation"]
+
+group 'com.eyedeadevelopment.fluttertts'
+version '1.0-SNAPSHOT'
+
+rootProject.allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+project.getTasks().withType(JavaCompile).configureEach {
+    options.compilerArgs.addAll(args)
+}
+
+apply plugin: 'com.android.library'
+
+android {
+    compileSdk 36
+    namespace 'com.eyedeadevelopment.fluttertts'
+
+    defaultConfig {
+        minSdkVersion 24
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    lintOptions {
+        disable 'InvalidPackage'
+        disable 'GradleDependency'
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+    }
+}
+
+repositories {
+    mavenCentral()
+}

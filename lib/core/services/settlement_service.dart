@@ -9,6 +9,7 @@ import '../../models/producer_model.dart';
 import '../../models/settlement_model.dart';
 import '../../models/user_model.dart';
 import '../constants/app_constants.dart';
+import '../security/permissions.dart';
 import '../utils/formatters.dart';
 import 'hive_service.dart';
 import 'firebase_callable.dart';
@@ -219,9 +220,9 @@ class SettlementService {
     List<SettlementModel>? existingSettlements,
     bool blockIfUnsynced = true,
   }) async {
-    if (!actor.isAdmin) {
+    if (!actor.can(Permissions.liquidaciones, PermAction.crear)) {
       throw SettlementServiceException(
-        'Solo el Administrador Central puede ejecutar el cierre quincenal.',
+        'Tu usuario no tiene permiso para cerrar quincenas.',
       );
     }
 
@@ -391,9 +392,9 @@ class SettlementService {
     required String observacionPago,
     DateTime? fechaPago,
   }) async {
-    if (!actor.isAdmin) {
+    if (!actor.can(Permissions.liquidaciones, PermAction.editar)) {
       throw SettlementServiceException(
-        'Solo el Administrador Central puede confirmar desembolsos.',
+        'Tu usuario no tiene permiso para registrar pagos.',
       );
     }
     if (settlement.isPagada) {

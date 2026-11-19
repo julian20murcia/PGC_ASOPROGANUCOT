@@ -43,6 +43,10 @@ class ReportController extends ChangeNotifier {
   MilkRateModel? _activeRate;
   List<AuditLogModel> _auditLogs = <AuditLogModel>[];
 
+  ReportKind _selectedReport = ReportKind.consolidated;
+  String? _shiftFilter;
+  bool _hasLoaded = false;
+
   String _auditEntityFilter = 'TODOS';
   String _auditSearchQuery = '';
   bool _isLoading = false;
@@ -61,6 +65,80 @@ class ReportController extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
 
   double get effectivePricePerLiter => _activeRate?.precioPorLitro ?? 0;
+
+  ReportKind get selectedReport => _selectedReport;
+  String? get shiftFilter => _shiftFilter;
+  bool get hasLoaded => _hasLoaded;
+  List<MilkReceptionModel> get allReceptions => List<MilkReceptionModel>.unmodifiable(_receptions);
+  List<SettlementModel> get allSettlements => List<SettlementModel>.unmodifiable(_settlements);
+  List<AuditLogModel> get auditLogs => List<AuditLogModel>.unmodifiable(_auditLogs);
+
+  /// Datos del reporte seleccionado en el catálogo con los filtros vigentes.
+  ReportDataset buildDataset({Map<String, String> userNames = const <String, String>{}}) {
+    switch (_selectedReport) {
+      case ReportKind.consolidated:
+        return ReportCatalog.consolidated(
+          period: _selectedPeriod,
+          receptions: _receptions,
+          producerId: _selectedProducerId,
+          shift: _shiftFilter,
+        );
+      case ReportKind.producerSummary:
+        return ReportCatalog.producerSummary(
+          period: _selectedPeriod,
+          receptions: _receptions,
+          producers: _producers,
+          settlements: _settlements,
+          activePricePerLiter: effectivePricePerLiter,
+          producerId: _selectedProducerId,
+        );
+      case ReportKind.settlements:
+        return ReportCatalog.settlementsReport(
+          period: _selectedPeriod,
+          settlements: _settlements,
+          producerId: _selectedProducerId,
+        );
+      case ReportKind.shiftComparison:
+        return ReportCatalog.shiftComparison(
+          period: _selectedPeriod,
+          receptions: _receptions,
+          producerId: _selectedProducerId,
+        );
+      case ReportKind.inactiveProducers:
+        return ReportCatalog.inactiveProducers(
+          period: _selectedPeriod,
+          receptions: _receptions,
+          producers: _producers,
+        );
+      case ReportKind.corrections:
+        return ReportCatalog.corrections(
+          period: _selectedPeriod,
+          receptions: _receptions,
+          auditLogs: _auditLogs,
+          userNames: userNames,
+          producerId: _selectedProducerId,
+        );
+    }
+  }
+
+  void selectReport(ReportKind kind) {
+    if (_selectedReport == kind) return;
+    _selectedReport = kind;
+    notifyListeners();
+  }
+
+  /// `MANANA`, `TARDE` o null (ambas jornadas).
+  void setShiftFilter(String? shift) {
+    _shiftFilter = shift;
+    notifyListeners();
+  }
+
+  /// Carga los datos solo la primera vez (o si se fuerza).
+  Future<void> ensureLoaded({bool force = false}) async {
+    if (_isLoading) return;
+    if (_hasLoaded && !force) return;
+    await loadAll();
+  }
 
   List<ProducerProductionSummary> get producerSummaries =>
       ReportService.buildProducerSummaries(
@@ -143,7 +221,7 @@ class ReportController extends ChangeNotifier {
       final prodRes = await _producerService.listProducers();
       final rateRes = await _rateService.listRates();
       final setRes = await _settlementService.listSettlements();
-      final List<AuditLogModel> logs = await _reportService.listAuditLogs();
+      final List<AuditLogModel> logs = await _reportService.listAuditLogs(limit: 1000);
 
       _receptions = recRes.receptions;
       _producers = prodRes.producers;
@@ -153,6 +231,7 @@ class ReportController extends ChangeNotifier {
       );
       _settlements = setRes.settlements;
       _auditLogs = logs;
+      _hasLoaded = true;
     } catch (e) {
       _errorMessage = e.toString();
     } finally {
@@ -172,6 +251,16 @@ class ReportController extends ChangeNotifier {
   void setCustomPeriod(DateTime start, DateTime end) {
     _rangeType = ReportRangeType.custom;
     _selectedPeriod = QuincenaPeriod.custom(start, end);
+    notifyListeners();
+  }
+
+  /// Rango libre con etiqueta legible (p. ej. "1 – 15 nov 2026").
+  void setPeriodRange(DateTime start, DateTime end, {String? label}) {
+    final QuincenaPeriod p = QuincenaPeriod.custom(start, end);
+    _rangeType = ReportRangeType.custom;
+    _selectedPeriod = label == null
+        ? p
+        : QuincenaPeriod(startDate: p.startDate, endDate: p.endDate, label: label);
     notifyListeners();
   }
 

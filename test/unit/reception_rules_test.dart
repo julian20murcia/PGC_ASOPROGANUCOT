@@ -8,6 +8,8 @@ import 'package:pgc_asoproganucot/models/audit_log_model.dart';
 import 'package:pgc_asoproganucot/models/milk_reception_model.dart';
 import 'package:pgc_asoproganucot/models/producer_model.dart';
 import 'package:pgc_asoproganucot/models/user_model.dart';
+import 'package:pgc_asoproganucot/views/desktop/reception/reception_grid_logic.dart';
+import 'package:pgc_asoproganucot/views/shared/widgets/app_date_range_picker.dart';
 
 class _InMemoryRemoteReceptionDataSource implements RemoteReceptionDataSource {
   final Map<String, MilkReceptionModel> remoteDocs =
@@ -311,6 +313,7 @@ void main() {
       expect(ctrl.quincenaTotalLiters, 42.5);
     });
 
+    // Prueba de la matriz por quincena incorporada desde main.
     test('Agrupa planilla por productor y días, filtra por jornada, navega quincenas y registra por fecha', () async {
       final HiveService memoryHive = HiveService(enablePersistence: false);
       final _InMemoryRemoteReceptionDataSource remoteRec =
@@ -406,6 +409,120 @@ void main() {
       ctrl.nextMatrixQuincena();
       expect(ctrl.matrixQuincenaLabel, currentLabel);
       expect(ctrl.isCurrentMatrixQuincena, isTrue);
+    });
+
+    test('Carga por rango arbitrario, KPIs del rango y registro/corrección desde la planilla', () async {
+      final HiveService memoryHive = HiveService(enablePersistence: false);
+      final _InMemoryRemoteReceptionDataSource remoteRec =
+          _InMemoryRemoteReceptionDataSource();
+      final ReceptionService receptionService = ReceptionService(
+        hiveService: memoryHive,
+        remoteDataSource: remoteRec,
+      );
+      final ReceptionController ctrl = ReceptionController(
+        hiveService: memoryHive,
+        receptionService: receptionService,
+        producerService: ProducerService(
+          hiveService: memoryHive,
+          remoteDataSource: _InMemoryProducerDataSource(<ProducerModel>[activeProducer]),
+        ),
+      );
+
+      MilkReceptionModel remote(String id, String fecha, String jornada, double litros) =>
+          MilkReceptionModel(
+            recepcionId: id,
+            productorId: activeProducer.productorId,
+            codigoAsociadoSnap: activeProducer.codigoAsociado,
+            nombreProductorSnap: activeProducer.nombreCompleto,
+            litros: litros,
+            fechaEntrega: fecha,
+            horaEntrega: '06:00:00',
+            jornada: jornada,
+            operarioUid: operarioActor.uid,
+            isSynced: true,
+            syncStatus: AppConstants.syncSynced,
+            createdAt: DateTime.utc(2026, 11, 1),
+          );
+      remoteRec.remoteDocs['r1'] = remote('r1', '2026-11-01', AppConstants.shiftMorning, 10);
+      remoteRec.remoteDocs['r2'] = remote('r2', '2026-11-05', AppConstants.shiftAfternoon, 7.5);
+      remoteRec.remoteDocs['r3'] = remote('r3', '2026-11-20', AppConstants.shiftMorning, 99);
+
+      await ctrl.loadRange(DateRangeValue(DateTime(2026, 11, 1), DateTime(2026, 11, 15)));
+      expect(ctrl.rangeReceptions.map((MilkReceptionModel r) => r.recepcionId).toSet(), <String>{'r1', 'r2'});
+      expect(ctrl.rangeTotalLiters, 17.5);
+      expect(ctrl.rangeMorningLiters, 10);
+      expect(ctrl.rangeAfternoonLiters, 7.5);
+      expect(ctrl.rangeDeliveriesCount, 2);
+      expect(ctrl.rangeProducersDelivered, 1);
+      expect(ctrl.filteredReceptions.first.recepcionId, 'r2'); // más reciente primero
+
+      // Sin red: usa la caché Hive del rango.
+      remoteRec.shouldFail = true;
+      await ctrl.loadRange(DateRangeValue(DateTime(2026, 11, 1), DateTime(2026, 11, 2)));
+      expect(ctrl.isFromOfflineCache, isTrue);
+      expect(ctrl.rangeReceptions.single.recepcionId, 'r1');
+      remoteRec.shouldFail = false;
+
+      // Registro desde la planilla en un día pasado (Tarde) sin tocar la captura rápida.
+      final res = await ctrl.registerCellDelivery(
+        producer: activeProducer,
+        day: DateTime(2026, 11, 2),
+        jornada: AppConstants.shiftAfternoon,
+        litros: 12.5,
+        operarioUid: operarioActor.uid,
+        now: DateTime(2026, 11, 18, 9),
+      );
+      expect(res.saved, isTrue);
+      expect(ctrl.selectedProducer, isNull);
+      final MilkReceptionModel created = ctrl.rangeReceptions
+          .firstWhere((MilkReceptionModel r) => r.fechaEntrega == '2026-11-02');
+      expect(created.jornada, AppConstants.shiftAfternoon);
+
+      // Duplicado y fecha futura se rechazan sin guardar.
+      final dup = await ctrl.registerCellDelivery(
+        producer: activeProducer,
+        day: DateTime(2026, 11, 2),
+        jornada: AppConstants.shiftAfternoon,
+        litros: 3,
+        operarioUid: operarioActor.uid,
+        now: DateTime(2026, 11, 18, 9),
+      );
+      expect(dup.saved, isFalse);
+      expect(dup.duplicateFound?.recepcionId, created.recepcionId);
+      final future = await ctrl.registerCellDelivery(
+        producer: activeProducer,
+        day: DateTime(2026, 11, 19),
+        jornada: AppConstants.shiftMorning,
+        litros: 3,
+        operarioUid: operarioActor.uid,
+        now: DateTime(2026, 11, 18, 9),
+      );
+      expect(future.saved, isFalse);
+      expect(future.error, isNotNull);
+
+      // Corrección auditada con motivo automático.
+      final bool ok = await ctrl.editDeliveryLitros(
+        existing: ctrl.rangeReceptions.firstWhere((MilkReceptionModel r) => r.recepcionId == 'r1'),
+        nuevosLitros: 14,
+        motivo: autoCorrectionReason(10, 14),
+        actor: adminActor,
+      );
+      expect(ok, isTrue);
+      final MilkReceptionModel r1 =
+          ctrl.rangeReceptions.firstWhere((MilkReceptionModel r) => r.recepcionId == 'r1');
+      expect(r1.litros, 14);
+      expect(ctrl.isCorrected(r1), isTrue);
+      expect(
+        remoteRec.auditLogs.any(
+          (AuditLogModel l) => l.accion == 'EDITAR' && (l.motivo ?? '').length >= 5,
+        ),
+        isTrue,
+      );
+
+      // Cambiar de rango conserva los días cargados fuera de él.
+      await ctrl.loadRange(DateRangeValue(DateTime(2026, 11, 20), DateTime(2026, 11, 20)));
+      expect(ctrl.rangeReceptions.single.recepcionId, 'r3');
+      expect(ctrl.allReceptions.any((MilkReceptionModel r) => r.recepcionId == 'r1'), isTrue);
     });
   });
 }
