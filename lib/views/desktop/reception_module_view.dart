@@ -6,6 +6,7 @@ import '../../controllers/auth_controller.dart';
 import '../../controllers/reception_controller.dart';
 import '../../controllers/user_controller.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/services/voice_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/milk_reception_model.dart';
 import '../../models/producer_model.dart';
@@ -85,6 +86,7 @@ class _ReceptionModuleViewState extends State<ReceptionModuleView> {
           '${producer.codigoAsociado} · ${producer.nombreCompleto}';
     });
     _litersFocus.requestFocus();
+    VoiceService.instance.speak(producer.nombreCompleto);
   }
 
   void _clearSelectedProducer() {
@@ -132,6 +134,8 @@ class _ReceptionModuleViewState extends State<ReceptionModuleView> {
     }
 
     final String operarioUid = auth.currentUser?.uid ?? 'operario';
+    final String? spokenName = ctrl.selectedProducer?.nombreCompleto;
+    final bool spokenMorning = ctrl.selectedShift == AppConstants.shiftMorning;
     final result = await ctrl.registerDelivery(
       litros: liters,
       operarioUid: operarioUid,
@@ -141,6 +145,10 @@ class _ReceptionModuleViewState extends State<ReceptionModuleView> {
     if (!mounted) return;
 
     if (result.duplicateFound != null) {
+      VoiceService.instance.speak(
+        'Atención: posible entrega duplicada de '
+        '${result.duplicateFound!.nombreProductorSnap}',
+      );
       final bool? confirm = await showDialog<bool>(
         context: context,
         barrierDismissible: false,
@@ -156,6 +164,12 @@ class _ReceptionModuleViewState extends State<ReceptionModuleView> {
     }
 
     if (result.saved) {
+      if (spokenName != null) {
+        VoiceService.instance.speak(
+          'Registrado: ${VoiceService.spokenLiters(liters)} litros, '
+          '$spokenName, jornada ${spokenMorning ? 'mañana' : 'tarde'}',
+        );
+      }
       _producerInputCtrl.clear();
       _litersCtrl.clear();
       setState(() => _producerInputQuery = '');
@@ -543,7 +557,7 @@ class _ReceptionModuleViewState extends State<ReceptionModuleView> {
                     ],
                   ),
                 ),
-                if (!isNarrow)
+                if (!isNarrow) ...<Widget>[
                   const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
@@ -558,6 +572,9 @@ class _ReceptionModuleViewState extends State<ReceptionModuleView> {
                       ),
                     ],
                   ),
+                  const SizedBox(width: 12),
+                ],
+                const _VoiceToggle(),
               ],
             ),
           ),
@@ -1616,6 +1633,72 @@ class _AuditCorrectionDialogState extends State<_AuditCorrectionDialog> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Interruptor para activar o silenciar la lectura en voz alta del productor.
+class _VoiceToggle extends StatelessWidget {
+  const _VoiceToggle();
+
+  @override
+  Widget build(BuildContext context) {
+    final VoiceService voice = VoiceService.instance;
+    return ListenableBuilder(
+      listenable: voice,
+      builder: (BuildContext context, _) {
+        final bool on = voice.enabled;
+        return Tooltip(
+          message: on
+              ? 'Lectura en voz alta activada: dice el nombre del productor. Clic para silenciar.'
+              : 'Lectura en voz alta silenciada. Clic para activar.',
+          child: Material(
+            color: on ? AppTheme.primaryGreenLight : AppTheme.surfaceMuted,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+              side: BorderSide(
+                color: on
+                    ? AppTheme.primaryGreen.withValues(alpha: 0.35)
+                    : AppTheme.border,
+              ),
+            ),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+              onTap: () {
+                voice.toggle();
+                if (voice.enabled) voice.speak('Lectura en voz alta activada');
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Icon(
+                      on
+                          ? Icons.record_voice_over_rounded
+                          : Icons.voice_over_off_rounded,
+                      size: 16,
+                      color: on ? AppTheme.primaryGreen : AppTheme.textMuted,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      on ? 'Voz' : 'Silencio',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: on ? AppTheme.successText : AppTheme.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
