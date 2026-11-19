@@ -15,6 +15,7 @@ import 'package:pgc_asoproganucot/core/theme/app_theme.dart';
 import 'package:pgc_asoproganucot/models/audit_log_model.dart';
 import 'package:pgc_asoproganucot/models/milk_reception_model.dart';
 import 'package:pgc_asoproganucot/models/producer_model.dart';
+import 'package:pgc_asoproganucot/views/desktop/reception/reception_records_table.dart';
 import 'package:pgc_asoproganucot/views/desktop/reception_module_view.dart';
 import 'package:provider/provider.dart';
 
@@ -174,8 +175,12 @@ void main() {
       // Registros: la vista lista ambas entregas.
       await tester.tap(find.text('Registros'));
       await tester.pumpAndSettle();
-      expect(find.text('20 L'), findsOneWidget);
-      expect(find.text('15,5 L'), findsOneWidget);
+      // Se busca dentro de la tabla: los indicadores (Mañana/Tarde) pueden
+      // mostrar el mismo valor según la hora en que corre la prueba.
+      Finder inTable(String text) =>
+          find.descendant(of: find.byType(ReceptionRecordsTable), matching: find.text(text));
+      expect(inTable('20 L'), findsOneWidget);
+      expect(inTable('15,5 L'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
