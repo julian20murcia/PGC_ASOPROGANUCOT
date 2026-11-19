@@ -18,6 +18,7 @@ import '../shared/widgets/app_select.dart';
 import '../shared/widgets/dairy_loader.dart';
 import '../shared/widgets/design_system_widgets.dart';
 import '../shared/widgets/privacy_notice_view.dart';
+import '../shared/widgets/ui_kit.dart';
 
 /// Portal móvil exclusivo de solo lectura para Productores / Ganaderos en campo
 /// (`RF-19` a `RF-24`, `RNF-02`, `RNF-05`, `HU-10` a `HU-14`).
@@ -41,8 +42,9 @@ class _ProducerShellViewState extends State<ProducerShellView> {
       return context.watch<ProducerPortalController>();
     } on ProviderNotFoundException {
       _usesFallbackCtrl = true;
-      return _fallbackCtrl ??=
-          ProducerPortalController.createDefault(enablePersistence: false);
+      return _fallbackCtrl ??= ProducerPortalController.createDefault(
+        enablePersistence: false,
+      );
     }
   }
 
@@ -66,6 +68,13 @@ class _ProducerShellViewState extends State<ProducerShellView> {
     super.dispose();
   }
 
+  static String _greeting() {
+    final int h = DateTime.now().hour;
+    if (h < 12) return 'Buenos días';
+    if (h < 19) return 'Buenas tardes';
+    return 'Buenas noches';
+  }
+
   void _goToNoticesTab() {
     setState(() {
       _tabIndex = 2;
@@ -85,10 +94,7 @@ class _ProducerShellViewState extends State<ProducerShellView> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
-      builder: (_) => _ProducerProfileSheet(
-        portal: portal,
-        user: user,
-      ),
+      builder: (_) => _ProducerProfileSheet(portal: portal, user: user),
     );
   }
 
@@ -108,7 +114,7 @@ class _ProducerShellViewState extends State<ProducerShellView> {
         body: Column(
           children: <Widget>[
             ModernWaveHeader(
-              height: 204 + topInset,
+              height: 216 + topInset,
               padding: EdgeInsets.fromLTRB(18, topInset + 10, 18, 60),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -125,7 +131,9 @@ class _ProducerShellViewState extends State<ProducerShellView> {
                       Expanded(
                         child: Text(
                           AppConstants.appName,
-                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                          softWrap: false,
+                          overflow: TextOverflow.fade,
                           style: GoogleFonts.inter(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
@@ -134,91 +142,32 @@ class _ProducerShellViewState extends State<ProducerShellView> {
                           ),
                         ),
                       ),
-                      IconButton(
+                      _HeaderAction(
                         tooltip: 'Actualizar datos',
+                        icon: Icons.refresh_rounded,
                         onPressed: portal.isLoading
                             ? null
                             : () => portal.loadPortalForUser(user),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints.tightFor(
-                          width: 34,
-                          height: 34,
-                        ),
-                        icon: const Icon(
-                          Icons.refresh_rounded,
-                          color: Colors.white,
-                          size: 20,
-                        ),
                       ),
-                      Stack(
-                        clipBehavior: Clip.none,
-                        children: <Widget>[
-                          IconButton(
-                            tooltip: 'Avisos y comunicados',
-                            onPressed: _goToNoticesTab,
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints.tightFor(
-                              width: 34,
-                              height: 34,
-                            ),
-                            icon: const Icon(
-                              Icons.notifications_none_rounded,
-                              color: Colors.white,
-                              size: 21,
-                            ),
-                          ),
-                          if (unreadCount > 0)
-                            Positioned(
-                              right: 2,
-                              top: 2,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 5,
-                                  vertical: 1,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.warmGold,
-                                  borderRadius: BorderRadius.circular(99),
-                                ),
-                                child: Text(
-                                  unreadCount > 9 ? '9+' : '$unreadCount',
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w800,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
+                      const SizedBox(width: 5),
+                      _HeaderAction(
+                        tooltip: 'Avisos y comunicados',
+                        icon: Icons.notifications_none_rounded,
+                        badgeCount: unreadCount,
+                        onPressed: _goToNoticesTab,
                       ),
-                      IconButton(
+                      const SizedBox(width: 5),
+                      _HeaderAction(
                         tooltip: 'Mi perfil y Habeas Data',
+                        icon: Icons.account_circle_outlined,
+                        iconColor: const Color(0xFF86EFAC),
                         onPressed: () => _openProfileSheet(ctx, portal, user),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints.tightFor(
-                          width: 34,
-                          height: 34,
-                        ),
-                        icon: const Icon(
-                          Icons.account_circle_outlined,
-                          color: Color(0xFF86EFAC),
-                          size: 22,
-                        ),
                       ),
-                      IconButton(
+                      const SizedBox(width: 5),
+                      _HeaderAction(
                         tooltip: 'Cerrar sesión',
+                        icon: Icons.logout_rounded,
                         onPressed: auth.signOut,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints.tightFor(
-                          width: 34,
-                          height: 34,
-                        ),
-                        icon: const Icon(
-                          Icons.logout_rounded,
-                          color: Colors.white,
-                          size: 20,
-                        ),
                       ),
                     ],
                   ),
@@ -226,6 +175,14 @@ class _ProducerShellViewState extends State<ProducerShellView> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
+                      Text(
+                        _greeting(),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFFA7F3D0),
+                        ),
+                      ),
                       Text(
                         'Hola, ${producer?.nombreCompleto ?? user.nombreCompleto}',
                         maxLines: 1,
@@ -282,7 +239,8 @@ class _ProducerShellViewState extends State<ProducerShellView> {
               ),
             ),
             Expanded(
-              child: portal.isLoading &&
+              child:
+                  portal.isLoading &&
                       producer == null &&
                       portal.allReceptions.isEmpty
                   ? const Center(
@@ -324,20 +282,26 @@ class _ProducerShellViewState extends State<ProducerShellView> {
           ),
           child: NavigationBar(
             backgroundColor: AppTheme.surface,
-            indicatorColor: AppTheme.primaryGreen,
+            indicatorColor: AppTheme.primaryGreenLight,
+            height: 68,
             selectedIndex: _tabIndex,
             onDestinationSelected: (int index) =>
                 setState(() => _tabIndex = index),
             destinations: <NavigationDestination>[
               const NavigationDestination(
                 icon: Icon(Icons.home_outlined, color: AppTheme.primaryGreen),
-                selectedIcon: Icon(Icons.home_rounded, color: Colors.white),
+                selectedIcon: Icon(
+                  Icons.home_rounded,
+                  color: AppTheme.primaryGreen,
+                ),
                 label: 'Resumen',
               ),
               const NavigationDestination(
                 icon: Icon(Icons.water_drop_outlined, color: AppTheme.skyBlue),
-                selectedIcon:
-                    Icon(Icons.water_drop_rounded, color: Colors.white),
+                selectedIcon: Icon(
+                  Icons.water_drop_rounded,
+                  color: AppTheme.skyBlue,
+                ),
                 label: 'Mis Entregas',
               ),
               NavigationDestination(
@@ -352,7 +316,7 @@ class _ProducerShellViewState extends State<ProducerShellView> {
                 ),
                 selectedIcon: const Icon(
                   Icons.notifications_rounded,
-                  color: Colors.white,
+                  color: AppTheme.warmGold,
                 ),
                 label: 'Liquidaciones',
               ),
@@ -425,138 +389,174 @@ class _ProducerSummaryTab extends StatelessWidget {
           ],
           // Tarjeta principal: Acumulado Quincenal y Proyectado
           Container(
-            padding: const EdgeInsets.all(18),
+            padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
             decoration: BoxDecoration(
-              color: AppTheme.surface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: AppTheme.skyBlue.withValues(alpha: 0.30),
-                width: 1.2,
+              borderRadius: BorderRadius.circular(16),
+              gradient: const LinearGradient(
+                colors: <Color>[Color(0xFF0369A1), AppTheme.skyBlue],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
+              boxShadow: const <BoxShadow>[
+                BoxShadow(
+                  color: Color(0x290284C7),
+                  blurRadius: 14,
+                  offset: Offset(0, 5),
+                ),
+              ],
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            clipBehavior: Clip.antiAlias,
+            child: Stack(
+              clipBehavior: Clip.none,
               children: <Widget>[
-                Row(
+                Positioned(
+                  right: -14,
+                  top: -10,
+                  child: Icon(
+                    Icons.water_drop_rounded,
+                    size: 110,
+                    color: Colors.white.withValues(alpha: 0.08),
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: AppTheme.skyBlueLight,
-                        borderRadius: BorderRadius.circular(9),
-                      ),
-                      child: const Icon(
-                        Icons.water_drop_rounded,
-                        color: AppTheme.skyBlue,
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(
-                            'Acopio Quincenal',
-                            style: AppTheme.subtitleStyle(),
+                    Row(
+                      children: <Widget>[
+                        Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.16),
+                            borderRadius: BorderRadius.circular(10),
                           ),
-                          Text(
-                            portal.currentQuincena.label,
+                          child: const Icon(
+                            Icons.water_drop_rounded,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Text(
+                                'Acopio Quincenal',
+                                style: AppTheme.subtitleStyle(
+                                  color: Colors.white,
+                                ),
+                              ),
+                              Text(
+                                portal.currentQuincena.label,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFFE0F2FE),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(99),
+                          ),
+                          child: Text(
+                            '${portal.quincenaDeliveriesCount} ent.',
                             style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.skyBlue,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF0369A1),
                             ),
                           ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      AppFormatters.formatLiters(portal.quincenaLiters),
+                      style: AppTheme.monoStyle(
+                        fontSize: 34,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.surface,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: <Widget>[
+                          const AppIconBadge(
+                            icon: Icons.payments_outlined,
+                            color: AppTheme.primaryGreen,
+                            size: 36,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                const Text(
+                                  'Estimado proyectado quincena',
+                                  style: TextStyle(
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.textSecondary,
+                                  ),
+                                ),
+                                FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    pricePerLiter > 0
+                                        ? AppFormatters.formatCurrency(
+                                            portal.quincenaEstimatedAmount,
+                                          )
+                                        : 'Sin tarifa configurada',
+                                    style: AppTheme.monoStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppTheme.primaryGreen,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (pricePerLiter > 0)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppTheme.canvasAlt,
+                                borderRadius: BorderRadius.circular(99),
+                                border: Border.all(color: AppTheme.border),
+                              ),
+                              child: Text(
+                                '${AppFormatters.formatCurrency(pricePerLiter)}/L',
+                                style: AppTheme.monoStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTheme.inkBlack,
+                                ),
+                              ),
+                            ),
                         ],
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryGreenLight,
-                        borderRadius: BorderRadius.circular(99),
-                      ),
-                      child: Text(
-                        '${portal.quincenaDeliveriesCount} ent.',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.primaryGreen,
-                        ),
-                      ),
-                    ),
                   ],
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  AppFormatters.formatLiters(portal.quincenaLiters),
-                  style: AppTheme.monoStyle(
-                    fontSize: 30,
-                    fontWeight: FontWeight.w800,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryGreenLight.withValues(alpha: 0.7),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: AppTheme.primaryGreen.withValues(alpha: 0.25),
-                    ),
-                  ),
-                  child: Row(
-                    children: <Widget>[
-                      const Icon(
-                        Icons.payments_outlined,
-                        color: AppTheme.primaryGreen,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            const Text(
-                              'Estimado proyectado quincena',
-                              style: TextStyle(
-                                fontSize: 13.5,
-                                fontWeight: FontWeight.w600,
-                                color: AppTheme.textSecondary,
-                              ),
-                            ),
-                            Text(
-                              pricePerLiter > 0
-                                  ? AppFormatters.formatCurrency(
-                                      portal.quincenaEstimatedAmount,
-                                    )
-                                  : 'Sin tarifa configurada',
-                              style: AppTheme.monoStyle(
-                                fontSize: 19,
-                                fontWeight: FontWeight.w800,
-                                color: AppTheme.primaryGreen,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (pricePerLiter > 0)
-                        Text(
-                          '${AppFormatters.formatCurrency(pricePerLiter)}/L',
-                          style: AppTheme.monoStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.inkBlack,
-                          ),
-                        ),
-                    ],
-                  ),
                 ),
               ],
             ),
@@ -598,74 +598,53 @@ class _ProducerSummaryTab extends StatelessWidget {
           _MobileRecentChartCard(series: portal.last7DaysSeries),
           const SizedBox(height: 12),
           // Accesos de máximo 2 toques
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppTheme.surface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.border),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                Text('Accesos rápidos', style: AppTheme.subtitleStyle()),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: <Widget>[
-                    OutlinedButton.icon(
-                      onPressed: onOpenDeliveries,
-                      icon: const Icon(
-                        Icons.water_drop_outlined,
-                        size: 18,
-                        color: AppTheme.skyBlue,
-                      ),
-                      label: const Text(
-                        'Mis entregas',
-                        style: TextStyle(fontSize: 15),
-                      ),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: onOpenSettlements,
-                      icon: const Icon(
-                        Icons.picture_as_pdf_outlined,
-                        size: 18,
-                        color: AppTheme.primaryGreen,
-                      ),
-                      label: const Text(
-                        'Comprobantes',
-                        style: TextStyle(fontSize: 15),
-                      ),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: onOpenNotices,
-                      icon: const Icon(
-                        Icons.campaign_outlined,
-                        size: 18,
-                        color: AppTheme.warmGold,
-                      ),
-                      label: Text(
-                        'Avisos (${portal.unreadNotificationsCount})',
-                        style: const TextStyle(fontSize: 15),
-                      ),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: onOpenProfile,
-                      icon: const Icon(
-                        Icons.verified_user_outlined,
-                        size: 18,
-                        color: AppTheme.tealAccent,
-                      ),
-                      label: const Text(
-                        'Perfil y rectificación',
-                        style: TextStyle(fontSize: 15),
-                      ),
-                    ),
-                  ],
+          Padding(
+            padding: const EdgeInsets.only(left: 2, bottom: 8),
+            child: Text('Accesos rápidos', style: AppTheme.subtitleStyle()),
+          ),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: _QuickTile(
+                  icon: Icons.water_drop_outlined,
+                  color: AppTheme.skyBlue,
+                  label: 'Mis entregas',
+                  onTap: onOpenDeliveries,
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _QuickTile(
+                  icon: Icons.picture_as_pdf_outlined,
+                  color: AppTheme.primaryGreen,
+                  label: 'Comprobantes',
+                  onTap: onOpenSettlements,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: _QuickTile(
+                  icon: Icons.campaign_outlined,
+                  color: AppTheme.warmGold,
+                  label: 'Avisos (${portal.unreadNotificationsCount})',
+                  onTap: onOpenNotices,
+                  badge: portal.unreadNotificationsCount > 0,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _QuickTile(
+                  icon: Icons.verified_user_outlined,
+                  color: AppTheme.tealAccent,
+                  label: 'Perfil y rectificación',
+                  onTap: onOpenProfile,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -693,63 +672,71 @@ class _MobileCompactMetricCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: accentColor.withValues(alpha: 0.28)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.border),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0x080C3B24),
+            blurRadius: 10,
+            offset: Offset(0, 3),
+          ),
+        ],
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          Row(
-            children: <Widget>[
-              Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: bgColor,
-                  borderRadius: BorderRadius.circular(7),
+          Container(height: 3, color: accentColor),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Row(
+                  children: <Widget>[
+                    AppIconBadge(icon: icon, color: accentColor, size: 30),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                child: Icon(icon, size: 16, color: accentColor),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  title,
+                const SizedBox(height: 8),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    value,
+                    style: AppTheme.monoStyle(
+                      fontSize: 19,
+                      fontWeight: FontWeight.w800,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  subtitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textSecondary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.textMuted,
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              value,
-              style: AppTheme.monoStyle(
-                fontSize: 19,
-                fontWeight: FontWeight.w800,
-                color: AppTheme.textPrimary,
-              ),
-            ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            subtitle,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              color: AppTheme.textMuted,
+              ],
             ),
           ),
         ],
@@ -775,7 +762,7 @@ class _MobileRecentChartCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppTheme.border),
       ),
       child: Column(
@@ -783,100 +770,146 @@ class _MobileRecentChartCard extends StatelessWidget {
         children: <Widget>[
           Row(
             children: <Widget>[
+              const AppIconBadge(
+                icon: Icons.bar_chart_rounded,
+                color: AppTheme.primaryGreen,
+                size: 30,
+              ),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   'Entregas últimos 7 días',
                   style: AppTheme.subtitleStyle(),
                 ),
               ),
-              const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  _MiniDot(color: AppTheme.skyBlue, label: 'Mañana'),
-                  SizedBox(width: 10),
-                  _MiniDot(color: AppTheme.primaryGreen, label: 'Tarde'),
-                ],
-              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Row(
+            children: <Widget>[
+              _MiniDot(color: AppTheme.skyBlue, label: 'Mañana'),
+              SizedBox(width: 12),
+              _MiniDot(color: AppTheme.primaryGreen, label: 'Tarde'),
             ],
           ),
           const SizedBox(height: 14),
           SizedBox(
-            height: 148,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: series.map((ProducerDailySeriesPoint d) {
-                final double total = d.totalLiters;
-                final double factor = (total / maxTotal).clamp(0.04, 1.0);
-                return Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 3),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: <Widget>[
-                        Text(
-                          total > 0 ? total.toStringAsFixed(0) : '0',
-                          style: AppTheme.monoStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.textSecondary,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Expanded(
-                          child: Align(
-                            alignment: Alignment.bottomCenter,
-                            child: FractionallySizedBox(
-                              heightFactor: total <= 0 ? 0.04 : factor,
-                              child: Container(
-                                width: 22,
-                                decoration: BoxDecoration(
-                                  color: total <= 0
-                                      ? AppTheme.border
-                                      : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(5),
-                                ),
-                                clipBehavior: Clip.antiAlias,
-                                child: total <= 0
-                                    ? null
-                                    : Column(
-                                        children: <Widget>[
-                                          if (d.afternoonLiters > 0)
-                                            Expanded(
-                                              flex: (d.afternoonLiters * 100)
-                                                  .round()
-                                                  .clamp(1, 100000),
-                                              child: Container(
-                                                color: AppTheme.primaryGreen,
-                                              ),
-                                            ),
-                                          if (d.morningLiters > 0)
-                                            Expanded(
-                                              flex: (d.morningLiters * 100)
-                                                  .round()
-                                                  .clamp(1, 100000),
-                                              child: Container(
-                                                color: AppTheme.skyBlue,
-                                              ),
-                                            ),
-                                        ],
-                                      ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 5),
-                        Text(
-                          d.label,
-                          style: AppTheme.monoStyle(
-                            fontSize: 11.5,
-                            color: AppTheme.textMuted,
-                          ),
-                        ),
-                      ],
+            height: 156,
+            child: Stack(
+              children: <Widget>[
+                Positioned.fill(
+                  top: 18,
+                  bottom: 24,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: List<Widget>.generate(
+                      3,
+                      (_) => Container(height: 1, color: AppTheme.dividerLight),
                     ),
                   ),
-                );
-              }).toList(),
+                ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: series.map((ProducerDailySeriesPoint d) {
+                    final double total = d.totalLiters;
+                    final double factor = (total / maxTotal).clamp(0.04, 1.0);
+                    final bool isToday = identical(d, series.last);
+                    return Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 3),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: <Widget>[
+                            Text(
+                              total > 0 ? total.toStringAsFixed(0) : '0',
+                              style: AppTheme.monoStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Expanded(
+                              child: Align(
+                                alignment: Alignment.bottomCenter,
+                                child: FractionallySizedBox(
+                                  heightFactor: total <= 0 ? 0.04 : factor,
+                                  child: Container(
+                                    width: 24,
+                                    decoration: BoxDecoration(
+                                      color: total <= 0
+                                          ? AppTheme.border
+                                          : Colors.transparent,
+                                      borderRadius: const BorderRadius.vertical(
+                                        top: Radius.circular(6),
+                                        bottom: Radius.circular(2),
+                                      ),
+                                    ),
+                                    clipBehavior: Clip.antiAlias,
+                                    child: total <= 0
+                                        ? null
+                                        : Column(
+                                            children: <Widget>[
+                                              if (d.afternoonLiters > 0)
+                                                Expanded(
+                                                  flex:
+                                                      (d.afternoonLiters * 100)
+                                                          .round()
+                                                          .clamp(1, 100000),
+                                                  child: Container(
+                                                    color:
+                                                        AppTheme.primaryGreen,
+                                                  ),
+                                                ),
+                                              if (d.morningLiters > 0)
+                                                Expanded(
+                                                  flex: (d.morningLiters * 100)
+                                                      .round()
+                                                      .clamp(1, 100000),
+                                                  child: Container(
+                                                    color: AppTheme.skyBlue,
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 5),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 3,
+                                vertical: 1,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isToday
+                                    ? AppTheme.inkBlack
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(99),
+                              ),
+                              child: Text(
+                                d.label,
+                                maxLines: 1,
+                                softWrap: false,
+                                style: AppTheme.monoStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: isToday
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                                  color: isToday
+                                      ? Colors.white
+                                      : AppTheme.textMuted,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
             ),
           ),
         ],
@@ -970,9 +1003,7 @@ class _ProducerDeliveriesTab extends StatelessWidget {
                     const SizedBox(width: 8),
                     _FilterPill(
                       label: portal.selectedDateFilter != null
-                          ? AppFormatters.formatDate(
-                              portal.selectedDateFilter!,
-                            )
+                          ? AppFormatters.formatDate(portal.selectedDateFilter!)
                           : 'Elegir fecha',
                       selected: portal.periodFilter == 'FECHA',
                       color: AppTheme.skyBlue,
@@ -1021,21 +1052,22 @@ class _ProducerDeliveriesTab extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 11,
+                ),
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryGreenLight,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: AppTheme.primaryGreen.withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(12),
+                  gradient: const LinearGradient(
+                    colors: <Color>[AppTheme.inkBlack, Color(0xFF14663A)],
                   ),
                 ),
                 child: Row(
                   children: <Widget>[
                     const Icon(
                       Icons.fact_check_outlined,
-                      size: 18,
-                      color: AppTheme.primaryGreen,
+                      size: 19,
+                      color: Color(0xFFA7F3D0),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -1044,16 +1076,16 @@ class _ProducerDeliveriesTab extends StatelessWidget {
                         style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
-                          color: AppTheme.textPrimary,
+                          color: Colors.white,
                         ),
                       ),
                     ),
                     Text(
                       AppFormatters.formatLiters(portal.filteredTotalLiters),
                       style: AppTheme.monoStyle(
-                        fontSize: 16,
+                        fontSize: 18,
                         fontWeight: FontWeight.w800,
-                        color: AppTheme.primaryGreen,
+                        color: Colors.white,
                       ),
                     ),
                   ],
@@ -1107,130 +1139,170 @@ class _ProducerDeliveriesTab extends StatelessWidget {
                     final MilkReceptionModel r = list[index];
                     final bool isMorning =
                         r.jornada == AppConstants.shiftMorning;
-                    final Color shiftColor =
-                        isMorning ? AppTheme.skyBlue : AppTheme.warmGold;
+                    final Color shiftColor = isMorning
+                        ? AppTheme.skyBlue
+                        : AppTheme.warmGold;
                     final Color shiftBg = isMorning
                         ? AppTheme.skyBlueLight
                         : AppTheme.warmGoldLight;
 
                     return Container(
-                      padding: const EdgeInsets.all(15),
                       decoration: BoxDecoration(
                         color: AppTheme.surface,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: shiftColor.withValues(alpha: 0.25),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Row(
-                            children: <Widget>[
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 9,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: shiftBg,
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: <Widget>[
-                                    Icon(
-                                      isMorning
-                                          ? Icons.wb_sunny_outlined
-                                          : Icons.nights_stay_outlined,
-                                      size: 14,
-                                      color: shiftColor,
-                                    ),
-                                    const SizedBox(width: 5),
-                                    Text(
-                                      isMorning ? 'MAÑANA' : 'TARDE',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w700,
-                                        color: shiftColor,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const Spacer(),
-                              SyncStatusBadge(isSynced: r.isSynced),
-                            ],
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AppTheme.border),
+                        boxShadow: const <BoxShadow>[
+                          BoxShadow(
+                            color: Color(0x080C3B24),
+                            blurRadius: 8,
+                            offset: Offset(0, 2),
                           ),
-                          const SizedBox(height: 10),
-                          Row(
-                            children: <Widget>[
-                              Expanded(
+                        ],
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: IntrinsicHeight(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: <Widget>[
+                            Container(width: 4, color: shiftColor),
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.all(14),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: <Widget>[
-                                    Text(
-                                      AppFormatters.formatIsoDate(
-                                        r.fechaEntrega,
-                                      ),
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w700,
-                                        color: AppTheme.textPrimary,
-                                      ),
+                                    Row(
+                                      children: <Widget>[
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 9,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: shiftBg,
+                                            borderRadius: BorderRadius.circular(
+                                              6,
+                                            ),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: <Widget>[
+                                              Icon(
+                                                isMorning
+                                                    ? Icons.wb_sunny_outlined
+                                                    : Icons.wb_twilight_rounded,
+                                                size: 14,
+                                                color: shiftColor,
+                                              ),
+                                              const SizedBox(width: 5),
+                                              Text(
+                                                isMorning ? 'MAÑANA' : 'TARDE',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: shiftColor,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const Spacer(),
+                                        SyncStatusBadge(isSynced: r.isSynced),
+                                      ],
                                     ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      'Hora de acopio: ${r.horaEntrega}',
-                                      style: const TextStyle(
-                                        fontSize: 15,
-                                        color: AppTheme.textSecondary,
-                                      ),
+                                    const SizedBox(height: 10),
+                                    Row(
+                                      children: <Widget>[
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: <Widget>[
+                                              Text(
+                                                AppFormatters.formatIsoDate(
+                                                  r.fechaEntrega,
+                                                ),
+                                                style: const TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: AppTheme.textPrimary,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 2),
+                                              Row(
+                                                children: <Widget>[
+                                                  const Icon(
+                                                    Icons.schedule_rounded,
+                                                    size: 15,
+                                                    color: AppTheme.textMuted,
+                                                  ),
+                                                  const SizedBox(width: 5),
+                                                  Flexible(
+                                                    child: Text(
+                                                      'Hora de acopio: ${r.horaEntrega}',
+                                                      style: const TextStyle(
+                                                        fontSize: 15,
+                                                        color: AppTheme
+                                                            .textSecondary,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.end,
+                                          children: <Widget>[
+                                            Text(
+                                              AppFormatters.formatLiters(
+                                                r.litros,
+                                              ),
+                                              style: AppTheme.monoStyle(
+                                                fontSize: 21,
+                                                fontWeight: FontWeight.w800,
+                                                color: AppTheme.textPrimary,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 3),
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 2,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                color: r.isLiquidada
+                                                    ? AppTheme.primaryGreenLight
+                                                    : AppTheme.surfaceMuted,
+                                                borderRadius:
+                                                    BorderRadius.circular(5),
+                                              ),
+                                              child: Text(
+                                                r.isLiquidada
+                                                    ? 'Liquidada'
+                                                    : 'En quincena',
+                                                style: TextStyle(
+                                                  fontSize: 12.5,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: r.isLiquidada
+                                                      ? AppTheme.primaryGreen
+                                                      : AppTheme.textSecondary,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
                               ),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: <Widget>[
-                                  Text(
-                                    AppFormatters.formatLiters(r.litros),
-                                    style: AppTheme.monoStyle(
-                                      fontSize: 21,
-                                      fontWeight: FontWeight.w800,
-                                      color: AppTheme.textPrimary,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 3),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: r.isLiquidada
-                                          ? AppTheme.primaryGreenLight
-                                          : AppTheme.surfaceMuted,
-                                      borderRadius: BorderRadius.circular(5),
-                                    ),
-                                    child: Text(
-                                      r.isLiquidada
-                                          ? 'Liquidada'
-                                          : 'En quincena',
-                                      style: TextStyle(
-                                        fontSize: 12.5,
-                                        fontWeight: FontWeight.w700,
-                                        color: r.isLiquidada
-                                            ? AppTheme.primaryGreen
-                                            : AppTheme.textSecondary,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ],
+                            ),
+                          ],
+                        ),
                       ),
                     );
                   },
@@ -1256,7 +1328,8 @@ class _ProducerSettlementsAndNoticesTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final List<SettlementModel> settlements = portal.settlements;
-    final List<AppNotificationModel> notifications = portal.visibleNotifications;
+    final List<AppNotificationModel> notifications =
+        portal.visibleNotifications;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1327,10 +1400,7 @@ class _ProducerSettlementsAndNoticesTab extends StatelessWidget {
               SizedBox(height: 4),
               Text(
                 'Cuando la planta cierre la quincena podrás ver y descargar aquí tu comprobante en PDF.',
-                style: TextStyle(
-                  fontSize: 15,
-                  color: AppTheme.textSecondary,
-                ),
+                style: TextStyle(fontSize: 15, color: AppTheme.textSecondary),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -1346,137 +1416,206 @@ class _ProducerSettlementsAndNoticesTab extends StatelessWidget {
       itemBuilder: (BuildContext context, int index) {
         final SettlementModel s = settlements[index];
         final bool isPaid = s.isPagada;
-        final Color statusColor =
-            isPaid ? AppTheme.primaryGreen : AppTheme.warmGold;
-        final Color statusBg =
-            isPaid ? AppTheme.primaryGreenLight : AppTheme.warmGoldLight;
+        final Color statusColor = isPaid
+            ? AppTheme.primaryGreen
+            : AppTheme.warmGold;
+        final Color statusBg = isPaid
+            ? AppTheme.primaryGreenLight
+            : AppTheme.warmGoldLight;
 
         return Container(
-          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: AppTheme.surface,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: statusColor.withValues(alpha: 0.28)),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppTheme.border),
+            boxShadow: const <BoxShadow>[
+              BoxShadow(
+                color: Color(0x0A0C3B24),
+                blurRadius: 10,
+                offset: Offset(0, 3),
+              ),
+            ],
           ),
+          clipBehavior: Clip.antiAlias,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              Container(height: 4, color: statusColor),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Row(
                       children: <Widget>[
-                        Text(
-                          s.quincenaLabel,
-                          style: AppTheme.subtitleStyle(),
+                        AppIconBadge(
+                          icon: Icons.receipt_long_rounded,
+                          color: statusColor,
+                          size: 38,
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Comprobante ${s.numeroComprobante}',
-                          style: AppTheme.monoStyle(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.textSecondary,
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Text(
+                                s.quincenaLabel,
+                                style: AppTheme.subtitleStyle(),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Comprobante ${s.numeroComprobante}',
+                                style: AppTheme.monoStyle(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: statusBg,
+                            borderRadius: BorderRadius.circular(99),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              Icon(
+                                isPaid
+                                    ? Icons.task_alt_rounded
+                                    : Icons.schedule_rounded,
+                                size: 14,
+                                color: statusColor,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                s.estadoPago,
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: statusColor,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
+                    const SizedBox(height: 10),
+                    Row(
+                      children: <Widget>[
+                        const Icon(
+                          Icons.date_range_outlined,
+                          size: 16,
+                          color: AppTheme.textMuted,
+                        ),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            'Del ${AppFormatters.formatIsoDate(s.periodoInicio)} al ${AppFormatters.formatIsoDate(s.periodoFin)}',
+                            style: const TextStyle(
+                              fontSize: 15,
+                              color: AppTheme.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    decoration: BoxDecoration(
-                      color: statusBg,
-                      borderRadius: BorderRadius.circular(99),
-                    ),
-                    child: Text(
-                      s.estadoPago,
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w800,
-                        color: statusColor,
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.canvasAlt,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppTheme.border),
+                      ),
+                      child: Column(
+                        children: <Widget>[
+                          _SettlementRow(
+                            label: 'Total litros (${s.cantidadEntregas} ent.)',
+                            value: AppFormatters.formatLiters(s.totalLitros),
+                          ),
+                          const SizedBox(height: 6),
+                          _SettlementRow(
+                            label: 'Tarifa aplicada',
+                            value:
+                                '${AppFormatters.formatCurrency(s.precioLitroAplicado)}/L',
+                          ),
+                          const Divider(height: 16),
+                          _SettlementRow(
+                            label: 'Valor total a pagar',
+                            value: AppFormatters.formatCurrency(
+                              s.valorTotalPagar,
+                            ),
+                            highlightColor: AppTheme.primaryGreen,
+                            large: true,
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'Del ${AppFormatters.formatIsoDate(s.periodoInicio)} al ${AppFormatters.formatIsoDate(s.periodoFin)}',
-                style: const TextStyle(
-                  fontSize: 15,
-                  color: AppTheme.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppTheme.canvasAlt,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppTheme.border),
-                ),
-                child: Column(
-                  children: <Widget>[
-                    _SettlementRow(
-                      label: 'Total litros (${s.cantidadEntregas} ent.)',
-                      value: AppFormatters.formatLiters(s.totalLitros),
-                    ),
-                    const SizedBox(height: 6),
-                    _SettlementRow(
-                      label: 'Tarifa aplicada',
-                      value:
-                          '${AppFormatters.formatCurrency(s.precioLitroAplicado)}/L',
-                    ),
-                    const Divider(height: 16),
-                    _SettlementRow(
-                      label: 'Valor total a pagar',
-                      value: AppFormatters.formatCurrency(s.valorTotalPagar),
-                      highlightColor: AppTheme.primaryGreen,
-                      large: true,
+                    if (isPaid && s.fechaPago != null) ...<Widget>[
+                      const SizedBox(height: 10),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          const Icon(
+                            Icons.check_circle_rounded,
+                            size: 16,
+                            color: AppTheme.primaryGreen,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              'Pagado el ${AppFormatters.formatDate(s.fechaPago!)}${s.observacionPago != null ? ' · ${s.observacionPago}' : ''}',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.primaryGreen,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () =>
+                                _openPdfVoucher(context, s, share: false),
+                            icon: const Icon(
+                              Icons.picture_as_pdf_rounded,
+                              size: 18,
+                            ),
+                            label: const Text(
+                              'Ver PDF',
+                              style: TextStyle(fontSize: 15),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () =>
+                                _openPdfVoucher(context, s, share: true),
+                            icon: const Icon(Icons.share_rounded, size: 18),
+                            label: const Text(
+                              'Descargar',
+                              style: TextStyle(fontSize: 15),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ),
-              if (isPaid && s.fechaPago != null) ...<Widget>[
-                const SizedBox(height: 10),
-                Text(
-                  'Pagado el ${AppFormatters.formatDate(s.fechaPago!)}${s.observacionPago != null ? ' · ${s.observacionPago}' : ''}',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.primaryGreen,
-                  ),
-                ),
-              ],
-              const SizedBox(height: 12),
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () => _openPdfVoucher(context, s, share: false),
-                      icon: const Icon(Icons.picture_as_pdf_rounded, size: 18),
-                      label: const Text(
-                        'Ver PDF',
-                        style: TextStyle(fontSize: 15),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => _openPdfVoucher(context, s, share: true),
-                      icon: const Icon(Icons.share_rounded, size: 18),
-                      label: const Text(
-                        'Descargar',
-                        style: TextStyle(fontSize: 15),
-                      ),
-                    ),
-                  ),
-                ],
               ),
             ],
           ),
@@ -1491,8 +1630,9 @@ class _ProducerSettlementsAndNoticesTab extends StatelessWidget {
     required bool share,
   }) async {
     try {
-      final List<MilkReceptionModel> recs =
-          portal.receptionsForSettlement(settlement);
+      final List<MilkReceptionModel> recs = portal.receptionsForSettlement(
+        settlement,
+      );
       if (share) {
         await SettlementPdfService.shareOrDownloadVoucher(
           settlement: settlement,
@@ -1611,10 +1751,11 @@ class _ProducerSettlementsAndNoticesTab extends StatelessWidget {
                   itemBuilder: (BuildContext context, int index) {
                     final AppNotificationModel n = notifications[index];
                     final ({Color color, Color bg, IconData icon, String label})
-                        meta = _notificationMeta(n.tipo);
+                    meta = _notificationMeta(n.tipo);
 
                     return InkWell(
-                      onTap: () => portal.markNotificationRead(n.notificacionId),
+                      onTap: () =>
+                          portal.markNotificationRead(n.notificacionId),
                       borderRadius: BorderRadius.circular(12),
                       child: Container(
                         padding: const EdgeInsets.all(15),
@@ -1640,7 +1781,11 @@ class _ProducerSettlementsAndNoticesTab extends StatelessWidget {
                                 color: meta.bg,
                                 borderRadius: BorderRadius.circular(9),
                               ),
-                              child: Icon(meta.icon, size: 19, color: meta.color),
+                              child: Icon(
+                                meta.icon,
+                                size: 19,
+                                color: meta.color,
+                              ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -1656,8 +1801,9 @@ class _ProducerSettlementsAndNoticesTab extends StatelessWidget {
                                         ),
                                         decoration: BoxDecoration(
                                           color: meta.bg,
-                                          borderRadius:
-                                              BorderRadius.circular(5),
+                                          borderRadius: BorderRadius.circular(
+                                            5,
+                                          ),
                                         ),
                                         child: Text(
                                           n.destinoProductorId == null
@@ -1723,7 +1869,7 @@ class _ProducerSettlementsAndNoticesTab extends StatelessWidget {
   }
 
   static ({Color color, Color bg, IconData icon, String label})
-      _notificationMeta(String tipo) {
+  _notificationMeta(String tipo) {
     switch (tipo.toUpperCase()) {
       case 'ENTREGA':
         return (
@@ -1767,10 +1913,7 @@ class _ProducerSettlementsAndNoticesTab extends StatelessWidget {
 
 /// Hoja modal de Perfil del Productor y Solicitud de Rectificación Ley 1581 de 2012 (`RF-19`).
 class _ProducerProfileSheet extends StatefulWidget {
-  const _ProducerProfileSheet({
-    required this.portal,
-    required this.user,
-  });
+  const _ProducerProfileSheet({required this.portal, required this.user});
 
   final ProducerPortalController portal;
   final UserModel user;
@@ -1811,7 +1954,7 @@ class _ProducerProfileSheetState extends State<_ProducerProfileSheet> {
       _localSuccess = ok;
       _localMessage = ok
           ? (widget.portal.feedbackMessage ??
-              'Solicitud enviada al Administrador.')
+                'Solicitud enviada al Administrador.')
           : (widget.portal.errorMessage ?? 'No se pudo enviar la solicitud.');
       if (ok) {
         _detailCtrl.clear();
@@ -1893,7 +2036,8 @@ class _ProducerProfileSheetState extends State<_ProducerProfileSheet> {
                     _ProfileLine(
                       label: 'Nombre completo',
                       value:
-                          producer?.nombreCompleto ?? widget.user.nombreCompleto,
+                          producer?.nombreCompleto ??
+                          widget.user.nombreCompleto,
                     ),
                     _ProfileLine(
                       label: 'Cédula / Documento',
@@ -1926,7 +2070,9 @@ class _ProducerProfileSheetState extends State<_ProducerProfileSheet> {
                       ),
                       _ProfileLine(
                         label: 'Habeas Data',
-                        value: producer.soporteAutorizacion != null && producer.hasValidHabeasData
+                        value:
+                            producer.soporteAutorizacion != null &&
+                                producer.hasValidHabeasData
                             ? 'Autorizado (${AppFormatters.formatDate(producer.fechaAutorizacionDatos!)})'
                             : 'Consulta el soporte con la asociación',
                       ),
@@ -1948,20 +2094,29 @@ class _ProducerProfileSheetState extends State<_ProducerProfileSheet> {
                           future: notice,
                           builder: (context, snapshot) {
                             final data = snapshot.data;
-                            if (data != null) return PrivacyNoticeView(notice: data);
+                            if (data != null) {
+                              return PrivacyNoticeView(notice: data);
+                            }
                             if (snapshot.hasError) {
                               final savedNotice = producer?.avisoPrivacidad;
                               if (savedNotice != null) {
-                                return PrivacyNoticeView(notice: PrivacyNotice.fromMap(savedNotice));
+                                return PrivacyNoticeView(
+                                  notice: PrivacyNotice.fromMap(savedNotice),
+                                );
                               }
-                              return const Text('No se pudo cargar el aviso. Puedes solicitar una copia en la sede de la asociación.');
+                              return const Text(
+                                'No se pudo cargar el aviso. Puedes solicitar una copia en la sede de la asociación.',
+                              );
                             }
                             return const LinearProgressIndicator();
                           },
                         ),
                       ),
                       actions: [
-                        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar')),
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Cerrar'),
+                        ),
                       ],
                     ),
                   );
@@ -1973,7 +2128,9 @@ class _ProducerProfileSheetState extends State<_ProducerProfileSheet> {
                   icon: _localSuccess
                       ? Icons.check_circle_outline_rounded
                       : Icons.error_outline_rounded,
-                  color: _localSuccess ? AppTheme.primaryGreen : AppTheme.danger,
+                  color: _localSuccess
+                      ? AppTheme.primaryGreen
+                      : AppTheme.danger,
                   bgColor: _localSuccess
                       ? AppTheme.primaryGreenLight
                       : AppTheme.dangerBg,
@@ -1983,7 +2140,8 @@ class _ProducerProfileSheetState extends State<_ProducerProfileSheet> {
               const SizedBox(height: 14),
               if (producer != null && !_showRectificationForm)
                 OutlinedButton.icon(
-                  onPressed: () => setState(() => _showRectificationForm = true),
+                  onPressed: () =>
+                      setState(() => _showRectificationForm = true),
                   icon: const Icon(
                     Icons.edit_note_rounded,
                     size: 20,
@@ -2047,8 +2205,8 @@ class _ProducerProfileSheetState extends State<_ProducerProfileSheet> {
                               onPressed: widget.portal.isSubmitting
                                   ? null
                                   : () => setState(
-                                        () => _showRectificationForm = false,
-                                      ),
+                                      () => _showRectificationForm = false,
+                                    ),
                               child: const Text('Cancelar'),
                             ),
                           ),
@@ -2229,9 +2387,7 @@ class _FilterPill extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected ? color : AppTheme.surfaceMuted,
           borderRadius: BorderRadius.circular(99),
-          border: Border.all(
-            color: selected ? color : AppTheme.border,
-          ),
+          border: Border.all(color: selected ? color : AppTheme.border),
         ),
         child: Text(
           label,
@@ -2274,9 +2430,7 @@ class _SubTabButton extends StatelessWidget {
               ? accentColor.withValues(alpha: 0.14)
               : AppTheme.surfaceMuted,
           borderRadius: BorderRadius.circular(9),
-          border: Border.all(
-            color: selected ? accentColor : AppTheme.border,
-          ),
+          border: Border.all(color: selected ? accentColor : AppTheme.border),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -2300,6 +2454,154 @@ class _SubTabButton extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Botón circular translúcido para la cabecera verde del portal.
+class _HeaderAction extends StatelessWidget {
+  const _HeaderAction({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+    this.iconColor = Colors.white,
+    this.badgeCount = 0,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback? onPressed;
+  final Color iconColor;
+  final int badgeCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: <Widget>[
+          Material(
+            color: Colors.white.withValues(alpha: 0.12),
+            shape: CircleBorder(
+              side: BorderSide(color: Colors.white.withValues(alpha: 0.18)),
+            ),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: onPressed,
+              child: SizedBox(
+                width: 34,
+                height: 34,
+                child: Icon(icon, size: 19, color: iconColor),
+              ),
+            ),
+          ),
+          if (badgeCount > 0)
+            Positioned(
+              right: -3,
+              top: -3,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                decoration: BoxDecoration(
+                  color: AppTheme.warmGold,
+                  borderRadius: BorderRadius.circular(99),
+                  border: Border.all(color: AppTheme.inkBlack, width: 1.5),
+                ),
+                child: Text(
+                  badgeCount > 9 ? '9+' : '$badgeCount',
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Acceso rápido grande (objetivo táctil amplio para uso en campo).
+class _QuickTile extends StatelessWidget {
+  const _QuickTile({
+    required this.icon,
+    required this.color,
+    required this.label,
+    required this.onTap,
+    this.badge = false,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String label;
+  final VoidCallback onTap;
+  final bool badge;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppTheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: AppTheme.border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        splashColor: color.withValues(alpha: 0.12),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: <Widget>[
+                      AppIconBadge(icon: icon, color: color, size: 40),
+                      if (badge)
+                        Positioned(
+                          right: -2,
+                          top: -2,
+                          child: Container(
+                            width: 11,
+                            height: 11,
+                            decoration: BoxDecoration(
+                              color: AppTheme.warmGold,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const Spacer(),
+                  const Icon(
+                    Icons.arrow_forward_rounded,
+                    size: 18,
+                    color: AppTheme.textMuted,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                label,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  height: 1.25,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
