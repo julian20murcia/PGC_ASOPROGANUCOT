@@ -5,21 +5,23 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:pgc_asoproganucot/core/services/assistant_service.dart';
+import 'package:pgc_asoproganucot/models/assistant_report.dart';
 import 'package:pgc_asoproganucot/core/theme/app_theme.dart';
 import 'package:pgc_asoproganucot/views/desktop/assistant/markdown_lite.dart';
 import 'package:pgc_asoproganucot/views/desktop/assistant_module_view.dart';
 
 class _FakeAssistant extends AssistantService {
-  _FakeAssistant(this.handler);
+  _FakeAssistant(this.handler, {this.report});
   final Future<String> Function(String q, List<AssistantMessage> history) handler;
+  final AssistantReport? report;
   final List<String> questions = <String>[];
   final List<int> historyLengths = <int>[];
 
   @override
-  Future<String> ask(String question, {List<AssistantMessage> history = const <AssistantMessage>[]}) {
+  Future<AssistantAnswer> ask(String question, {List<AssistantMessage> history = const <AssistantMessage>[]}) async {
     questions.add(question);
     historyLengths.add(history.length);
-    return handler(question, history);
+    return AssistantAnswer(await handler(question, history), report: report);
   }
 }
 
@@ -142,7 +144,7 @@ void main() {
     await _pump(tester, svc);
 
     final Finder input = find.byKey(const Key('assistant-input'));
-    await tester.enterText(input, 'x' * 2000);
+    await tester.enterText(input, 'x' * 3000);
     await tester.pump();
     final TextField field = tester.widget<TextField>(input);
     expect(field.controller!.text.length, lessThanOrEqualTo(AssistantService.maxQuestionLength));
@@ -150,14 +152,14 @@ void main() {
 
     await tester.enterText(input, 'Hola asistente');
     await tester.pump();
-    expect(find.text('14/600'), findsOneWidget);
+    expect(find.text('14/${AssistantService.maxQuestionLength}'), findsOneWidget);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(svc.questions.last, 'Hola asistente');
     expect(find.text('Respuesta a Hola asistente'), findsOneWidget);
-    expect(find.text('0/600'), findsOneWidget);
+    expect(find.text('0/${AssistantService.maxQuestionLength}'), findsOneWidget);
 
     await tester.enterText(input, 'Segunda');
     await tester.pump();
@@ -207,6 +209,52 @@ void main() {
     await tester.tap(find.text('Compara la producción de mañana vs tarde'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('respuesta con informe muestra tarjeta con gráfica y botones de descarga', (WidgetTester tester) async {
+    final AssistantReport report = AssistantReport.tryParse(<String, dynamic>{
+      'titulo': 'Top productores',
+      'subtitulo': 'Noviembre 2026',
+      'formato': 'excel',
+      'secciones': <Object?>[
+        <String, Object?>{
+          'tipo': 'grafica',
+          'titulo': 'Litros por productor',
+          'grafica': <String, Object?>{
+            'tipo': 'barras',
+            'etiquetas': <String>['Ana', 'Beto'],
+            'series': <Object?>[
+              <String, Object?>{'nombre': 'Litros', 'valores': <num>[120, 80.5]},
+            ],
+            'eje_y': 'Litros',
+          },
+        },
+        <String, Object?>{
+          'tipo': 'tabla',
+          'columnas': <String>['Productor', 'Litros'],
+          'tipos_columna': <String>['texto', 'litros'],
+          'filas': <Object?>[
+            <String>['Ana', '120'],
+          ],
+        },
+      ],
+    })!;
+    final _FakeAssistant svc = _FakeAssistant((_, _) async => 'Aquí está tu informe.', report: report);
+    await _pump(tester, svc);
+    expect(find.byKey(const Key('assistant-mic')), findsOneWidget);
+
+    await tester.enterText(find.byKey(const Key('assistant-input')), 'Hazme un informe en Excel');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('assistant-send')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byKey(const Key('assistant-report-card')), findsOneWidget);
+    expect(find.text('Top productores'), findsOneWidget);
+    expect(find.text('Descargar Excel'), findsOneWidget);
+    expect(find.text('Descargar PDF'), findsOneWidget);
+    expect(find.byKey(const Key('report-download-xlsx')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

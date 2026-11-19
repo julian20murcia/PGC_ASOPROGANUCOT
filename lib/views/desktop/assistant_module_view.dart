@@ -5,14 +5,21 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../controllers/auth_controller.dart';
+import '../../core/services/assistant_report_export.dart';
 import '../../core/services/assistant_service.dart';
+import '../../core/services/file_export_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/input_rules.dart';
+import '../../models/assistant_report.dart';
 import '../shared/widgets/pro_ui.dart';
 import 'assistant/chat_widgets.dart';
+import 'assistant/report_card.dart';
+import 'assistant/voice_input.dart';
 
-/// Asistente IA (Gemini vía Cloud Function `askAssistant`): chat con los
-/// datos de la plataforma. La clave del modelo nunca vive en la app.
+/// Asistente IA (OpenAI vía Cloud Functions `askAssistant` y
+/// `transcribeAudio`): chat con los datos de la plataforma, dictado por voz e
+/// informes descargables en PDF/Excel con gráficas. La clave del modelo nunca
+/// vive en la app.
 class AssistantModuleView extends StatefulWidget {
   const AssistantModuleView({super.key, this.service});
 
@@ -24,6 +31,8 @@ class AssistantModuleView extends StatefulWidget {
     '¿Cuánto debemos pagar esta quincena?',
     '¿Qué productores no han entregado hoy?',
     'Compara la producción de mañana vs tarde',
+    'Informe PDF del top 10 de productores de este mes con gráficas',
+    'Excel con la producción diaria del mes y una gráfica de líneas',
   ];
 
   static const String disclaimer =
@@ -53,6 +62,8 @@ class _AssistantModuleViewState extends State<AssistantModuleView> {
   late final FocusNode _focus = FocusNode(onKeyEvent: _onKey);
   final List<ChatEntry> _entries = <ChatEntry>[];
   bool _sending = false;
+  bool _dictating = false;
+  final Map<ChatEntry, ExportFormat> _exporting = <ChatEntry, ExportFormat>{};
   int _conversation = 0;
   int _cooldownLeft = 0;
   Timer? _cooldownTimer;
@@ -77,7 +88,7 @@ class _AssistantModuleViewState extends State<AssistantModuleView> {
 
   bool get _coolingDown => _cooldownLeft > 0;
 
-  bool get _canSend => !_sending && !_coolingDown && _input.text.trim().isNotEmpty;
+  bool get _canSend => !_sending && !_coolingDown && !_dictating && _input.text.trim().isNotEmpty;
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
@@ -96,7 +107,7 @@ class _AssistantModuleViewState extends State<AssistantModuleView> {
 
   Future<void> _send([String? preset]) async {
     final String q = (preset ?? _input.text).trim();
-    if (q.isEmpty || _sending || _coolingDown) return;
+    if (q.isEmpty || _sending || _coolingDown || _dictating) return;
     final String question = q.length > AssistantService.maxQuestionLength
         ? q.substring(0, AssistantService.maxQuestionLength)
         : q;
@@ -110,8 +121,12 @@ class _AssistantModuleViewState extends State<AssistantModuleView> {
     _scrollToEnd();
     ChatEntry reply;
     try {
-      final String answer = await _service.ask(question, history: history);
-      reply = ChatEntry(ChatEntryKind.assistant, answer);
+      final AssistantAnswer answer = await _service.ask(question, history: history);
+      reply = ChatEntry(
+        ChatEntryKind.assistant,
+        answer.text.isEmpty ? 'Listo, aquí tienes el informe solicitado.' : answer.text,
+        report: answer.report,
+      );
     } on AssistantException catch (e) {
       reply = _errorEntry(e.message, question);
     } catch (_) {
@@ -164,6 +179,7 @@ class _AssistantModuleViewState extends State<AssistantModuleView> {
     if (_entries.isEmpty) return;
     setState(() {
       _entries.clear();
+      _exporting.clear();
       _sending = false;
       _conversation++;
       _input.clear();
@@ -175,6 +191,61 @@ class _AssistantModuleViewState extends State<AssistantModuleView> {
     await Clipboard.setData(ClipboardData(text: text));
     if (!mounted) return;
     showAppToast(context, 'Respuesta copiada al portapapeles.', tone: Tone.success);
+  }
+
+  /// Texto dictado: se agrega al cuadro de texto para revisarlo antes de enviar.
+  void _onDictated(String text) {
+    final String current = _input.text.trimRight();
+    String next = current.isEmpty ? text : '$current $text';
+    if (next.length > AssistantService.maxQuestionLength) {
+      next = next.substring(0, AssistantService.maxQuestionLength);
+    }
+    _input.value = TextEditingValue(
+      text: next,
+      selection: TextSelection.collapsed(offset: next.length),
+    );
+    _focus.requestFocus();
+  }
+
+  void _onVoiceError(String message) {
+    if (!mounted) return;
+    showAppToast(context, message, tone: Tone.danger);
+  }
+
+  Future<void> _downloadReport(ChatEntry entry, ExportFormat format) async {
+    final AssistantReport? report = entry.report;
+    if (report == null || _exporting.containsKey(entry)) return;
+    setState(() => _exporting[entry] = format);
+    try {
+      String? who;
+      try {
+        who = context.read<AuthController>().currentUser?.nombreCompleto;
+      } catch (_) {
+        who = null;
+      }
+      final Uint8List bytes = await AssistantReportExport.build(report, format, generatedBy: who);
+      final String name = '${AssistantReportExport.fileBaseName(report)}.${format.extension}';
+      if (FileExportService.isDesktop) {
+        final SavedFile saved = await FileExportService.save(bytes, name);
+        if (!mounted) return;
+        showAppToast(
+          context,
+          'Informe ${format.label} guardado en Descargas/ASOPROGANUCOTT',
+          tone: Tone.success,
+          action: SnackBarAction(
+            label: 'Abrir carpeta',
+            textColor: AppTheme.brandMuted,
+            onPressed: () => FileExportService.reveal(saved),
+          ),
+        );
+      } else {
+        await FileExportService.share(bytes, name, mimeType: format.mimeType, subject: report.title);
+      }
+    } catch (e) {
+      if (mounted) showAppToast(context, 'No se pudo generar el informe: $e', tone: Tone.danger);
+    } finally {
+      if (mounted) setState(() => _exporting.remove(entry));
+    }
   }
 
   void _scrollToEnd() {
@@ -281,7 +352,17 @@ class _AssistantModuleViewState extends State<AssistantModuleView> {
         final ChatEntry e = _entries[i];
         return _centered(switch (e.kind) {
           ChatEntryKind.user => UserBubble(entry: e),
-          ChatEntryKind.assistant => AssistantReply(entry: e, onCopy: () => _copy(e.text)),
+          ChatEntryKind.assistant => AssistantReply(
+              entry: e,
+              onCopy: () => _copy(e.text),
+              attachment: e.report == null
+                  ? null
+                  : AssistantReportCard(
+                      report: e.report!,
+                      busyFormat: _exporting[e],
+                      onDownload: (ExportFormat f) => _downloadReport(e, f),
+                    ),
+            ),
           ChatEntryKind.error || ChatEntryKind.rateLimit => ChatNotice(
               entry: e,
               onRetry: e.retryQuestion != null && !_sending && !_coolingDown && i == _entries.length - 1
@@ -333,7 +414,9 @@ class _AssistantModuleViewState extends State<AssistantModuleView> {
                       decoration: InputDecoration(
                         hintText: _coolingDown
                             ? 'Espera $_cooldownLeft s para volver a preguntar…'
-                            : 'Escribe tu pregunta sobre la operación…',
+                            : _dictating
+                                ? 'Escuchando… toca ■ para terminar'
+                                : 'Escribe o dicta tu pregunta, o pide un informe en PDF/Excel…',
                         border: InputBorder.none,
                         enabledBorder: InputBorder.none,
                         focusedBorder: InputBorder.none,
@@ -344,6 +427,19 @@ class _AssistantModuleViewState extends State<AssistantModuleView> {
                     ),
                   ),
                   const SizedBox(width: 8),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 2),
+                    child: VoiceInputButton(
+                      service: _service,
+                      enabled: !_sending,
+                      onText: _onDictated,
+                      onError: _onVoiceError,
+                      onStateChanged: (VoiceState s) {
+                        if (mounted) setState(() => _dictating = s != VoiceState.idle);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 6),
                   Padding(
                     padding: const EdgeInsets.only(bottom: 2),
                     child: Tooltip(

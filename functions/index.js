@@ -10,6 +10,7 @@ const admin = require('./admin');
 exports.adminCreateUser = admin.adminCreateUser;
 exports.adminUpdateUser = admin.adminUpdateUser;
 exports.askAssistant = require('./assistant').askAssistant;
+exports.transcribeAudio = require('./assistant').transcribeAudio;
 
 const SUPPORTED_PUSH_TYPES = new Set([
   'ENTREGA',

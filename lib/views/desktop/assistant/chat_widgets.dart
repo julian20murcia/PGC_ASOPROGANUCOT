@@ -3,16 +3,20 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../models/assistant_report.dart';
 import 'markdown_lite.dart';
 
 /// Tipo de entrada en la conversación.
 enum ChatEntryKind { user, assistant, error, rateLimit }
 
 class ChatEntry {
-  ChatEntry(this.kind, this.text, {DateTime? at, this.retryQuestion}) : at = at ?? DateTime.now();
+  ChatEntry(this.kind, this.text, {DateTime? at, this.retryQuestion, this.report}) : at = at ?? DateTime.now();
   final ChatEntryKind kind;
   final String text;
   final DateTime at;
+
+  /// Informe descargable adjunto a la respuesta (si se pidió).
+  final AssistantReport? report;
 
   /// Pregunta a reintentar (solo errores).
   final String? retryQuestion;
@@ -84,9 +88,12 @@ class UserBubble extends StatelessWidget {
 
 /// Respuesta del asistente: avatar + markdown, sin burbuja (estilo chat moderno).
 class AssistantReply extends StatelessWidget {
-  const AssistantReply({super.key, required this.entry, required this.onCopy});
+  const AssistantReply({super.key, required this.entry, required this.onCopy, this.attachment});
   final ChatEntry entry;
   final VoidCallback onCopy;
+
+  /// Contenido adicional bajo el texto (p. ej. la tarjeta del informe).
+  final Widget? attachment;
 
   @override
   Widget build(BuildContext context) {
@@ -103,6 +110,7 @@ class AssistantReply extends StatelessWidget {
                 padding: const EdgeInsets.only(top: 3),
                 child: SelectionArea(child: MarkdownLite(entry.text)),
               ),
+              ?attachment,
               const SizedBox(height: 4),
               Row(
                 children: <Widget>[

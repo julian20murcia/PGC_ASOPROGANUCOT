@@ -17,7 +17,7 @@
   - **Reportes y auditoría:** catálogo de 6 reportes y bitácora de **actividad de usuarios** por colores.
   - **Comunicados** a todos los productores o a uno, con vista previa en celular.
   - **Usuarios y permisos:** alta en 4 pasos y árbol de permisos por módulo y acción, aplicado también en `firestore.rules` y Cloud Functions.
-  - **Asistente IA** (Gemini, nivel gratuito) que responde sobre los datos de la asociación, con clave en Secret Manager y límites de uso.
+  - **Asistente IA** (OpenAI `gpt-6-luna`) que responde sobre los datos de la asociación, acepta **dictado por voz** (`gpt-transcribe`) y genera **informes en PDF o Excel con gráficas**, con clave en Secret Manager y límites de uso.
   - Exportación unificada a **PDF**, **Excel (.xlsx)** y **CSV** (UTF-8 con BOM, separador `;`) en `Descargas/ASOPROGANUCOTT`.
   - Cierre de sesión automático tras **10 minutos** de inactividad.
 - **App móvil del productor (Android / iOS):**
@@ -55,7 +55,7 @@ flutter run -d <dispositivo>  # Android / iOS
 
 ```bash
 cd functions && npm install && cd ..
-firebase functions:secrets:set GEMINI_API_KEY   # solo la primera vez o al rotar la clave
+firebase functions:secrets:set OPENAI_API_KEY   # solo la primera vez o al rotar la clave
 firebase deploy --only firestore:rules,firestore:indexes,functions
 ```
 

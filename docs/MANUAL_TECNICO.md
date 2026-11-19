@@ -31,10 +31,10 @@ flowchart TB
     FS["Cloud Firestore + firestore.rules (función can)"]
     CF["Cloud Functions v2 (index, admin, compliance, assistant)"]
     FCM["Firebase Cloud Messaging HTTP v1"]
-    SM["Secret Manager (GEMINI_API_KEY)"]
+    SM["Secret Manager (OPENAI_API_KEY)"]
   end
 
-  GEM["API de Gemini (nivel gratuito Flash-Lite)"]
+  GEM["API de OpenAI (gpt-6-luna + gpt-transcribe)"]
 
   DVIEW --> DCTRL --> SYNC --> FS
   DCTRL --> HIVE
@@ -249,34 +249,44 @@ Node.js 22, `firebase-functions` v2. `index.js` reexporta los módulos.
 | `closeMilkSettlements` | `compliance.js` | `onCall` (120 s) | Cierre quincenal: por cada productor valida entregas y cálculo, emite el comprobante, bloquea las entregas, escribe auditoría y la notificación `CIERRE_QUINCENA` en una transacción. Si un grupo falla, devuelve cuántos se completaron. |
 | `adminCreateUser` | `admin.js` | `onCall` (máx. 5 instancias) | Crea la cuenta en Auth y el perfil. Requiere `usuarios.crear`; solo un `ADMIN` crea administradores; contraseña 8–64 con letras y números; sanea permisos. |
 | `adminUpdateUser` | `admin.js` | `onCall` (máx. 5 instancias) | Edita datos, rol, estado, permisos o contraseña. Impide cambiar el rol propio o suspenderse, exige que quede un administrador activo y revoca los tokens al suspender. |
-| `askAssistant` | `assistant.js` | `onCall` | Asistente IA (ver 4.1). |
+| `askAssistant` | `assistant.js` | `onCall` (300 s) | Asistente IA con herramientas e informes (ver 4.1). |
+| `transcribeAudio` | `assistant.js` | `onCall` (120 s) | Dictado por voz del asistente: audio → texto (ver 4.1). |
 | `onNotificationCreated` | `index.js` | `onDocumentCreated` | Envía push FCM HTTP v1 para `ENTREGA`, `CIERRE_QUINCENA`, `LIQUIDACION`, `PAGO` y `COMUNICADO`. Comunicados generales al tópico `asoproganucott_comunicados`; avisos individuales a los tokens del productor activo, con un texto genérico que no expone el contenido. |
 
-### 4.1 Asistente IA (`askAssistant`)
+### 4.1 Asistente IA (`askAssistant`, `transcribeAudio`)
 
-- **Modelo:** nivel gratuito de Gemini. Intenta `gemini-3.5-flash-lite` y, si responde 404/429/5xx, pasa a `gemini-3.1-flash-lite` y luego a `gemini-flash-lite-latest`. Temperatura 0,2.
-- **Clave:** secreto `GEMINI_API_KEY` en Secret Manager (`defineSecret`). Nunca viaja a la app.
+- **Proveedor:** API de OpenAI, [Responses API](https://developers.openai.com/api/docs/guides/function-calling) con `store: false` (OpenAI no guarda la conversación).
+- **Modelo:** `gpt-6-luna`, el modelo vigente más económico con *function calling* (US$0,10 por millón de tokens de entrada y US$0,50 de salida, noviembre de 2026). Si la cuenta no tiene acceso o hay un error 5xx, se usa `gpt-5.6-luna`. Esfuerzo de razonamiento `low`.
+- **Herramientas del modelo:**
+  - `consultar_produccion`: agregados exactos de entregas no anuladas en cualquier rango de hasta 731 días, por productor, día, semana, mes, vereda, jornada o productor-mes, con filtros opcionales de productor y vereda. La consulta a Firestore la hace el servidor.
+  - `generar_informe`: el modelo devuelve la estructura del informe (indicadores, gráficas de barras/barras horizontales/líneas/torta, tablas tipadas y texto de análisis). El servidor la sanea y la envía a la app en `report`, y la app la convierte en **PDF** (`pdf`, con gráficas vectoriales) o **Excel** (`.xlsx` con gráficas nativas de Excel) en `lib/core/services/assistant_report_export.dart`.
+  - Máximo 6 rondas de herramientas por pregunta.
+- **Dictado por voz (`transcribeAudio`):** la app graba con el paquete `record` (AAC/M4A mono de 16 kHz, o WAV si el equipo no admite AAC) durante máximo 3 minutos y envía el audio en base64. El servidor lo transcribe con `gpt-transcribe` (US$0,0045 por minuto) y, si falla, con `gpt-4o-mini-transcribe`. El texto queda en el cuadro de pregunta para revisarlo antes de enviarlo. Límites: 40 dictados por hora y 200 por día por usuario; 1.200 por día en total; audio de 6 MB como máximo.
+- **Clave:** secreto `OPENAI_API_KEY` en Secret Manager (`defineSecret`). Nunca viaja a la app.
 - **Acceso:** usuario autenticado, activo y con `asistente.ver`.
-- **Límites:** 30 preguntas por hora y 150 por día por usuario; 900 por día para toda la plataforma (contadores en `ia_uso`, transaccionales, día en hora de Colombia). Pregunta de 1–600 caracteres; últimos 8 mensajes del historial, recortados a 1.500 caracteres.
+- **Límites:** 30 preguntas por hora y 150 por día por usuario; 900 por día para toda la plataforma (contadores en `ia_uso`, transaccionales, día en hora de Colombia). Pregunta de 1–1.500 caracteres en la app (2.000 en el servidor); últimos 8 mensajes del historial, recortados a 1.500 caracteres.
 - **Contexto:** se construye en el servidor (productores, entregas de los últimos 92 días, tarifas, últimas 600 liquidaciones, usuarios y parámetros financieros) con resúmenes por período, y se **cachea 10 minutos** por instancia. Los textos de los datos se tratan como datos, no como instrucciones, y no se exponen documentos, correos ni teléfonos.
-- **Costo y concurrencia:** `maxInstances: 2`, `concurrency: 20`, `timeoutSeconds: 60`, `memory: 512MiB`.
+- **Costo y concurrencia:** `maxInstances: 2`, `concurrency: 20`, `timeoutSeconds: 300`, `memory: 512MiB`. Una pregunta con todo el contexto cuesta del orden de US$0,005–0,02.
+- **Errores:** si la clave es inválida, la cuenta no tiene saldo (`insufficient_quota`) o hay límite de frecuencia, el usuario ve un mensaje claro. El detalle (sin la clave) queda en los logs de Cloud Functions.
 
-#### Rotar la clave de Gemini
+#### Configurar o rotar la clave de OpenAI
 
 ```bash
-# 1. Generar una clave nueva en Google AI Studio y registrarla como nueva versión del secreto
-firebase functions:secrets:set GEMINI_API_KEY
+# 1. Crear una clave en https://platform.openai.com/api-keys (proyecto con saldo) y registrarla
+firebase functions:secrets:set OPENAI_API_KEY
 
-# 2. Volver a desplegar la función para que tome la nueva versión
-firebase deploy --only functions:askAssistant
+# 2. Volver a desplegar las funciones del asistente para que tomen la nueva versión
+firebase deploy --only functions:askAssistant,functions:transcribeAudio
 
-# 3. (Opcional) Destruir versiones antiguas del secreto y revocar la clave anterior en AI Studio
+# 3. (Opcional) Destruir versiones antiguas del secreto y revocar la clave anterior en OpenAI
 firebase functions:secrets:prune
 ```
 
+Recomendación: en el panel de OpenAI, define un **límite de gasto mensual** del proyecto.
+
 ### 4.2 Variables de entorno
 
-`functions/.env` contiene únicamente `AUTH_WEB_API_KEY`, que es la **clave web pública** del proyecto (la misma que va embebida en las apps cliente) usada por `signInByDocument`. No es un secreto, pero se recomienda restringirla a Identity Toolkit en Google Cloud. Los secretos reales (como `GEMINI_API_KEY`) van siempre en Secret Manager, nunca en `.env` ni en el repositorio.
+`functions/.env` contiene únicamente `AUTH_WEB_API_KEY`, que es la **clave web pública** del proyecto (la misma que va embebida en las apps cliente) usada por `signInByDocument`. No es un secreto, pero se recomienda restringirla a Identity Toolkit en Google Cloud. Los secretos reales (como `OPENAI_API_KEY`) van siempre en Secret Manager, nunca en `.env` ni en el repositorio.
 
 ### 4.3 Despliegue
 
@@ -430,7 +440,7 @@ El productor vinculado consulta su perfil, su historial de entregas y sus liquid
 ### Activación en Firebase y recuperación
 
 1. Configura `AUTH_WEB_API_KEY` en `functions/.env` para Cloud Functions con la clave web del proyecto habilitada para Identity Toolkit. `signInByDocument` valida la contraseña con Firebase Auth y comprueba que la cuenta corresponda al perfil activo antes de devolver el correo de acceso. La aplicación inicia la sesión en Firebase Auth con ese correo y la contraseña ingresada. Firebase Auth conserva las contraseñas como hashes. Los perfiles de Firestore y la caché de la aplicación excluyen las contraseñas. [Inicio por contraseña](https://docs.cloud.google.com/identity-platform/docs/reference/rest/v1/accounts/signInWithPassword) · [Hashes de Firebase Auth](https://firebase.google.com/docs/auth/admin/import-users)
-2. Registra el secreto del asistente IA con `firebase functions:secrets:set GEMINI_API_KEY` (ver 4.1) antes del primer despliegue de `askAssistant`.
+2. Registra el secreto del asistente IA con `firebase functions:secrets:set OPENAI_API_KEY` (ver 4.1) antes del primer despliegue de `askAssistant` y `transcribeAudio`.
 3. Publica las funciones, reglas e índices con `firebase deploy --only functions,firestore --project ID_DEL_PROYECTO`. Coordina esta publicación con la actualización de los clientes. Verifica con cuentas de cada rol el login por correo y cédula, el alta con aviso, la entrega sin conexión y posterior sincronización bajo la cuenta que la capturó, el cierre, el pago y la consulta aislada del productor.
 4. En Google Cloud, programa un respaldo diario de Firestore. Define la retención operativa según la capacidad de recuperación acordada con la asociación. Por ejemplo, para una ventana de 28 días:
 

@@ -418,7 +418,7 @@ No puede suspender su propia cuenta ni cambiar su propio rol, y siempre debe que
 
 ## 12. Asistente IA
 
-El **Asistente IA** (`Ctrl + 9` o botón **Preguntar a la IA**) responde preguntas en lenguaje natural sobre los datos de la asociación.
+El **Asistente IA** (`Ctrl + 9` o botón **Preguntar a la IA**) responde preguntas en lenguaje natural sobre los datos de la asociación, permite **dictar** las preguntas con el micrófono y genera **informes en PDF o Excel con gráficas**.
 
 ### 12.1 Hacer una pregunta
 
@@ -429,11 +429,25 @@ El **Asistente IA** (`Ctrl + 9` o botón **Preguntar a la IA**) responde pregunt
 5. Use **Copiar respuesta** si quiere pegarla en otro documento.
 6. **Nueva conversación** borra el historial y empieza de cero.
 
-### 12.2 Tenga en cuenta
+### 12.2 Dictar por voz
+
+1. Pulse el botón del **micrófono** junto a *Enviar*. La primera vez, el sistema puede pedir permiso para usar el micrófono.
+2. Hable con normalidad. Verá un punto rojo y el tiempo de grabación (máximo 3 minutos).
+3. Pulse **■** para terminar. El texto aparece en el cuadro de pregunta.
+4. Revíselo, corríjalo si hace falta y pulse `Enter` para enviar. Con **✕** descarta la grabación.
+
+### 12.3 Pedir informes (PDF o Excel)
+
+1. Pida el informe con sus palabras, por ejemplo: *"Hazme un informe en PDF de los 10 productores que más leche entregaron en octubre, con una gráfica de barras y otra de torta"* o *"Excel con la producción diaria de esta quincena y una gráfica de líneas"*.
+2. El asistente calcula las cifras y responde con una **tarjeta del informe** que muestra una vista previa de la gráfica.
+3. Pulse **Descargar PDF** o **Descargar Excel**. Los dos formatos están disponibles. En el computador el archivo queda en `Descargas/ASOPROGANUCOTT` (botón **Abrir carpeta**); en el celular se abre el menú para compartir.
+4. El Excel trae una hoja de *Resumen*, una hoja por cada tabla y una hoja por cada gráfica, con la gráfica de Excel lista para editar.
+
+### 12.4 Tenga en cuenta
 
 - Solo responde sobre la plataforma: productores, entregas, litros, tarifas, liquidaciones, pagos, usuarios y finanzas. No revela documentos, correos ni teléfonos.
 - Las respuestas se generan con IA: **verifique las cifras importantes** en los módulos o reportes.
-- Cada pregunta admite hasta 600 caracteres y hay una pausa corta entre preguntas.
+- Cada pregunta admite hasta 1.500 caracteres. Si alcanza un límite de uso, el asistente hace una pausa corta antes de recibir otra pregunta.
 - Hay un límite de uso por persona (30 preguntas por hora y 150 por día) y un cupo diario para toda la asociación. Si lo alcanza, intente más tarde.
 - Necesita internet.
 
