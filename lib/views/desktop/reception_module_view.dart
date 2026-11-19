@@ -837,14 +837,14 @@ class _ReceptionModuleViewState extends State<ReceptionModuleView> {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: <Widget>[
-                    _RowActionButton(
+                    AppRowActionButton(
                       tooltip: 'Corregir litros',
                       icon: Icons.edit_outlined,
                       color: AppTheme.skyBlue,
                       onPressed: () => _openEditDialog(r),
                     ),
                     const SizedBox(width: 6),
-                    _RowActionButton(
+                    AppRowActionButton(
                       tooltip: 'Anular entrega',
                       icon: Icons.block_rounded,
                       color: AppTheme.danger,
@@ -922,7 +922,7 @@ class _ReceptionSummaryStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final List<Widget> cards = <Widget>[
-      _MetricTile(
+      AppMetricTile(
         title: 'Litros recibidos hoy',
         value: '${ctrl.todayTotalLiters.toStringAsFixed(1)} L',
         subtitle:
@@ -930,21 +930,21 @@ class _ReceptionSummaryStrip extends StatelessWidget {
         icon: Icons.water_drop_outlined,
         accentColor: AppTheme.skyBlue,
       ),
-      _MetricTile(
+      AppMetricTile(
         title: 'Entregas de hoy',
         value: '${ctrl.todayDeliveriesCount}',
         subtitle: 'Registros activos del día',
         icon: Icons.fact_check_outlined,
         accentColor: AppTheme.primaryGreen,
       ),
-      _MetricTile(
+      AppMetricTile(
         title: 'Acumulado quincenal',
         value: '${ctrl.quincenaTotalLiters.toStringAsFixed(1)} L',
         subtitle: ctrl.currentQuincenaLabel,
         icon: Icons.calendar_today_outlined,
         accentColor: AppTheme.warmGold,
       ),
-      _MetricTile(
+      AppMetricTile(
         title: 'Estado de envío',
         value: ctrl.pendingSyncCount == 0
             ? 'Al día'
@@ -991,101 +991,6 @@ class _ReceptionSummaryStrip extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(child: cards[3]),
       ],
-    );
-  }
-}
-
-class _MetricTile extends StatelessWidget {
-  const _MetricTile({
-    required this.title,
-    required this.value,
-    required this.subtitle,
-    required this.icon,
-    this.accentColor = AppTheme.inkBlack,
-  });
-
-  final String title;
-  final String value;
-  final String subtitle;
-  final IconData icon;
-  final Color accentColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final bool tintValue =
-        accentColor == AppTheme.primaryGreen ||
-        accentColor == AppTheme.warningText;
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radiusCard + 2),
-        border: Border.all(color: AppTheme.border),
-        boxShadow: const <BoxShadow>[
-          BoxShadow(
-            color: Color(0x080C3B24),
-            blurRadius: 10,
-            offset: Offset(0, 3),
-          ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Container(height: 3, color: accentColor),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 11, 14, 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.textSecondary,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    AppIconBadge(icon: icon, color: accentColor, size: 28),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    value,
-                    style: AppTheme.monoStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                      color: tintValue ? accentColor : AppTheme.textPrimary,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 11.5,
-                    color: AppTheme.textMuted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -1317,45 +1222,6 @@ class _ProducerSuggestionChipState extends State<_ProducerSuggestionChip> {
                 ),
               ],
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Botón de acción compacto para filas de tabla.
-class _RowActionButton extends StatelessWidget {
-  const _RowActionButton({
-    required this.icon,
-    required this.tooltip,
-    required this.onPressed,
-    this.color = AppTheme.textSecondary,
-  });
-
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback onPressed;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: Material(
-        color: AppTheme.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTheme.radiusControl),
-          side: BorderSide(color: color.withValues(alpha: 0.25)),
-        ),
-        child: InkWell(
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(AppTheme.radiusControl),
-          hoverColor: color.withValues(alpha: 0.08),
-          child: SizedBox(
-            width: 30,
-            height: 30,
-            child: Icon(icon, size: 16, color: color),
           ),
         ),
       ),

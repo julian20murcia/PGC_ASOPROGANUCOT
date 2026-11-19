@@ -385,3 +385,140 @@ class AppInlineNotice extends StatelessWidget {
     );
   }
 }
+
+/// Tarjeta de métrica compacta con franja de acento superior.
+class AppMetricTile extends StatelessWidget {
+  const AppMetricTile({
+    super.key,
+    required this.title,
+    required this.value,
+    required this.subtitle,
+    required this.icon,
+    this.accentColor = AppTheme.inkBlack,
+  });
+
+  final String title;
+  final String value;
+  final String subtitle;
+  final IconData icon;
+  final Color accentColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool tintValue =
+        accentColor == AppTheme.primaryGreen ||
+        accentColor == AppTheme.warningText;
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radiusCard + 2),
+        border: Border.all(color: AppTheme.border),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0x080C3B24),
+            blurRadius: 10,
+            offset: Offset(0, 3),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Container(height: 3, color: accentColor),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 11, 14, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    AppIconBadge(icon: icon, color: accentColor, size: 28),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    value,
+                    style: AppTheme.monoStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      color: tintValue ? accentColor : AppTheme.textPrimary,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    color: AppTheme.textMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Botón de acción compacto (30×30) para filas de tabla.
+class AppRowActionButton extends StatelessWidget {
+  const AppRowActionButton({
+    super.key,
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+    this.color = AppTheme.textSecondary,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: AppTheme.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radiusControl),
+          side: BorderSide(color: color.withValues(alpha: 0.25)),
+        ),
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(AppTheme.radiusControl),
+          hoverColor: color.withValues(alpha: 0.08),
+          child: SizedBox(
+            width: 30,
+            height: 30,
+            child: Icon(icon, size: 16, color: color),
+          ),
+        ),
+      ),
+    );
+  }
+}
