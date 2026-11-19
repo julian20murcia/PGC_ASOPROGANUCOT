@@ -219,6 +219,49 @@ void main() {
       await auth.signOut(reason: SessionEndReason.otherDevice);
       expect(auth.sessionEndedReason, isNull);
     });
+
+    group('celular: sesión persistente', () {
+      setUp(() => AuthController.debugPersistentMobileSession = true);
+      tearDown(() => AuthController.debugPersistentMobileSession = null);
+
+      test('se recuerda aunque no se marque "Recordar acceso" y deja un solo token push', () async {
+        when(() => fcm.fetchDeviceTokenIfSupported()).thenAnswer((_) async => 'tok-nuevo');
+        when(() => users.replaceFcmTokens(uid: any(named: 'uid'), token: any(named: 'token')))
+            .thenAnswer((_) async {});
+        expect(await auth.signIn(identifier: 'ana@example.com', password: 'x', rememberMe: false), isTrue);
+        expect(auth.rememberMe, isTrue);
+        verify(() => users.replaceFcmTokens(uid: 'u1', token: 'tok-nuevo')).called(1);
+        verifyNever(() => users.appendFcmToken(uid: any(named: 'uid'), token: any(named: 'token')));
+      });
+
+      test('al reabrir la app sigue la sesión aunque lo guardado diga no recordar', () async {
+        final _FakeDeviceSession same = _FakeDeviceSession();
+        final _MockUserService u = _MockUserService();
+        when(() => u.currentFirebaseUser).thenReturn(_FakeFirebaseUser());
+        when(() => u.getUserProfileByUid(any())).thenAnswer((_) async => _user());
+        when(() => u.signOut()).thenAnswer((_) async {});
+        final HiveService hive = HiveService(enablePersistence: false);
+        await hive.init();
+        await hive.saveSessionState(rememberMe: false, lastIdentifier: 'ana', bootstrapMode: false, cachedUser: _user());
+        final AuthController a = AuthController(userService: u, hiveService: hive, fcmService: fcm, deviceSession: same);
+        await a.initialize();
+        expect(a.currentUser?.uid, 'u1');
+        verifyNever(() => u.signOut());
+      });
+
+      test('al cerrar sesión se quita el token push de este teléfono', () async {
+        when(() => fcm.unregisterDevice(removeToken: any(named: 'removeToken'))).thenAnswer((Invocation inv) async {
+          final Future<void> Function(String) remove =
+              inv.namedArguments[#removeToken] as Future<void> Function(String);
+          await remove('tok-viejo');
+        });
+        when(() => users.removeFcmToken(uid: any(named: 'uid'), token: any(named: 'token'))).thenAnswer((_) async {});
+        await auth.signIn(identifier: 'ana@example.com', password: 'x', rememberMe: true);
+        await auth.signOut();
+        verify(() => users.removeFcmToken(uid: 'u1', token: 'tok-viejo')).called(1);
+        expect(auth.currentUser, isNull);
+      });
+    });
   });
 }
 

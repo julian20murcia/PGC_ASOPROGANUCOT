@@ -318,6 +318,27 @@ class FirebaseUserService {
     }
   }
 
+  /// Deja este token como el único de la cuenta (sesión única en celular).
+  Future<void> replaceFcmTokens({required String uid, required String token}) async {
+    if (token.isEmpty) return;
+    try {
+      await _firestore.collection(AppConstants.usersCollection).doc(uid).update(<String, dynamic>{
+        'fcmTokens': <String>[token],
+      });
+    } catch (_) {
+      // No bloquear el login si falla el registro del token push.
+    }
+  }
+
+  Future<void> removeFcmToken({required String uid, required String token}) async {
+    if (token.isEmpty) return;
+    try {
+      await _firestore.collection(AppConstants.usersCollection).doc(uid).update(<String, dynamic>{
+        'fcmTokens': FieldValue.arrayRemove(<String>[token]),
+      });
+    } catch (_) {}
+  }
+
   Future<void> signOut() async {
     await _auth.signOut();
   }

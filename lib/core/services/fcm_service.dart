@@ -93,6 +93,26 @@ class FcmService {
     }
   }
 
+  /// Al cerrar sesión: quita el token de la cuenta, se da de baja de los
+  /// comunicados generales e invalida el token (el próximo inicio genera otro).
+  Future<void> unregisterDevice({required Future<void> Function(String token) removeToken}) async {
+    if (!isSupportedPlatform) return;
+    try {
+      final FirebaseMessaging messaging = FirebaseMessaging.instance;
+      // ignore: deprecated_member_use
+      final String? token = await messaging.getToken();
+      if (token != null && token.isNotEmpty) await removeToken(token);
+      await messaging.unsubscribeFromTopic(broadcastTopic);
+      await messaging.unregister();
+    } catch (_) {
+      // Sin red o sin Play Services: no impedir el cierre de sesión.
+    }
+    await _onMessageSub?.cancel();
+    _onMessageSub = null;
+    await _onOpenedAppSub?.cancel();
+    _onOpenedAppSub = null;
+  }
+
   /// Los avisos dirigidos se consultan mediante una sesión autenticada.
   Future<void> initializeForProducer({
     void Function(AppNotificationModel notification)? onNotification,

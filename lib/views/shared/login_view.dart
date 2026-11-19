@@ -374,7 +374,24 @@ class _LoginViewState extends State<LoginView> with SingleTickerProviderStateMix
             spacing: 8,
             runSpacing: 4,
             children: <Widget>[
-              InkWell(
+              if (AuthController.persistentMobileSession)
+                // En el celular la sesión siempre se mantiene iniciada.
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      const Icon(Icons.verified_user_outlined, size: 16, color: AppTheme.brand),
+                      const SizedBox(width: 6),
+                      Text(
+                        'La sesión queda guardada en este teléfono',
+                        style: AppTheme.bodyStyle(fontSize: 12.5, color: AppTheme.textSecondary),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                InkWell(
                 onTap: () => setState(() => _rememberMe = !_rememberMe),
                 borderRadius: BorderRadius.circular(6),
                 child: Padding(

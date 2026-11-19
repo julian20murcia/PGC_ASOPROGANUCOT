@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
 
@@ -51,6 +52,16 @@ class AuthController extends ChangeNotifier {
   bool get isInitializing => _isInitializing;
   bool get isLoading => _isLoading;
   bool get rememberMe => _rememberMe;
+
+  /// Celular (Android/iOS): la sesión SIEMPRE se recuerda y solo se cierra si
+  /// la cuenta se abre en otro teléfono (o el administrador la suspende).
+  /// En el PC sigue la casilla "Recordar acceso" y el cierre por inactividad.
+  static bool get persistentMobileSession =>
+      debugPersistentMobileSession ?? (!kIsWeb && (Platform.isAndroid || Platform.isIOS));
+
+  /// Solo pruebas: fuerza el comportamiento de celular (true) o de PC (false).
+  @visibleForTesting
+  static bool? debugPersistentMobileSession;
   String get savedIdentifier => _savedIdentifier;
   String? get errorMessage => _errorMessage;
 
@@ -70,7 +81,7 @@ class AuthController extends ChangeNotifier {
 
     try {
       await _hiveService.init();
-      _rememberMe = await _hiveService.getRememberMe();
+      _rememberMe = persistentMobileSession || await _hiveService.getRememberMe();
       _savedIdentifier = await _hiveService.getLastIdentifier();
 
       final firebaseUser = _userService.currentFirebaseUser;
@@ -112,7 +123,7 @@ class AuthController extends ChangeNotifier {
   }) async {
     _errorMessage = null;
     _sessionEndedReason = null;
-    _rememberMe = rememberMe;
+    _rememberMe = persistentMobileSession || rememberMe;
 
     final String cleanIdentifier = identifier.trim();
     if (cleanIdentifier.isEmpty) {
@@ -153,7 +164,7 @@ class AuthController extends ChangeNotifier {
       await _registerDeviceToken(signedUser.uid);
 
       await _hiveService.saveSessionState(
-        rememberMe: rememberMe,
+        rememberMe: _rememberMe,
         lastIdentifier: cleanIdentifier,
         bootstrapMode: false,
         cachedUser: signedUser,
@@ -180,7 +191,13 @@ class AuthController extends ChangeNotifier {
     try {
       final String? token = await _fcmService.fetchDeviceTokenIfSupported();
       if (token != null && token.isNotEmpty) {
-        await _userService.appendFcmToken(uid: uid, token: token);
+        if (persistentMobileSession) {
+          // Sesión única en celular: solo este teléfono recibe los avisos de la
+          // cuenta (el teléfono anterior deja de recibirlos).
+          await _userService.replaceFcmTokens(uid: uid, token: token);
+        } else {
+          await _userService.appendFcmToken(uid: uid, token: token);
+        }
       }
       await _tokenRefreshSub?.cancel();
       _tokenRefreshSub = _fcmService.onTokenRefresh.listen((String nextToken) {
@@ -218,6 +235,19 @@ class AuthController extends ChangeNotifier {
       await _deviceSession.stop();
       await _tokenRefreshSub?.cancel();
       _tokenRefreshSub = null;
+      // Este teléfono deja de recibir avisos de la cuenta al cerrar sesión.
+      final String? uid = _currentUser?.uid;
+      if (uid != null) {
+        try {
+          await _fcmService
+              .unregisterDevice(
+                removeToken: (String token) => _userService.removeFcmToken(uid: uid, token: token),
+              )
+              .timeout(const Duration(seconds: 5), onTimeout: () {});
+        } catch (_) {
+          // Nunca impedir el cierre de sesión por el canal push.
+        }
+      }
       await _userService.signOut();
       await _hiveService.clearActiveSession(keepIdentifier: _rememberMe);
       _currentUser = null;
