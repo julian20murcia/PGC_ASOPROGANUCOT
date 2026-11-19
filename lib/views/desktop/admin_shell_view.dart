@@ -20,6 +20,7 @@ import 'dashboard_module_view.dart';
 import 'producers_module_view.dart';
 import 'rates_module_view.dart';
 import 'reception_module_view.dart';
+import 'rectifications/rectification_inbox_button.dart';
 import 'reports_module_view.dart';
 import 'settlements_module_view.dart';
 import 'users_module_view.dart';
@@ -658,6 +659,7 @@ class _TopBar extends StatelessWidget {
             tone: online ? Tone.success : Tone.danger,
             dot: true,
           ),
+          RectificationInboxButton(user: user),
           const SizedBox(width: 12),
           const _Clock(),
           if (onAssistant != null) ...<Widget>[

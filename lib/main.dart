@@ -16,6 +16,7 @@ import 'controllers/producer_controller.dart';
 import 'controllers/producer_portal_controller.dart';
 import 'controllers/rate_controller.dart';
 import 'controllers/reception_controller.dart';
+import 'controllers/rectification_inbox_controller.dart';
 import 'controllers/report_controller.dart';
 import 'controllers/settlement_controller.dart';
 import 'controllers/sync_controller.dart';
@@ -128,6 +129,9 @@ class AsoproganucotApp extends StatelessWidget {
             notificationService: NotificationService(hiveService: hiveService),
             fcmService: FcmService(),
           ),
+        ),
+        ChangeNotifierProvider<RectificationInboxController>(
+          create: (_) => RectificationInboxController(),
         ),
       ],
       child: MaterialApp(
