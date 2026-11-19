@@ -15,17 +15,20 @@ import '../shared/widgets/privacy_notice_view.dart';
 class ProducerRegistrationView extends StatefulWidget {
   const ProducerRegistrationView({super.key});
 
-  static bool get isSupported => !kIsWeb &&
+  static bool get isSupported =>
+      !kIsWeb &&
       (defaultTargetPlatform == TargetPlatform.android ||
           defaultTargetPlatform == TargetPlatform.iOS);
 
   @override
-  State<ProducerRegistrationView> createState() => _ProducerRegistrationViewState();
+  State<ProducerRegistrationView> createState() =>
+      _ProducerRegistrationViewState();
 }
 
 class _ProducerRegistrationViewState extends State<ProducerRegistrationView> {
   static const _appName = 'ProducerRegistration';
-  static const _consent = 'Leí el aviso y la política de tratamiento. Autorizo el uso de mis datos para verificar mi teléfono, activar mi cuenta y consultar mi historial en el portal.';
+  static const _consent =
+      'Leí el aviso y la política de tratamiento. Autorizo el uso de mis datos para verificar mi teléfono, activar mi cuenta y consultar mi historial en el portal.';
 
   final _form = GlobalKey<FormState>();
   final _document = TextEditingController();
@@ -102,14 +105,18 @@ class _ProducerRegistrationViewState extends State<ProducerRegistrationView> {
     return switch (error.code) {
       'invalid-verification-code' => 'El código del mensaje es incorrecto.',
       'session-expired' => 'El código venció. Solicita uno nuevo.',
-      'too-many-requests' => 'Se alcanzó el límite de intentos. Intenta más tarde.',
-      'operation-not-allowed' => 'La verificación por SMS aún no está habilitada.',
-      _ => 'No se pudo verificar el teléfono. Revisa la conexión y vuelve a intentar.',
+      'too-many-requests' =>
+        'Se alcanzó el límite de intentos. Intenta más tarde.',
+      'operation-not-allowed' =>
+        'La verificación por SMS aún no está habilitada.',
+      _ =>
+        'No se pudo verificar el teléfono. Revisa la conexión y vuelve a intentar.',
     };
   }
 
   Future<void> _sendCode() async {
-    if (!_accepted || _busy || !(_form.currentState?.validate() ?? false)) return;
+    if (!_accepted || _busy || !(_form.currentState?.validate() ?? false))
+      return;
     final attempt = ++_attempt;
     setState(() {
       _busy = true;
@@ -149,7 +156,8 @@ class _ProducerRegistrationViewState extends State<ProducerRegistrationView> {
   }
 
   Future<void> _verify(PhoneAuthCredential credential, int attempt) async {
-    if (!mounted || attempt != _attempt || _verifying || _verifiedUser != null) return;
+    if (!mounted || attempt != _attempt || _verifying || _verifiedUser != null)
+      return;
     _verifying = true;
     setState(() {
       _busy = true;
@@ -180,7 +188,8 @@ class _ProducerRegistrationViewState extends State<ProducerRegistrationView> {
   }
 
   Future<void> _activate(PrivacyNotice notice) async {
-    if (!_accepted || _busy || !(_form.currentState?.validate() ?? false)) return;
+    if (!_accepted || _busy || !(_form.currentState?.validate() ?? false))
+      return;
     setState(() {
       _busy = true;
       _error = null;
@@ -191,18 +200,25 @@ class _ProducerRegistrationViewState extends State<ProducerRegistrationView> {
         _showError('Verifica de nuevo el teléfono por SMS.');
         return;
       }
-      await callFirebaseFunction('registerProducerAccount', <String, dynamic>{
-        'documento': _document.text.trim(),
-        'password': _password.text,
-        'aviso': notice.data,
-        'aceptado': _accepted,
-        'declaracion': _consent,
-      }, idToken: token, timeout: const Duration(seconds: 60));
+      await callFirebaseFunction(
+        'registerProducerAccount',
+        <String, dynamic>{
+          'documento': _document.text.trim(),
+          'password': _password.text,
+          'aviso': notice.data,
+          'aceptado': _accepted,
+          'declaracion': _consent,
+        },
+        idToken: token,
+        timeout: const Duration(seconds: 60),
+      );
       if (mounted) Navigator.of(context).pop(_document.text.trim());
     } on StateError catch (error) {
       _showError(error.message);
     } catch (_) {
-      _showError('No se pudo terminar el alta. Verifica tu conexión y reintenta.');
+      _showError(
+        'No se pudo terminar el alta. Verifica tu conexión y reintenta.',
+      );
     }
   }
 
@@ -242,7 +258,9 @@ class _ProducerRegistrationViewState extends State<ProducerRegistrationView> {
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('El registro requiere el aviso institucional vigente. Consulta a la asociación si el aviso sigue sin estar disponible.'),
+                        const Text(
+                          'El registro requiere el aviso institucional vigente. Consulta a la asociación si el aviso sigue sin estar disponible.',
+                        ),
                         TextButton(
                           onPressed: () {
                             final pending = PrivacyNotice.load();
@@ -276,25 +294,35 @@ class _ProducerRegistrationViewState extends State<ProducerRegistrationView> {
           Text('Aviso de privacidad', style: AppTheme.subtitleStyle()),
           const SizedBox(height: 12),
           PrivacyNoticeView(notice: notice),
-          const Text('Firebase recibe el número para verificarlo por SMS y prevenir abusos.'),
+          const Text(
+            'Firebase recibe el número para verificarlo por SMS y prevenir abusos.',
+          ),
           CheckboxListTile(
             contentPadding: EdgeInsets.zero,
             value: _accepted,
-            onChanged: _busy || codeSent || verified ? null : (value) {
-              setState(() => _accepted = value ?? false);
-            },
+            onChanged: _busy || codeSent || verified
+                ? null
+                : (value) {
+                    setState(() => _accepted = value ?? false);
+                  },
             title: const Text(_consent),
           ),
           const SizedBox(height: 16),
-          const Text('Usa el documento y el celular registrados en la asociación.'),
+          const Text(
+            'Usa el documento y el celular registrados en la asociación.',
+          ),
           const SizedBox(height: 12),
           TextFormField(
             controller: _document,
             enabled: _accepted && !_busy && !codeSent && !verified,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: 'Número de identificación'),
-            validator: (value) => RegExp(r'^\d{5,24}$').hasMatch(value?.trim() ?? '')
-                ? null : 'Ingresa un número de identificación válido.',
+            decoration: const InputDecoration(
+              labelText: 'Número de identificación',
+            ),
+            validator: (value) =>
+                RegExp(r'^\d{5,24}$').hasMatch(value?.trim() ?? '')
+                ? null
+                : 'Ingresa un número de identificación válido.',
           ),
           const SizedBox(height: 12),
           TextFormField(
@@ -302,7 +330,9 @@ class _ProducerRegistrationViewState extends State<ProducerRegistrationView> {
             enabled: _accepted && !_busy && !codeSent && !verified,
             keyboardType: TextInputType.phone,
             decoration: const InputDecoration(labelText: 'Celular registrado'),
-            validator: (_) => _mobile == null ? 'Ingresa un celular colombiano válido.' : null,
+            validator: (_) => _mobile == null
+                ? 'Ingresa un celular colombiano válido.'
+                : null,
           ),
           if (codeSent && !verified) ...[
             const SizedBox(height: 12),
@@ -311,8 +341,10 @@ class _ProducerRegistrationViewState extends State<ProducerRegistrationView> {
               keyboardType: TextInputType.number,
               autofillHints: const [AutofillHints.oneTimeCode],
               decoration: const InputDecoration(labelText: 'Código del SMS'),
-              validator: (value) => RegExp(r'^\d{6}$').hasMatch(value?.trim() ?? '')
-                  ? null : 'Ingresa el código de seis dígitos.',
+              validator: (value) =>
+                  RegExp(r'^\d{6}$').hasMatch(value?.trim() ?? '')
+                  ? null
+                  : 'Ingresa el código de seis dígitos.',
             ),
           ],
           if (verified) ...[
@@ -322,15 +354,21 @@ class _ProducerRegistrationViewState extends State<ProducerRegistrationView> {
               obscureText: true,
               autofillHints: const [AutofillHints.newPassword],
               decoration: const InputDecoration(labelText: 'Contraseña'),
-              validator: (value) => (value ?? '').length < 8 || (value ?? '').length > 128
-                  ? 'Usa entre 8 y 128 caracteres.' : null,
+              validator: (value) =>
+                  (value ?? '').length < 8 || (value ?? '').length > 128
+                  ? 'Usa entre 8 y 128 caracteres.'
+                  : null,
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _confirmation,
               obscureText: true,
-              decoration: const InputDecoration(labelText: 'Confirmar contraseña'),
-              validator: (value) => value != _password.text ? 'Las contraseñas deben coincidir.' : null,
+              decoration: const InputDecoration(
+                labelText: 'Confirmar contraseña',
+              ),
+              validator: (value) => value != _password.text
+                  ? 'Las contraseñas deben coincidir.'
+                  : null,
             ),
           ],
           if (_error != null) ...[
@@ -339,10 +377,19 @@ class _ProducerRegistrationViewState extends State<ProducerRegistrationView> {
           ],
           const SizedBox(height: 20),
           PrimaryActionButton(
-            label: verified ? 'Crear cuenta' : codeSent ? 'Verificar código' : 'Enviar código por SMS',
+            label: verified
+                ? 'Crear cuenta'
+                : codeSent
+                ? 'Verificar código'
+                : 'Enviar código por SMS',
             isLoading: _busy,
-            onPressed: !_accepted || _busy ? null : verified
-                ? () => _activate(notice) : codeSent ? _confirmCode : _sendCode,
+            onPressed: !_accepted || _busy
+                ? null
+                : verified
+                ? () => _activate(notice)
+                : codeSent
+                ? _confirmCode
+                : _sendCode,
           ),
           if (codeSent || verified)
             TextButton(

@@ -7,6 +7,7 @@ import '../../controllers/auth_controller.dart';
 import '../../controllers/user_controller.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
+import '../mobile/producer_registration_view.dart';
 import 'widgets/cow_balloon_3d_widget.dart';
 import 'widgets/dairy_loader.dart';
 import 'widgets/design_system_widgets.dart';
@@ -170,6 +171,19 @@ class _LoginViewState extends State<LoginView>
       _localNotice = ok
           ? 'Enviamos un correo de recuperación de contraseña a $identifier.'
           : context.read<UserController>().errorMessage;
+    });
+  }
+
+  Future<void> _registerProducer() async {
+    FocusScope.of(context).unfocus();
+    final document = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const ProducerRegistrationView()),
+    );
+    if (!mounted || document == null) return;
+    _identifierCtrl.text = document;
+    _passwordCtrl.clear();
+    setState(() {
+      _localNotice = 'Cuenta creada. Ingresa con tu documento y contraseña.';
     });
   }
 
@@ -753,6 +767,11 @@ class _LoginViewState extends State<LoginView>
           isMobile: isMobile,
           onPressed: _submit,
         ),
+        if (ProducerRegistrationView.isSupported)
+          TextButton(
+            onPressed: auth.isLoading ? null : _registerProducer,
+            child: const Text('Crear cuenta de productor'),
+          ),
         const SizedBox(height: 16),
         const Divider(height: 1),
         const SizedBox(height: 12),

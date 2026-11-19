@@ -1898,10 +1898,11 @@ class _ProducerProfileSheetState extends State<_ProducerProfileSheet> {
                       label: 'Cédula / Documento',
                       value: producer?.cedula ?? widget.user.documento,
                     ),
-                    _ProfileLine(
-                      label: 'Correo de acceso',
-                      value: widget.user.correo,
-                    ),
+                    if (widget.user.correo.isNotEmpty)
+                      _ProfileLine(
+                        label: 'Correo de acceso',
+                        value: widget.user.correo,
+                      ),
                     _ProfileLine(
                       label: 'Teléfono',
                       value: producer?.telefono ?? widget.user.telefono,

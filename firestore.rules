@@ -5,12 +5,17 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function hasPortalSession() {
+      return signedIn() &&
+        request.auth.token.get('firebase', {}).get('sign_in_provider', '') != 'phone';
+    }
+
     function profile() {
       return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
     }
 
     function isActiveUser() {
-      return signedIn() && profile().activo == true;
+      return hasPortalSession() && profile().activo == true;
     }
 
     function isAdmin() {
@@ -81,7 +86,7 @@ service cloud.firestore {
     }
 
     match /usuarios/{uid} {
-      allow get: if isAdmin() || (signedIn() && request.auth.uid == uid);
+      allow get: if isAdmin() || (hasPortalSession() && request.auth.uid == uid);
       allow list: if isAdmin();
       allow create: if isAdmin() && request.resource.data.uid == uid &&
         request.resource.data.rol in ['ADMIN', 'OPERARIO', 'PRODUCTOR'];

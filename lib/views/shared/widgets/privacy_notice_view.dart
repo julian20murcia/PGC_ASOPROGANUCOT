@@ -12,7 +12,10 @@ class PrivacyNoticeView extends StatelessWidget {
 
   Future<void> _openPolicy(BuildContext context) async {
     try {
-      if (await launchUrl(notice.policyUri, mode: LaunchMode.externalApplication)) {
+      if (await launchUrl(
+        notice.policyUri,
+        mode: LaunchMode.externalApplication,
+      )) {
         return;
       }
     } on PlatformException {
