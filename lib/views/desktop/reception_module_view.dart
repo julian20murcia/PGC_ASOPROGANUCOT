@@ -13,6 +13,7 @@ import '../../models/user_model.dart';
 import '../shared/widgets/app_select.dart';
 import '../shared/widgets/dairy_loader.dart';
 import '../shared/widgets/design_system_widgets.dart';
+import '../shared/widgets/ui_kit.dart';
 
 /// Módulo administrativo de captura rápida de leche cruda en planta y consulta auditada.
 class ReceptionModuleView extends StatefulWidget {
@@ -40,8 +41,8 @@ class _ReceptionModuleViewState extends State<ReceptionModuleView> {
       if (!mounted) return;
       final UserController userCtrl = context.read<UserController>();
       context.read<ReceptionController>().loadReceptions(
-            isOnlineOverride: userCtrl.isOnline,
-          );
+        isOnlineOverride: userCtrl.isOnline,
+      );
     });
   }
 
@@ -113,7 +114,7 @@ class _ReceptionModuleViewState extends State<ReceptionModuleView> {
     if (ctrl.selectedProducer == null && _producerInputCtrl.text.isNotEmpty) {
       final ProducerModel? match =
           ctrl.findExactProducer(_producerInputCtrl.text) ??
-              ctrl.matchProducersByCodeOrQuery(_producerInputCtrl.text).firstOrNull;
+          ctrl.matchProducersByCodeOrQuery(_producerInputCtrl.text).firstOrNull;
       if (match != null) {
         ctrl.selectProducer(match);
       }
@@ -122,7 +123,10 @@ class _ReceptionModuleViewState extends State<ReceptionModuleView> {
     final String rawLiters = _litersCtrl.text.replaceAll(',', '.').trim();
     final double? liters = double.tryParse(rawLiters);
     if (liters == null || liters <= 0) {
-      _showToast('Ingresa una cantidad válida de litros mayor a cero.', isError: true);
+      _showToast(
+        'Ingresa una cantidad válida de litros mayor a cero.',
+        isError: true,
+      );
       _litersFocus.requestFocus();
       return;
     }
@@ -140,9 +144,8 @@ class _ReceptionModuleViewState extends State<ReceptionModuleView> {
       final bool? confirm = await showDialog<bool>(
         context: context,
         barrierDismissible: false,
-        builder: (_) => _DuplicateDeliveryDialog(
-          existing: result.duplicateFound!,
-        ),
+        builder: (_) =>
+            _DuplicateDeliveryDialog(existing: result.duplicateFound!),
       );
       if (confirm == true && mounted) {
         await _submitDelivery(allowDuplicate: true);
@@ -165,7 +168,8 @@ class _ReceptionModuleViewState extends State<ReceptionModuleView> {
 
   Future<void> _openEditDialog(MilkReceptionModel reception) async {
     final UserModel actor =
-        context.read<AuthController>().currentUser ?? UserModel.bootstrapAdmin();
+        context.read<AuthController>().currentUser ??
+        UserModel.bootstrapAdmin();
     final ReceptionController ctrl = context.read<ReceptionController>();
     ctrl.clearFeedback();
 
@@ -185,7 +189,8 @@ class _ReceptionModuleViewState extends State<ReceptionModuleView> {
 
   Future<void> _openAnnulDialog(MilkReceptionModel reception) async {
     final UserModel actor =
-        context.read<AuthController>().currentUser ?? UserModel.bootstrapAdmin();
+        context.read<AuthController>().currentUser ??
+        UserModel.bootstrapAdmin();
     final ReceptionController ctrl = context.read<ReceptionController>();
     ctrl.clearFeedback();
 
@@ -217,7 +222,8 @@ class _ReceptionModuleViewState extends State<ReceptionModuleView> {
   Widget build(BuildContext context) {
     final ReceptionController ctrl = context.watch<ReceptionController>();
     final UserModel currentUser =
-        context.watch<AuthController>().currentUser ?? UserModel.bootstrapAdmin();
+        context.watch<AuthController>().currentUser ??
+        UserModel.bootstrapAdmin();
     final bool isNarrow = MediaQuery.of(context).size.width < 920;
 
     return Align(
@@ -324,17 +330,18 @@ class _ReceptionModuleViewState extends State<ReceptionModuleView> {
     final List<ProducerModel> suggestions = selected == null
         ? ctrl.matchProducersByCodeOrQuery(_producerInputQuery)
         : const <ProducerModel>[];
+    final bool hasLiters =
+        (double.tryParse(_litersCtrl.text.replaceAll(',', '.').trim()) ?? 0) >
+        0;
 
     final Widget producerField = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        const Text(
-          '1. Productor (código, cédula o nombre)',
-          style: TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w600,
-            color: AppTheme.textPrimary,
-          ),
+        _StepLabel(
+          step: 1,
+          label: 'Productor',
+          hint: 'código, cédula o nombre',
+          done: selected != null,
         ),
         const SizedBox(height: 6),
         TextField(
@@ -352,7 +359,13 @@ class _ReceptionModuleViewState extends State<ReceptionModuleView> {
             hintText: ctrl.activeProducers.isEmpty
                 ? 'Primero registra productores activos en el módulo Productores'
                 : 'Ej. ASO-001, cédula o nombre y presiona Enter',
-            prefixIcon: const Icon(Icons.search_rounded, size: 18),
+            prefixIcon: Icon(
+              selected != null
+                  ? Icons.check_circle_rounded
+                  : Icons.search_rounded,
+              size: 18,
+              color: selected != null ? AppTheme.primaryGreen : null,
+            ),
             suffixIcon: (_producerInputCtrl.text.isNotEmpty || selected != null)
                 ? IconButton(
                     tooltip: 'Limpiar selección',
@@ -362,104 +375,80 @@ class _ReceptionModuleViewState extends State<ReceptionModuleView> {
                 : null,
           ),
         ),
-        if (selected != null) ...<Widget>[
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-            decoration: BoxDecoration(
-              color: AppTheme.primaryGreenLight,
-              borderRadius: BorderRadius.circular(AppTheme.radiusControl),
-              border: Border.all(
-                color: AppTheme.primaryGreen.withValues(alpha: 0.30),
-              ),
-            ),
-            child: Row(
-              children: <Widget>[
-                const Icon(
-                  Icons.check_circle_rounded,
-                  size: 16,
-                  color: AppTheme.primaryGreen,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    '${selected.codigoAsociado} · ${selected.nombreCompleto} · Finca ${selected.nombreFinca} (${selected.vereda})',
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.successText,
-                    ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topLeft,
+          child: selected != null
+              ? Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: _SelectedProducerCard(producer: selected),
+                )
+              : suggestions.isNotEmpty
+              ? Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: <Widget>[
+                      for (int i = 0; i < suggestions.length; i++)
+                        _ProducerSuggestionChip(
+                          producer: suggestions[i],
+                          isEnterTarget:
+                              i == 0 && _producerInputQuery.trim().isNotEmpty,
+                          onTap: () => _pickProducer(suggestions[i]),
+                        ),
+                    ],
                   ),
-                ),
-              ],
-            ),
-          ),
-        ] else if (_producerInputQuery.trim().isNotEmpty ||
-            ctrl.activeProducers.isNotEmpty) ...<Widget>[
-          if (suggestions.isNotEmpty) ...<Widget>[
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: suggestions.map((ProducerModel p) {
-                return ActionChip(
-                  avatar: const Icon(Icons.person_outline_rounded, size: 15),
-                  backgroundColor: AppTheme.surfaceMuted,
-                  side: const BorderSide(color: AppTheme.border),
-                  label: Text(
-                    '${p.codigoAsociado} · ${p.nombreCompleto}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: AppTheme.textPrimary,
-                    ),
+                )
+              : _producerInputQuery.trim().isNotEmpty
+              ? const Padding(
+                  padding: EdgeInsets.only(top: 8),
+                  child: Row(
+                    children: <Widget>[
+                      Icon(
+                        Icons.person_off_outlined,
+                        size: 15,
+                        color: AppTheme.dangerText,
+                      ),
+                      SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'No se encontraron productores activos con ese criterio.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppTheme.dangerText,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  onPressed: () => _pickProducer(p),
-                );
-              }).toList(),
-            ),
-          ] else if (_producerInputQuery.trim().isNotEmpty) ...<Widget>[
-            const SizedBox(height: 8),
-            const Text(
-              'No se encontraron productores activos con ese criterio.',
-              style: TextStyle(fontSize: 12, color: AppTheme.dangerText),
-            ),
-          ],
-        ],
+                )
+              : const SizedBox(width: double.infinity),
+        ),
       ],
     );
 
     final Widget shiftSelector = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        const Text(
-          '2. Jornada',
-          style: TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w600,
-            color: AppTheme.textPrimary,
-          ),
-        ),
+        const _StepLabel(step: 2, label: 'Jornada', done: true),
         const SizedBox(height: 6),
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: _ShiftToggleButton(
-                label: 'Mañana',
-                icon: Icons.wb_sunny_outlined,
-                selected: ctrl.selectedShift == AppConstants.shiftMorning,
-                onTap: () => ctrl.setSelectedShift(AppConstants.shiftMorning),
-              ),
+        AppSegmentedControl<String>(
+          height: 42,
+          expand: true,
+          selected: ctrl.selectedShift,
+          onChanged: ctrl.setSelectedShift,
+          segments: const <AppSegment<String>>[
+            AppSegment<String>(
+              value: AppConstants.shiftMorning,
+              label: 'Mañana',
+              icon: Icons.wb_sunny_outlined,
             ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _ShiftToggleButton(
-                label: 'Tarde',
-                icon: Icons.nights_stay_outlined,
-                selected: ctrl.selectedShift == AppConstants.shiftAfternoon,
-                onTap: () => ctrl.setSelectedShift(AppConstants.shiftAfternoon),
-              ),
+            AppSegment<String>(
+              value: AppConstants.shiftAfternoon,
+              label: 'Tarde',
+              icon: Icons.wb_twilight_rounded,
             ),
           ],
         ),
@@ -469,14 +458,7 @@ class _ReceptionModuleViewState extends State<ReceptionModuleView> {
     final Widget litersField = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        const Text(
-          '3. Litros recibidos',
-          style: TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w600,
-            color: AppTheme.textPrimary,
-          ),
-        ),
+        _StepLabel(step: 3, label: 'Litros', done: hasLiters),
         const SizedBox(height: 6),
         TextField(
           controller: _litersCtrl,
@@ -486,114 +468,152 @@ class _ReceptionModuleViewState extends State<ReceptionModuleView> {
           inputFormatters: <TextInputFormatter>[
             FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
           ],
-          style: AppTheme.monoStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-          ),
+          style: AppTheme.monoStyle(fontSize: 17, fontWeight: FontWeight.w700),
+          onChanged: (_) => setState(() {}),
           onSubmitted: (_) => _submitDelivery(),
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             hintText: '0.0',
             suffixText: 'L',
-            prefixIcon: Icon(Icons.water_drop_outlined, size: 18),
+            suffixStyle: AppTheme.monoStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textMuted,
+            ),
+            prefixIcon: const Icon(Icons.water_drop_outlined, size: 18),
           ),
         ),
       ],
     );
 
+    final Widget submitButton = PrimaryActionButton(
+      label: 'Registrar entrega',
+      icon: Icons.check_rounded,
+      fullWidth: isNarrow,
+      isMobile: isNarrow,
+      isLoading: ctrl.isSaving,
+      onPressed: () => _submitDelivery(),
+    );
+
     return Container(
-      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+        borderRadius: BorderRadius.circular(AppTheme.radiusCard + 2),
         border: Border.all(color: AppTheme.border),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0x0D0C3B24),
+            blurRadius: 18,
+            offset: Offset(0, 6),
+          ),
+        ],
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          Row(
-            children: <Widget>[
-              const Icon(
-                Icons.bolt_rounded,
-                size: 18,
-                color: AppTheme.primaryGreen,
+          Container(
+            padding: const EdgeInsets.fromLTRB(18, 12, 18, 12),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: <Color>[AppTheme.primaryGreenLight, AppTheme.surface],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
               ),
-              const SizedBox(width: 7),
-              Expanded(
-                child: Text(
-                  'Captura rápida en planta',
-                  style: AppTheme.subtitleStyle(),
-                ),
-              ),
-              if (!isNarrow)
-                const Text(
-                  'Atajo: Enter para avanzar y guardar',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppTheme.textMuted,
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          if (isNarrow) ...<Widget>[
-            producerField,
-            const SizedBox(height: 12),
-            shiftSelector,
-            const SizedBox(height: 12),
-            litersField,
-            const SizedBox(height: 14),
-            PrimaryActionButton(
-              label: 'Registrar entrega',
-              icon: Icons.check_rounded,
-              isLoading: ctrl.isSaving,
-              onPressed: () => _submitDelivery(),
+              border: Border(bottom: BorderSide(color: AppTheme.dividerLight)),
             ),
-          ] else
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: <Widget>[
-                Expanded(flex: 5, child: producerField),
-                const SizedBox(width: 14),
-                Expanded(flex: 3, child: shiftSelector),
-                const SizedBox(width: 14),
-                Expanded(flex: 2, child: litersField),
-                const SizedBox(width: 14),
-                Padding(
-                  padding: const EdgeInsets.only(top: 23),
-                  child: PrimaryActionButton(
-                    label: 'Registrar entrega',
-                    icon: Icons.check_rounded,
-                    fullWidth: false,
-                    isLoading: ctrl.isSaving,
-                    onPressed: () => _submitDelivery(),
+                const AppIconBadge(icon: Icons.bolt_rounded, size: 32),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        'Captura rápida en planta',
+                        style: AppTheme.subtitleStyle(),
+                      ),
+                      const Text(
+                        'Productor → jornada → litros',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.textMuted,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
+                if (!isNarrow)
+                  const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      KeyCap('Enter'),
+                      SizedBox(width: 6),
+                      Text(
+                        'avanzar y guardar',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
               ],
             ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(18),
+            child: isNarrow
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: <Widget>[
+                      producerField,
+                      const SizedBox(height: 14),
+                      shiftSelector,
+                      const SizedBox(height: 14),
+                      litersField,
+                      const SizedBox(height: 16),
+                      submitButton,
+                    ],
+                  )
+                : Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Expanded(flex: 5, child: producerField),
+                      const SizedBox(width: 14),
+                      Expanded(flex: 3, child: shiftSelector),
+                      const SizedBox(width: 14),
+                      Expanded(flex: 2, child: litersField),
+                      const SizedBox(width: 14),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 30),
+                        child: submitButton,
+                      ),
+                    ],
+                  ),
+          ),
         ],
       ),
     );
   }
 
   Widget _buildTableToolbar(ReceptionController ctrl, bool isNarrow) {
-    final Widget periodChips = Wrap(
-      spacing: 6,
-      runSpacing: 6,
-      children: <Widget>[
-        _FilterPill(
+    final Widget periodChips = AppSegmentedControl<ReceptionDateFilterMode>(
+      selected: ctrl.dateFilterMode,
+      onChanged: ctrl.setDateFilterMode,
+      segments: const <AppSegment<ReceptionDateFilterMode>>[
+        AppSegment<ReceptionDateFilterMode>(
+          value: ReceptionDateFilterMode.today,
           label: 'Hoy',
-          selected: ctrl.dateFilterMode == ReceptionDateFilterMode.today,
-          onTap: () => ctrl.setDateFilterMode(ReceptionDateFilterMode.today),
+          icon: Icons.today_rounded,
         ),
-        _FilterPill(
+        AppSegment<ReceptionDateFilterMode>(
+          value: ReceptionDateFilterMode.quincena,
           label: 'Quincena actual',
-          selected: ctrl.dateFilterMode == ReceptionDateFilterMode.quincena,
-          onTap: () => ctrl.setDateFilterMode(ReceptionDateFilterMode.quincena),
         ),
-        _FilterPill(
+        AppSegment<ReceptionDateFilterMode>(
+          value: ReceptionDateFilterMode.all,
           label: 'Todo',
-          selected: ctrl.dateFilterMode == ReceptionDateFilterMode.all,
-          onTap: () => ctrl.setDateFilterMode(ReceptionDateFilterMode.all),
         ),
       ],
     );
@@ -687,9 +707,9 @@ class _ReceptionModuleViewState extends State<ReceptionModuleView> {
                 const SizedBox(width: 12),
                 Expanded(child: searchField),
                 const SizedBox(width: 8),
-                SizedBox(width: 165, child: shiftDropdown),
+                SizedBox(width: 190, child: shiftDropdown),
                 const SizedBox(width: 8),
-                SizedBox(width: 140, child: statusDropdown),
+                SizedBox(width: 172, child: statusDropdown),
               ],
             ),
     );
@@ -707,12 +727,12 @@ class _ReceptionModuleViewState extends State<ReceptionModuleView> {
       child: const Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Icon(
-            Icons.water_drop_outlined,
-            size: 30,
-            color: AppTheme.inkBlack,
+          AppIconBadge(
+            icon: Icons.water_drop_outlined,
+            color: AppTheme.skyBlue,
+            size: 48,
           ),
-          SizedBox(height: 10),
+          SizedBox(height: 12),
           Text(
             'Sin entregas registradas en el filtro seleccionado',
             style: TextStyle(
@@ -772,25 +792,7 @@ class _ReceptionModuleViewState extends State<ReceptionModuleView> {
                   ),
                 ],
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: isMorning
-                      ? AppTheme.warningBg
-                      : AppTheme.surfaceMuted,
-                  borderRadius: BorderRadius.circular(AppTheme.radiusBadge),
-                ),
-                child: Text(
-                  isMorning ? 'Mañana' : 'Tarde',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: isMorning
-                        ? AppTheme.warningText
-                        : AppTheme.textPrimary,
-                  ),
-                ),
-              ),
+              _ShiftBadge(isMorning: isMorning),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -814,11 +816,16 @@ class _ReceptionModuleViewState extends State<ReceptionModuleView> {
               ),
               Text(
                 '${r.litros.toStringAsFixed(1)} L',
-                style: AppTheme.monoStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: r.anulado ? AppTheme.textMuted : AppTheme.textPrimary,
-                ),
+                style:
+                    AppTheme.monoStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: r.anulado
+                          ? AppTheme.textMuted
+                          : AppTheme.textPrimary,
+                    ).copyWith(
+                      decoration: r.anulado ? TextDecoration.lineThrough : null,
+                    ),
               ),
               SyncStatusBadge(
                 isSynced: r.isSynced,
@@ -830,29 +837,23 @@ class _ReceptionModuleViewState extends State<ReceptionModuleView> {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: <Widget>[
-                    IconButton(
+                    _RowActionButton(
                       tooltip: 'Corregir litros',
-                      visualDensity: VisualDensity.compact,
+                      icon: Icons.edit_outlined,
+                      color: AppTheme.skyBlue,
                       onPressed: () => _openEditDialog(r),
-                      icon: const Icon(Icons.edit_outlined, size: 18),
                     ),
-                    IconButton(
+                    const SizedBox(width: 6),
+                    _RowActionButton(
                       tooltip: 'Anular entrega',
-                      visualDensity: VisualDensity.compact,
+                      icon: Icons.block_rounded,
+                      color: AppTheme.danger,
                       onPressed: () => _openAnnulDialog(r),
-                      icon: const Icon(
-                        Icons.block_rounded,
-                        size: 18,
-                        color: AppTheme.dangerText,
-                      ),
                     ),
                   ],
                 )
               else
-                const Text(
-                  '—',
-                  style: TextStyle(color: AppTheme.textMuted),
-                ),
+                const Text('—', style: TextStyle(color: AppTheme.textMuted)),
             ];
           }).toList(),
         ),
@@ -865,8 +866,10 @@ class _ReceptionModuleViewState extends State<ReceptionModuleView> {
           children: <Widget>[
             Text(
               'Mostrando ${rows.length} de ${ctrl.filteredReceptions.length} registros',
-              style:
-                  const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppTheme.textSecondary,
+              ),
             ),
             Row(
               mainAxisSize: MainAxisSize.min,
@@ -877,9 +880,23 @@ class _ReceptionModuleViewState extends State<ReceptionModuleView> {
                       : null,
                   icon: const Icon(Icons.chevron_left_rounded),
                 ),
-                Text(
-                  '${ctrl.currentPage} / ${ctrl.totalPages}',
-                  style: AppTheme.monoStyle(fontSize: 13),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surface,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+                    border: Border.all(color: AppTheme.border),
+                  ),
+                  child: Text(
+                    '${ctrl.currentPage} / ${ctrl.totalPages}',
+                    style: AppTheme.monoStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
                 IconButton(
                   onPressed: ctrl.currentPage < ctrl.totalPages
@@ -897,10 +914,7 @@ class _ReceptionModuleViewState extends State<ReceptionModuleView> {
 }
 
 class _ReceptionSummaryStrip extends StatelessWidget {
-  const _ReceptionSummaryStrip({
-    required this.ctrl,
-    required this.isNarrow,
-  });
+  const _ReceptionSummaryStrip({required this.ctrl, required this.isNarrow});
 
   final ReceptionController ctrl;
   final bool isNarrow;
@@ -998,67 +1012,76 @@ class _MetricTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool tintValue =
+        accentColor == AppTheme.primaryGreen ||
+        accentColor == AppTheme.warningText;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radiusCard),
-        border: Border.all(color: accentColor.withValues(alpha: 0.24)),
+        borderRadius: BorderRadius.circular(AppTheme.radiusCard + 2),
+        border: Border.all(color: AppTheme.border),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0x080C3B24),
+            blurRadius: 10,
+            offset: Offset(0, 3),
+          ),
+        ],
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: Text(
-                  title,
+          Container(height: 3, color: accentColor),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 11, 14, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    AppIconBadge(icon: icon, color: accentColor, size: 28),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    value,
+                    style: AppTheme.monoStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      color: tintValue ? accentColor : AppTheme.textPrimary,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textSecondary,
+                    fontSize: 11.5,
+                    color: AppTheme.textMuted,
                   ),
                 ),
-              ),
-              const SizedBox(width: 6),
-              Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: accentColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(7),
-                  border: Border.all(
-                    color: accentColor.withValues(alpha: 0.24),
-                  ),
-                ),
-                child: Icon(icon, size: 16, color: accentColor),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: AppTheme.monoStyle(
-              fontSize: 21,
-              fontWeight: FontWeight.w700,
-              color: accentColor == AppTheme.primaryGreen
-                  ? AppTheme.primaryGreen
-                  : accentColor == AppTheme.warningText
-                      ? AppTheme.warningText
-                      : AppTheme.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            subtitle,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 11.5,
-              color: AppTheme.textMuted,
+              ],
             ),
           ),
         ],
@@ -1067,96 +1090,312 @@ class _MetricTile extends StatelessWidget {
   }
 }
 
-class _ShiftToggleButton extends StatelessWidget {
-  const _ShiftToggleButton({
+/// Etiqueta numerada de cada paso de la captura; se vuelve ✓ al completarse.
+class _StepLabel extends StatelessWidget {
+  const _StepLabel({
+    required this.step,
     required this.label,
-    required this.icon,
-    required this.selected,
-    required this.onTap,
+    this.hint,
+    this.done = false,
   });
 
+  final int step;
   final String label;
-  final IconData icon;
-  final bool selected;
-  final VoidCallback onTap;
+  final String? hint;
+  final bool done;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppTheme.radiusControl),
-      child: Container(
-        height: 40,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        decoration: BoxDecoration(
-          color: selected ? AppTheme.inkBlack : AppTheme.surface,
-          borderRadius: BorderRadius.circular(AppTheme.radiusControl),
-          border: Border.all(
-            color: selected ? AppTheme.inkBlack : AppTheme.inputBorder,
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Icon(
-              icon,
-              size: 16,
-              color: selected ? Colors.white : AppTheme.textSecondary,
+    return SizedBox(
+      height: 22,
+      child: Row(
+        children: <Widget>[
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: 20,
+            height: 20,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: done ? AppTheme.primaryGreen : AppTheme.surfaceMuted,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: done ? AppTheme.primaryGreen : AppTheme.inputBorder,
+              ),
             ),
-            const SizedBox(width: 6),
+            child: done
+                ? const Icon(Icons.check_rounded, size: 13, color: Colors.white)
+                : Text(
+                    '$step',
+                    style: AppTheme.monoStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+          ),
+          const SizedBox(width: 7),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+          if (hint != null) ...<Widget>[
+            const SizedBox(width: 5),
             Flexible(
               child: Text(
-                label,
+                '· $hint',
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: selected ? Colors.white : AppTheme.textPrimary,
-                ),
+                style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+String _initials(String name) {
+  final List<String> parts = name
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((String p) => p.isNotEmpty)
+      .toList();
+  if (parts.isEmpty) return '?';
+  if (parts.length == 1) return parts.first[0].toUpperCase();
+  return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+}
+
+/// Ficha del productor seleccionado en la captura.
+class _SelectedProducerCard extends StatelessWidget {
+  const _SelectedProducerCard({required this.producer});
+
+  final ProducerModel producer;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryGreenLight,
+        borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+        border: Border.all(
+          color: AppTheme.primaryGreen.withValues(alpha: 0.30),
+        ),
+      ),
+      child: Row(
+        children: <Widget>[
+          Container(
+            width: 32,
+            height: 32,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(
+              color: AppTheme.primaryGreen,
+              shape: BoxShape.circle,
+            ),
+            child: Text(
+              _initials(producer.nombreCompleto),
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  producer.nombreCompleto,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.successText,
+                  ),
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  '${producer.codigoAsociado} · Finca ${producer.nombreFinca} · ${producer.vereda}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Sugerencia de productor; la primera se marca como destino de `Enter`.
+class _ProducerSuggestionChip extends StatefulWidget {
+  const _ProducerSuggestionChip({
+    required this.producer,
+    required this.onTap,
+    this.isEnterTarget = false,
+  });
+
+  final ProducerModel producer;
+  final VoidCallback onTap;
+  final bool isEnterTarget;
+
+  @override
+  State<_ProducerSuggestionChip> createState() =>
+      _ProducerSuggestionChipState();
+}
+
+class _ProducerSuggestionChipState extends State<_ProducerSuggestionChip> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool active = _hover || widget.isEnterTarget;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          padding: const EdgeInsets.fromLTRB(4, 4, 10, 4),
+          decoration: BoxDecoration(
+            color: active ? AppTheme.primaryGreenLight : AppTheme.surface,
+            borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+            border: Border.all(
+              color: active
+                  ? AppTheme.primaryGreen.withValues(alpha: 0.45)
+                  : AppTheme.border,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: active ? AppTheme.primaryGreen : AppTheme.surfaceMuted,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+                ),
+                child: Text(
+                  widget.producer.codigoAsociado,
+                  style: AppTheme.monoStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: active ? Colors.white : AppTheme.textSecondary,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 7),
+              Text(
+                widget.producer.nombreCompleto,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+              if (widget.isEnterTarget) ...<Widget>[
+                const SizedBox(width: 6),
+                const Icon(
+                  Icons.keyboard_return_rounded,
+                  size: 13,
+                  color: AppTheme.primaryGreen,
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _FilterPill extends StatelessWidget {
-  const _FilterPill({
-    required this.label,
-    required this.selected,
-    required this.onTap,
+/// Botón de acción compacto para filas de tabla.
+class _RowActionButton extends StatelessWidget {
+  const _RowActionButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+    this.color = AppTheme.textSecondary,
   });
 
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppTheme.radiusControl),
-      child: Container(
-        height: 36,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: selected ? AppTheme.inkBlack : AppTheme.surface,
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: AppTheme.surface,
+        shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppTheme.radiusControl),
-          border: Border.all(
-            color: selected ? AppTheme.inkBlack : AppTheme.inputBorder,
+          side: BorderSide(color: color.withValues(alpha: 0.25)),
+        ),
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(AppTheme.radiusControl),
+          hoverColor: color.withValues(alpha: 0.08),
+          child: SizedBox(
+            width: 30,
+            height: 30,
+            child: Icon(icon, size: 16, color: color),
           ),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w600,
-            color: selected ? Colors.white : AppTheme.textSecondary,
+      ),
+    );
+  }
+}
+
+class _ShiftBadge extends StatelessWidget {
+  const _ShiftBadge({required this.isMorning});
+
+  final bool isMorning;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color fg = isMorning ? AppTheme.warningText : AppTheme.indigoAccent;
+    final Color bg = isMorning ? AppTheme.warningBg : AppTheme.indigoLight;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(
+            isMorning ? Icons.wb_sunny_outlined : Icons.wb_twilight_rounded,
+            size: 13,
+            color: fg,
           ),
-        ),
+          const SizedBox(width: 5),
+          Text(
+            isMorning ? 'Mañana' : 'Tarde',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: fg,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1217,40 +1456,87 @@ class _DuplicateDeliveryDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String shiftName =
-        existing.jornada == AppConstants.shiftMorning ? 'Mañana' : 'Tarde';
+    final String shiftName = existing.jornada == AppConstants.shiftMorning
+        ? 'Mañana'
+        : 'Tarde';
 
-    return AlertDialog(
-      title: const Row(
-        children: <Widget>[
-          Icon(
-            Icons.warning_amber_rounded,
-            color: AppTheme.warning,
-            size: 24,
+    return Dialog(
+      insetPadding: const EdgeInsets.all(20),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 440),
+        child: Padding(
+          padding: const EdgeInsets.all(22),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              const AppDialogHeader(
+                icon: Icons.content_copy_rounded,
+                color: AppTheme.warning,
+                title: 'Posible entrega duplicada',
+                subtitle: 'Este productor ya entregó hoy en la misma jornada.',
+              ),
+              const SizedBox(height: 16),
+              AppInfoPanel(
+                color: AppTheme.warningBg.withValues(alpha: 0.45),
+                borderColor: AppTheme.warning.withValues(alpha: 0.25),
+                children: <Widget>[
+                  AppInfoRow(
+                    label: 'Productor',
+                    value: existing.nombreProductorSnap,
+                  ),
+                  AppInfoRow(
+                    label: 'Fecha',
+                    value: existing.fechaEntrega,
+                    mono: true,
+                  ),
+                  AppInfoRow(label: 'Jornada', value: shiftName),
+                  AppInfoRow(
+                    label: 'Hora',
+                    value: existing.horaEntrega,
+                    mono: true,
+                  ),
+                  AppInfoRow(
+                    label: 'Litros registrados',
+                    value: '${existing.litros.toStringAsFixed(1)} L',
+                    mono: true,
+                    emphasize: true,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                '¿Deseas confirmar el registro de esta entrega adicional en la misma jornada?',
+                style: TextStyle(
+                  fontSize: 13.5,
+                  height: 1.45,
+                  color: AppTheme.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: <Widget>[
+                  OutlinedButton(
+                    autofocus: true,
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: const Text('Cancelar'),
+                  ),
+                  const SizedBox(width: 10),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.warning,
+                    ),
+                    onPressed: () => Navigator.of(context).pop(true),
+                    icon: const Icon(Icons.check_rounded, size: 16),
+                    label: const Text('Confirmar y guardar'),
+                  ),
+                ],
+              ),
+            ],
           ),
-          SizedBox(width: 10),
-          Expanded(
-            child: Text('Posible entrega duplicada'),
-          ),
-        ],
-      ),
-      content: Text(
-        '${existing.nombreProductorSnap} ya registró una entrega hoy '
-        '(${existing.fechaEntrega}) en la jornada $shiftName por '
-        '${existing.litros.toStringAsFixed(1)} L a las ${existing.horaEntrega}.\n\n'
-        '¿Deseas confirmar el registro de esta entrega adicional en la misma jornada?',
-        style: const TextStyle(fontSize: 13.5, height: 1.45),
-      ),
-      actions: <Widget>[
-        OutlinedButton(
-          onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('Cancelar'),
         ),
-        ElevatedButton(
-          onPressed: () => Navigator.of(context).pop(true),
-          child: const Text('Confirmar y guardar'),
-        ),
-      ],
+      ),
     );
   }
 }
@@ -1302,8 +1588,9 @@ class _AuditCorrectionDialogState extends State<_AuditCorrectionDialog> {
         actor: widget.actor,
       );
     } else {
-      final double parsed =
-          double.parse(_litersCtrl.text.replaceAll(',', '.').trim());
+      final double parsed = double.parse(
+        _litersCtrl.text.replaceAll(',', '.').trim(),
+      );
       ok = await ctrl.editDeliveryLitros(
         existing: widget.reception,
         nuevosLitros: parsed,
@@ -1320,51 +1607,66 @@ class _AuditCorrectionDialogState extends State<_AuditCorrectionDialog> {
   @override
   Widget build(BuildContext context) {
     final ReceptionController ctrl = context.watch<ReceptionController>();
+    final MilkReceptionModel r = widget.reception;
+    final bool annul = widget.isAnnulment;
 
     return Dialog(
       insetPadding: const EdgeInsets.all(20),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 460),
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(22),
           child: Form(
             key: _formKey,
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                Text(
-                  widget.isAnnulment ? 'Anular entrega' : 'Corregir litros',
-                  style: AppTheme.subtitleStyle(),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${widget.reception.nombreProductorSnap} · ${widget.reception.fechaEntrega}',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: AppTheme.textSecondary,
-                  ),
+                AppDialogHeader(
+                  icon: annul ? Icons.block_rounded : Icons.edit_outlined,
+                  color: annul ? AppTheme.danger : AppTheme.skyBlue,
+                  title: annul ? 'Anular entrega' : 'Corregir litros',
+                  subtitle: '${r.nombreProductorSnap} · ${r.fechaEntrega}',
+                  onClose: ctrl.isSaving
+                      ? null
+                      : () => Navigator.of(context).pop(false),
                 ),
                 const SizedBox(height: 16),
+                AppInfoPanel(
+                  children: <Widget>[
+                    AppInfoRow(
+                      label: 'Código',
+                      value: r.codigoAsociadoSnap,
+                      mono: true,
+                    ),
+                    AppInfoRow(
+                      label: 'Jornada',
+                      value: r.jornada == AppConstants.shiftMorning
+                          ? 'Mañana · ${r.horaEntrega}'
+                          : 'Tarde · ${r.horaEntrega}',
+                    ),
+                    AppInfoRow(
+                      label: 'Litros actuales',
+                      value: '${r.litros.toStringAsFixed(1)} L',
+                      mono: true,
+                      emphasize: true,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
                 if (ctrl.errorMessage != null) ...<Widget>[
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppTheme.dangerBg,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      ctrl.errorMessage!,
-                      style: const TextStyle(
-                        fontSize: 12.5,
-                        color: AppTheme.dangerText,
-                      ),
-                    ),
-                  ),
+                  AppInlineNotice.danger(message: ctrl.errorMessage!),
                   const SizedBox(height: 12),
                 ],
-                if (!widget.isAnnulment) ...<Widget>[
+                if (annul) ...<Widget>[
+                  const AppInlineNotice(
+                    icon: Icons.warning_amber_rounded,
+                    message:
+                        'La entrega dejará de contar en liquidaciones. La acción '
+                        'queda registrada en la bitácora de auditoría.',
+                  ),
+                  const SizedBox(height: 14),
+                ] else ...<Widget>[
                   const Text(
                     'Nueva cantidad de litros',
                     style: TextStyle(
@@ -1376,10 +1678,21 @@ class _AuditCorrectionDialogState extends State<_AuditCorrectionDialog> {
                   TextFormField(
                     controller: _litersCtrl,
                     enabled: !ctrl.isSaving,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    style: AppTheme.monoStyle(fontSize: 15),
-                    decoration: const InputDecoration(suffixText: 'L'),
+                    autofocus: true,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    inputFormatters: <TextInputFormatter>[
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+                    ],
+                    style: AppTheme.monoStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    decoration: const InputDecoration(
+                      suffixText: 'L',
+                      prefixIcon: Icon(Icons.water_drop_outlined, size: 18),
+                    ),
                     validator: (String? v) {
                       final double? val = double.tryParse(
                         (v ?? '').replaceAll(',', '.').trim(),
@@ -1394,15 +1707,13 @@ class _AuditCorrectionDialogState extends State<_AuditCorrectionDialog> {
                 ],
                 const Text(
                   'Motivo de la modificación (auditoría obligatoria)',
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 6),
                 TextFormField(
                   controller: _reasonCtrl,
                   enabled: !ctrl.isSaving,
+                  autofocus: annul,
                   maxLines: 3,
                   decoration: const InputDecoration(
                     hintText: 'Ej. Error de digitación al pesar cantina #2.',
@@ -1411,7 +1722,7 @@ class _AuditCorrectionDialogState extends State<_AuditCorrectionDialog> {
                       ? 'Indica el motivo (mínimo 5 caracteres).'
                       : null,
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 20),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: <Widget>[
@@ -1423,9 +1734,11 @@ class _AuditCorrectionDialogState extends State<_AuditCorrectionDialog> {
                     ),
                     const SizedBox(width: 10),
                     PrimaryActionButton(
-                      label: widget.isAnnulment
+                      label: annul
                           ? 'Confirmar anulación'
                           : 'Guardar corrección',
+                      icon: annul ? Icons.block_rounded : Icons.check_rounded,
+                      color: annul ? AppTheme.danger : AppTheme.primaryGreen,
                       fullWidth: false,
                       isLoading: ctrl.isSaving,
                       onPressed: _submit,

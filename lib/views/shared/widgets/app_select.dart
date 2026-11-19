@@ -369,11 +369,13 @@ class _AppSelectState<T> extends State<AppSelect<T>>
       isFocused: focused,
       isHovering: _hovering && _enabled,
       isEmpty: selected == null,
+      textAlignVertical: TextAlignVertical.center,
       child: selected == null
           ? const SizedBox.shrink()
           : Row(
               children: <Widget>[
-                if (selected.icon != null) ...<Widget>[
+                if (selected.icon != null &&
+                    widget.prefixIcon == null) ...<Widget>[
                   Icon(selected.icon, size: 16, color: AppTheme.textSecondary),
                   const SizedBox(width: 8),
                 ],
