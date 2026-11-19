@@ -7,8 +7,10 @@ import '../../controllers/user_controller.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/user_model.dart';
+import '../shared/widgets/app_select.dart';
 import '../shared/widgets/dairy_loader.dart';
 import '../shared/widgets/design_system_widgets.dart';
+import '../shared/widgets/ui_kit.dart';
 
 /// Módulo administrativo de Usuarios de ASOPROGANUCOTT.
 /// Cabecera editorial limpia con propiedades numéricas, barra de herramientas integrada y tabla completa.
@@ -46,9 +48,8 @@ class _UsersModuleViewState extends State<UsersModuleView> {
     final bool? created = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => _UserFormDialog(
-        actorUid: auth.currentUser?.uid ?? 'admin',
-      ),
+      builder: (_) =>
+          _UserFormDialog(actorUid: auth.currentUser?.uid ?? 'admin'),
     );
     if (created == true && mounted) {
       _showToast(userCtrl.feedbackMessage ?? 'Usuario creado correctamente.');
@@ -92,24 +93,7 @@ class _UsersModuleViewState extends State<UsersModuleView> {
   Future<void> _sendPasswordReset(UserModel user) async {
     final bool? confirm = await showDialog<bool>(
       context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: const Text('Restablecer contraseña'),
-          content: Text(
-            '¿Enviar correo de restablecimiento de contraseña a ${user.correo}?',
-          ),
-          actions: <Widget>[
-            OutlinedButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Cancelar'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('Enviar enlace'),
-            ),
-          ],
-        );
-      },
+      builder: (_) => _PasswordResetDialog(user: user),
     );
 
     if (confirm != true || !mounted) return;
@@ -179,10 +163,7 @@ class _UsersModuleViewState extends State<UsersModuleView> {
     final Widget titleBlock = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Text(
-          'Usuarios',
-          style: AppTheme.titleStyle(isMobile: isNarrow),
-        ),
+        Text('Usuarios', style: AppTheme.titleStyle(isMobile: isNarrow)),
         const SizedBox(height: 4),
         const Text(
           'Administra las cuentas del personal de planta y los productores asociados.',
@@ -243,8 +224,10 @@ class _UsersModuleViewState extends State<UsersModuleView> {
         onChanged: ctrl.setSearchQuery,
         decoration: InputDecoration(
           hintText: 'Buscar por nombre, documento o correo…',
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 10,
+            vertical: 8,
+          ),
           prefixIcon: const Icon(Icons.search_rounded, size: 17),
           suffixIcon: ctrl.searchQuery.isNotEmpty
               ? IconButton(
@@ -261,61 +244,52 @@ class _UsersModuleViewState extends State<UsersModuleView> {
 
     final Widget roleDropdown = SizedBox(
       height: 36,
-      child: DropdownButtonFormField<String>(
-        initialValue: ctrl.roleFilter,
-        isExpanded: true,
-        decoration: const InputDecoration(
-          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        ),
-        items: const <DropdownMenuItem<String>>[
-          DropdownMenuItem<String>(
-            value: 'ALL',
-            child: Text('Todos los roles', overflow: TextOverflow.ellipsis),
-          ),
-          DropdownMenuItem<String>(
+      child: AppSelect<String>(
+        dense: true,
+        value: ctrl.roleFilter,
+        prefixIcon: Icons.badge_outlined,
+        options: const <AppSelectOption<String>>[
+          AppSelectOption<String>(value: 'ALL', label: 'Todos los roles'),
+          AppSelectOption<String>(
             value: AppConstants.roleAdmin,
-            child: Text('Administrador', overflow: TextOverflow.ellipsis),
+            label: 'Administrador',
+            icon: Icons.admin_panel_settings_outlined,
           ),
-          DropdownMenuItem<String>(
+          AppSelectOption<String>(
             value: AppConstants.roleOperario,
-            child: Text('Operario', overflow: TextOverflow.ellipsis),
+            label: 'Operario',
+            icon: Icons.engineering_outlined,
           ),
-          DropdownMenuItem<String>(
+          AppSelectOption<String>(
             value: AppConstants.roleProductor,
-            child: Text('Productor', overflow: TextOverflow.ellipsis),
+            label: 'Productor',
+            icon: Icons.agriculture_outlined,
           ),
         ],
-        onChanged: (String? value) {
-          if (value != null) ctrl.setRoleFilter(value);
-        },
+        onChanged: ctrl.setRoleFilter,
       ),
     );
 
     final Widget statusDropdown = SizedBox(
       height: 36,
-      child: DropdownButtonFormField<String>(
-        initialValue: ctrl.statusFilter,
-        isExpanded: true,
-        decoration: const InputDecoration(
-          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        ),
-        items: const <DropdownMenuItem<String>>[
-          DropdownMenuItem<String>(
-            value: 'ALL',
-            child: Text('Todos los estados', overflow: TextOverflow.ellipsis),
-          ),
-          DropdownMenuItem<String>(
+      child: AppSelect<String>(
+        dense: true,
+        value: ctrl.statusFilter,
+        prefixIcon: Icons.toggle_on_outlined,
+        options: const <AppSelectOption<String>>[
+          AppSelectOption<String>(value: 'ALL', label: 'Todos los estados'),
+          AppSelectOption<String>(
             value: 'ACTIVE',
-            child: Text('Activos', overflow: TextOverflow.ellipsis),
+            label: 'Activos',
+            icon: Icons.check_circle_outline_rounded,
           ),
-          DropdownMenuItem<String>(
+          AppSelectOption<String>(
             value: 'INACTIVE',
-            child: Text('Suspendidos', overflow: TextOverflow.ellipsis),
+            label: 'Suspendidos',
+            icon: Icons.pause_circle_outline_rounded,
           ),
         ],
-        onChanged: (String? value) {
-          if (value != null) ctrl.setStatusFilter(value);
-        },
+        onChanged: ctrl.setStatusFilter,
       ),
     );
 
@@ -343,20 +317,15 @@ class _UsersModuleViewState extends State<UsersModuleView> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: <Widget>[
-                Text(
-                  countText,
-                  style: AppTheme.monoStyle(
-                    fontSize: 12,
-                    color: AppTheme.textMuted,
-                  ),
-                ),
+                AppCountPill(text: countText),
                 if (ctrl.hasActiveFilters)
-                  TextButton(
+                  TextButton.icon(
                     onPressed: () {
                       _searchCtrl.clear();
                       ctrl.clearFilters();
                     },
-                    child: const Text('Limpiar filtros'),
+                    icon: const Icon(Icons.filter_alt_off_outlined, size: 16),
+                    label: const Text('Limpiar filtros'),
                   ),
               ],
             ),
@@ -376,22 +345,20 @@ class _UsersModuleViewState extends State<UsersModuleView> {
         children: <Widget>[
           Expanded(child: searchField),
           const SizedBox(width: 10),
-          SizedBox(width: 175, child: roleDropdown),
+          SizedBox(width: 190, child: roleDropdown),
           const SizedBox(width: 8),
-          SizedBox(width: 168, child: statusDropdown),
+          SizedBox(width: 205, child: statusDropdown),
           const SizedBox(width: 12),
-          Text(
-            countText,
-            style: AppTheme.monoStyle(fontSize: 12, color: AppTheme.textMuted),
-          ),
+          AppCountPill(text: countText),
           if (ctrl.hasActiveFilters) ...<Widget>[
-            const SizedBox(width: 6),
-            TextButton(
+            const SizedBox(width: 4),
+            IconButton(
+              tooltip: 'Limpiar filtros',
               onPressed: () {
                 _searchCtrl.clear();
                 ctrl.clearFilters();
               },
-              child: const Text('Limpiar'),
+              icon: const Icon(Icons.filter_alt_off_outlined, size: 18),
             ),
           ],
         ],
@@ -411,10 +378,10 @@ class _UsersModuleViewState extends State<UsersModuleView> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          const Icon(
-            Icons.person_search_outlined,
-            size: 32,
-            color: AppTheme.cowBlack,
+          const AppIconBadge(
+            icon: Icons.person_search_outlined,
+            color: AppTheme.skyBlue,
+            size: 52,
           ),
           const SizedBox(height: 12),
           Text(
@@ -429,8 +396,10 @@ class _UsersModuleViewState extends State<UsersModuleView> {
             ctrl.hasActiveFilters
                 ? 'Prueba con otro documento, nombre o limpia los filtros activos.'
                 : 'Crea el primer Administrador, Operario o Productor para gestionar el sistema.',
-            style:
-                const TextStyle(fontSize: 13.5, color: AppTheme.textSecondary),
+            style: const TextStyle(
+              fontSize: 13.5,
+              color: AppTheme.textSecondary,
+            ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 18),
@@ -502,19 +471,7 @@ class _UsersModuleViewState extends State<UsersModuleView> {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
-                  CircleAvatar(
-                    radius: 16,
-                    backgroundColor:
-                        user.isAdmin ? AppTheme.cowBlack : AppTheme.surfaceMuted,
-                    child: Text(
-                      user.initials,
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w700,
-                        color: user.isAdmin ? Colors.white : AppTheme.cowBlack,
-                      ),
-                    ),
-                  ),
+                  _UserAvatar(user: user),
                   const SizedBox(width: 10),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -540,16 +497,24 @@ class _UsersModuleViewState extends State<UsersModuleView> {
                   ),
                 ],
               ),
-              Text(
-                user.documento,
-                style: AppTheme.monoStyle(fontSize: 13),
-              ),
-              Text(
-                user.correo,
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: AppTheme.textSecondary,
-                ),
+              Text(user.documento, style: AppTheme.monoStyle(fontSize: 13)),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  const Icon(
+                    Icons.mail_outline_rounded,
+                    size: 14,
+                    color: AppTheme.textMuted,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    user.correo,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                ],
               ),
               _RoleBadge(rol: user.rol),
               InkWell(
@@ -567,17 +532,18 @@ class _UsersModuleViewState extends State<UsersModuleView> {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
-                  IconButton(
+                  AppRowActionButton(
                     tooltip: 'Editar usuario',
-                    visualDensity: VisualDensity.compact,
+                    icon: Icons.edit_outlined,
+                    color: AppTheme.skyBlue,
                     onPressed: () => _openEditDialog(user),
-                    icon: const Icon(Icons.edit_outlined, size: 18),
                   ),
-                  IconButton(
+                  const SizedBox(width: 6),
+                  AppRowActionButton(
                     tooltip: 'Enviar recuperación de contraseña',
-                    visualDensity: VisualDensity.compact,
+                    icon: Icons.lock_reset_outlined,
+                    color: AppTheme.warmGold,
                     onPressed: () => _sendPasswordReset(user),
-                    icon: const Icon(Icons.lock_reset_outlined, size: 19),
                   ),
                 ],
               ),
@@ -592,8 +558,9 @@ class _UsersModuleViewState extends State<UsersModuleView> {
 
   Widget _buildPaginationBar(UserController ctrl) {
     final int total = ctrl.filteredUsers.length;
-    final int start =
-        total == 0 ? 0 : ((ctrl.currentPage - 1) * ctrl.itemsPerPage) + 1;
+    final int start = total == 0
+        ? 0
+        : ((ctrl.currentPage - 1) * ctrl.itemsPerPage) + 1;
     final int end = (ctrl.currentPage * ctrl.itemsPerPage).clamp(0, total);
 
     return Wrap(
@@ -609,23 +576,23 @@ class _UsersModuleViewState extends State<UsersModuleView> {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            DropdownButton<int>(
-              value: ctrl.itemsPerPage,
-              underline: const SizedBox.shrink(),
-              items: const <int>[7, 15, 30]
-                  .map(
-                    (int size) => DropdownMenuItem<int>(
-                      value: size,
-                      child: Text(
-                        '$size por página',
-                        style: const TextStyle(fontSize: 13),
+            SizedBox(
+              width: 150,
+              height: 34,
+              child: AppSelect<int>(
+                dense: true,
+                value: ctrl.itemsPerPage,
+                menuMinWidth: 150,
+                options: const <int>[7, 15, 30]
+                    .map(
+                      (int size) => AppSelectOption<int>(
+                        value: size,
+                        label: '$size por página',
                       ),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (int? val) {
-                if (val != null) ctrl.setItemsPerPage(val);
-              },
+                    )
+                    .toList(),
+                onChanged: ctrl.setItemsPerPage,
+              ),
             ),
             const SizedBox(width: 8),
             IconButton(
@@ -634,10 +601,7 @@ class _UsersModuleViewState extends State<UsersModuleView> {
                   : null,
               icon: const Icon(Icons.chevron_left_rounded),
             ),
-            Text(
-              '${ctrl.currentPage} / ${ctrl.totalPages}',
-              style: AppTheme.monoStyle(fontSize: 13),
-            ),
+            AppCountPill(text: '${ctrl.currentPage} / ${ctrl.totalPages}'),
             IconButton(
               onPressed: ctrl.currentPage < ctrl.totalPages
                   ? () => ctrl.setPage(ctrl.currentPage + 1)
@@ -652,10 +616,7 @@ class _UsersModuleViewState extends State<UsersModuleView> {
 }
 
 class _UserSummaryStrip extends StatelessWidget {
-  const _UserSummaryStrip({
-    required this.ctrl,
-    required this.isNarrow,
-  });
+  const _UserSummaryStrip({required this.ctrl, required this.isNarrow});
 
   final UserController ctrl;
   final bool isNarrow;
@@ -663,28 +624,28 @@ class _UserSummaryStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final List<Widget> cards = <Widget>[
-      _UserMetricCard(
+      AppMetricTile(
         title: 'Total usuarios',
         value: '${ctrl.totalCount}',
         subtitle: 'Registrados en plataforma',
         icon: Icons.people_outline_rounded,
         accentColor: AppTheme.skyBlue,
       ),
-      _UserMetricCard(
+      AppMetricTile(
         title: 'Cuentas activas',
         value: '${ctrl.activeCount}',
         subtitle: 'Con acceso habilitado',
         icon: Icons.verified_user_outlined,
         accentColor: AppTheme.primaryGreen,
       ),
-      _UserMetricCard(
+      AppMetricTile(
         title: 'Personal de planta',
         value: '${ctrl.adminCount + ctrl.operarioCount}',
         subtitle: '${ctrl.adminCount} admin · ${ctrl.operarioCount} operarios',
         icon: Icons.badge_outlined,
         accentColor: AppTheme.warmGold,
       ),
-      _UserMetricCard(
+      AppMetricTile(
         title: 'Productores',
         value: '${ctrl.productorCount}',
         subtitle: 'Asociados en campo',
@@ -729,82 +690,37 @@ class _UserSummaryStrip extends StatelessWidget {
   }
 }
 
-class _UserMetricCard extends StatelessWidget {
-  const _UserMetricCard({
-    required this.title,
-    required this.value,
-    required this.subtitle,
-    required this.icon,
-    this.accentColor = AppTheme.inkBlack,
-  });
+class _RoleBadge extends StatelessWidget {
+  const _RoleBadge({required this.rol});
 
-  final String title;
-  final String value;
-  final String subtitle;
-  final IconData icon;
-  final Color accentColor;
+  final String rol;
 
   @override
   Widget build(BuildContext context) {
+    final _RoleStyle style = _RoleStyle.of(rol);
+    final bool admin = rol == AppConstants.roleAdmin;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radiusCard),
-        border: Border.all(color: accentColor.withValues(alpha: 0.24)),
+        color: admin ? AppTheme.inkBlack : style.color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+        border: Border.all(
+          color: admin
+              ? AppTheme.inkBlack
+              : style.color.withValues(alpha: 0.25),
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 6),
-              Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: accentColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(7),
-                  border: Border.all(
-                    color: accentColor.withValues(alpha: 0.24),
-                  ),
-                ),
-                child: Icon(icon, size: 16, color: accentColor),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
+          Icon(style.icon, size: 13, color: admin ? Colors.white : style.color),
+          const SizedBox(width: 5),
           Text(
-            value,
-            style: AppTheme.monoStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: accentColor == AppTheme.primaryGreen
-                  ? AppTheme.primaryGreen
-                  : AppTheme.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            subtitle,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 11.5,
-              color: AppTheme.textMuted,
+            AppConstants.roleShortLabel(rol),
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: admin ? Colors.white : style.color,
             ),
           ),
         ],
@@ -813,48 +729,32 @@ class _UserMetricCard extends StatelessWidget {
   }
 }
 
-class _RoleBadge extends StatelessWidget {
-  const _RoleBadge({required this.rol});
+class _UserAvatar extends StatelessWidget {
+  const _UserAvatar({required this.user});
 
-  final String rol;
+  final UserModel user;
 
   @override
   Widget build(BuildContext context) {
-    late Color bg;
-    late Color fg;
-    late Color border;
-
-    switch (rol) {
-      case AppConstants.roleAdmin:
-        bg = AppTheme.cowBlack;
-        fg = Colors.white;
-        border = AppTheme.cowBlack;
-        break;
-      case AppConstants.roleOperario:
-        bg = AppTheme.primaryGreenLight;
-        fg = AppTheme.primaryGreen;
-        border = AppTheme.primaryGreen.withValues(alpha: 0.25);
-        break;
-      default:
-        bg = AppTheme.surfaceMuted;
-        fg = AppTheme.textPrimary;
-        border = AppTheme.border;
-        break;
-    }
-
+    final Color color = user.activo
+        ? _RoleStyle.of(user.rol).color
+        : AppTheme.textMuted;
+    final bool admin = user.isAdmin && user.activo;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      width: 32,
+      height: 32,
+      alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(AppTheme.radiusPill),
-        border: Border.all(color: border),
+        color: admin ? AppTheme.inkBlack : color.withValues(alpha: 0.12),
+        shape: BoxShape.circle,
+        border: Border.all(color: color.withValues(alpha: admin ? 1 : 0.3)),
       ),
       child: Text(
-        AppConstants.roleShortLabel(rol),
+        user.initials,
         style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: fg,
+          fontSize: 11.5,
+          fontWeight: FontWeight.w700,
+          color: admin ? Colors.white : color,
         ),
       ),
     );
@@ -905,10 +805,7 @@ class _StatusPillButton extends StatelessWidget {
 }
 
 class _UserFormDialog extends StatefulWidget {
-  const _UserFormDialog({
-    required this.actorUid,
-    this.existingUser,
-  });
+  const _UserFormDialog({required this.actorUid, this.existingUser});
 
   final String actorUid;
   final UserModel? existingUser;
@@ -990,291 +887,288 @@ class _UserFormDialogState extends State<_UserFormDialog> {
     }
   }
 
+  Widget _field({
+    required String label,
+    required TextEditingController controller,
+    required bool enabled,
+    IconData? icon,
+    String? hint,
+    String? helper,
+    bool mono = false,
+    bool obscure = false,
+    Widget? suffix,
+    TextInputType? keyboardType,
+    String? Function(String?)? validator,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        _FieldLabel(label),
+        TextFormField(
+          controller: controller,
+          enabled: enabled,
+          obscureText: obscure,
+          keyboardType: keyboardType,
+          style: mono ? AppTheme.monoStyle(fontSize: 14) : null,
+          decoration: InputDecoration(
+            hintText: hint,
+            helperText: helper,
+            prefixIcon: icon == null ? null : Icon(icon, size: 17),
+            suffixIcon: suffix,
+          ),
+          validator: validator,
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final UserController userCtrl = context.watch<UserController>();
+    final bool enabled = !userCtrl.isSaving;
 
     return Dialog(
       insetPadding: const EdgeInsets.all(20),
+      clipBehavior: Clip.antiAlias,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 540),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: SingleChildScrollView(
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Row(
-                    children: <Widget>[
-                      Container(
-                        width: 38,
-                        height: 38,
-                        decoration: BoxDecoration(
-                          color: AppTheme.cowBlack,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Icon(
-                          _isEditing
-                              ? Icons.edit_outlined
-                              : Icons.person_add_alt_1_rounded,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Text(
-                              _isEditing ? 'Editar usuario' : 'Nuevo usuario',
-                              style: AppTheme.subtitleStyle(),
-                            ),
-                            Text(
-                              _isEditing
-                                  ? 'Actualiza datos, rol o estado del usuario.'
-                                  : 'Completa los datos para habilitar el acceso al sistema.',
-                              style: const TextStyle(
-                                fontSize: 12.5,
-                                color: AppTheme.textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: userCtrl.isSaving
-                            ? null
-                            : () => Navigator.of(context).pop(false),
-                        icon: const Icon(Icons.close_rounded),
-                      ),
+        constraints: BoxConstraints(
+          maxWidth: 560,
+          maxHeight: MediaQuery.of(context).size.height * 0.9,
+        ),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              Container(
+                padding: const EdgeInsets.fromLTRB(22, 18, 14, 16),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: <Color>[
+                      AppTheme.primaryGreenLight,
+                      AppTheme.surface,
                     ],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
                   ),
-                  const SizedBox(height: 18),
-                  if (userCtrl.errorMessage != null) ...<Widget>[
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppTheme.dangerBg,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: AppTheme.danger.withValues(alpha: 0.35),
-                        ),
+                  border: Border(
+                    bottom: BorderSide(color: AppTheme.dividerLight),
+                  ),
+                ),
+                child: AppDialogHeader(
+                  icon: _isEditing
+                      ? Icons.manage_accounts_outlined
+                      : Icons.person_add_alt_1_rounded,
+                  title: _isEditing ? 'Editar usuario' : 'Nuevo usuario',
+                  subtitle: _isEditing
+                      ? 'Actualiza datos, rol o estado del usuario.'
+                      : 'Completa los datos para habilitar el acceso al sistema.',
+                  onClose: userCtrl.isSaving
+                      ? null
+                      : () => Navigator.of(context).pop(false),
+                ),
+              ),
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(22, 18, 22, 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      if (userCtrl.errorMessage != null) ...<Widget>[
+                        AppInlineNotice.danger(message: userCtrl.errorMessage!),
+                        const SizedBox(height: 14),
+                      ],
+                      const _SectionTitle(
+                        icon: Icons.badge_outlined,
+                        title: 'Datos personales',
                       ),
-                      child: Text(
-                        userCtrl.errorMessage!,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: AppTheme.dangerText,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                  const _FieldLabel('Nombre completo'),
-                  TextFormField(
-                    controller: _nameCtrl,
-                    enabled: !userCtrl.isSaving,
-                    decoration: const InputDecoration(
-                      hintText: 'Ej. María Fernanda Gómez',
-                    ),
-                    validator: (String? v) =>
-                        (v == null || v.trim().isEmpty)
+                      const SizedBox(height: 10),
+                      _field(
+                        label: 'Nombre completo',
+                        controller: _nameCtrl,
+                        enabled: enabled,
+                        icon: Icons.person_outline_rounded,
+                        hint: 'Ej. María Fernanda Gómez',
+                        validator: (String? v) =>
+                            (v == null || v.trim().isEmpty)
                             ? 'Ingresa el nombre completo.'
                             : null,
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            const _FieldLabel('Cédula / Documento'),
-                            TextFormField(
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Expanded(
+                            child: _field(
+                              label: 'Cédula / Documento',
                               controller: _docCtrl,
-                              enabled: !userCtrl.isSaving,
+                              enabled: enabled,
+                              icon: Icons.credit_card_rounded,
+                              hint: '1073500123',
+                              mono: true,
                               keyboardType: TextInputType.number,
-                              style: AppTheme.monoStyle(fontSize: 14),
-                              decoration: const InputDecoration(
-                                hintText: '1073500123',
-                              ),
                               validator: (String? v) =>
                                   (v == null || v.trim().length < 5)
-                                      ? 'Documento inválido.'
-                                      : null,
+                                  ? 'Documento inválido.'
+                                  : null,
                             ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            const _FieldLabel('Teléfono'),
-                            TextFormField(
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _field(
+                              label: 'Teléfono',
                               controller: _phoneCtrl,
-                              enabled: !userCtrl.isSaving,
+                              enabled: enabled,
+                              icon: Icons.phone_outlined,
+                              hint: '3101234567',
+                              mono: true,
                               keyboardType: TextInputType.phone,
-                              style: AppTheme.monoStyle(fontSize: 14),
-                              decoration: const InputDecoration(
-                                hintText: '3101234567',
-                              ),
                             ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  const _FieldLabel('Correo electrónico'),
-                  TextFormField(
-                    controller: _emailCtrl,
-                    enabled: !_isEditing && !userCtrl.isSaving,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(
-                      hintText: 'correo@asoproganucot.com',
-                    ),
-                    validator: (String? v) {
-                      if (v == null || !v.trim().contains('@')) {
-                        return 'Ingresa un correo electrónico válido.';
-                      }
-                      return null;
-                    },
-                  ),
-                  if (!_isEditing) ...<Widget>[
-                    const SizedBox(height: 14),
-                    const _FieldLabel('Contraseña de acceso'),
-                    TextFormField(
-                      controller: _passwordCtrl,
-                      enabled: !userCtrl.isSaving,
-                      obscureText: _obscurePassword,
-                      decoration: InputDecoration(
-                        hintText: 'Mínimo 6 caracteres',
-                        suffixIcon: IconButton(
-                          onPressed: () => setState(
-                            () => _obscurePassword = !_obscurePassword,
                           ),
-                          icon: Icon(
-                            _obscurePassword
-                                ? Icons.visibility_outlined
-                                : Icons.visibility_off_outlined,
-                            size: 18,
-                          ),
-                        ),
+                        ],
                       ),
-                      validator: (String? v) =>
-                          (v == null || v.length < 6)
+                      const SizedBox(height: 20),
+                      const _SectionTitle(
+                        icon: Icons.key_outlined,
+                        title: 'Credenciales de acceso',
+                      ),
+                      const SizedBox(height: 10),
+                      _field(
+                        label: 'Correo electrónico',
+                        controller: _emailCtrl,
+                        enabled: !_isEditing && enabled,
+                        icon: Icons.alternate_email_rounded,
+                        hint: 'correo@asoproganucot.com',
+                        helper: _isEditing
+                            ? 'El correo de acceso no se puede modificar.'
+                            : null,
+                        suffix: _isEditing
+                            ? const Icon(Icons.lock_outline_rounded, size: 16)
+                            : null,
+                        keyboardType: TextInputType.emailAddress,
+                        validator: (String? v) {
+                          if (v == null || !v.trim().contains('@')) {
+                            return 'Ingresa un correo electrónico válido.';
+                          }
+                          return null;
+                        },
+                      ),
+                      if (!_isEditing) ...<Widget>[
+                        const SizedBox(height: 14),
+                        _field(
+                          label: 'Contraseña de acceso',
+                          controller: _passwordCtrl,
+                          enabled: enabled,
+                          icon: Icons.lock_outline_rounded,
+                          hint: 'Mínimo 6 caracteres',
+                          obscure: _obscurePassword,
+                          suffix: IconButton(
+                            tooltip: _obscurePassword
+                                ? 'Mostrar contraseña'
+                                : 'Ocultar contraseña',
+                            onPressed: () => setState(
+                              () => _obscurePassword = !_obscurePassword,
+                            ),
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                              size: 18,
+                            ),
+                          ),
+                          validator: (String? v) => (v == null || v.length < 6)
                               ? 'Debe tener al menos 6 caracteres.'
                               : null,
-                    ),
-                  ],
-                  const SizedBox(height: 16),
-                  const _FieldLabel('Rol del usuario'),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: AppConstants.allRoles.map((String role) {
-                      final bool selected = _selectedRole == role;
-                      return ChoiceChip(
-                        label: Text(AppConstants.roleLabel(role)),
-                        selected: selected,
-                        selectedColor: AppTheme.cowBlack,
-                        backgroundColor: AppTheme.canvasAlt,
-                        labelStyle: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: selected ? Colors.white : AppTheme.textPrimary,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.circular(AppTheme.radiusPill),
-                          side: BorderSide(
-                            color: selected
-                                ? AppTheme.cowBlack
-                                : AppTheme.inputBorder,
-                          ),
-                        ),
-                        showCheckmark: false,
-                        onSelected: userCtrl.isSaving
-                            ? null
-                            : (_) => setState(() => _selectedRole = role),
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.canvasAlt,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppTheme.border),
-                    ),
-                    child: Row(
-                      children: <Widget>[
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              Text(
-                                'Cuenta activa',
-                                style: TextStyle(
-                                  fontSize: 13.5,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              Text(
-                                'Permite el ingreso al sistema según su rol.',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: AppTheme.textSecondary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Switch(
-                          value: _isActive,
-                          activeThumbColor: AppTheme.cowBlack,
-                          onChanged: userCtrl.isSaving
-                              ? null
-                              : (bool val) => setState(() => _isActive = val),
                         ),
                       ],
-                    ),
-                  ),
-                  const SizedBox(height: 22),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: <Widget>[
-                      OutlinedButton(
-                        onPressed: userCtrl.isSaving
+                      const SizedBox(height: 20),
+                      const _SectionTitle(
+                        icon: Icons.admin_panel_settings_outlined,
+                        title: 'Rol y estado',
+                      ),
+                      const SizedBox(height: 10),
+                      LayoutBuilder(
+                        builder: (BuildContext context, BoxConstraints c) {
+                          final bool stack = c.maxWidth < 420;
+                          final List<Widget>
+                          options = AppConstants.allRoles.map((String role) {
+                            final Widget tile = _RoleOptionTile(
+                              role: role,
+                              selected: _selectedRole == role,
+                              onTap: userCtrl.isSaving
+                                  ? null
+                                  : () => setState(() => _selectedRole = role),
+                            );
+                            return stack
+                                ? Padding(
+                                    padding: const EdgeInsets.only(bottom: 8),
+                                    child: tile,
+                                  )
+                                : Expanded(child: tile);
+                          }).toList();
+                          if (stack) return Column(children: options);
+                          final List<Widget> spaced = <Widget>[];
+                          for (int i = 0; i < options.length; i++) {
+                            if (i > 0) spaced.add(const SizedBox(width: 8));
+                            spaced.add(options[i]);
+                          }
+                          return IntrinsicHeight(
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: spaced,
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      AppToggleCard(
+                        icon: _isActive
+                            ? Icons.verified_user_outlined
+                            : Icons.block_rounded,
+                        color: _isActive
+                            ? AppTheme.primaryGreen
+                            : AppTheme.textMuted,
+                        title: 'Cuenta activa',
+                        subtitle: 'Permite el ingreso al sistema según su rol.',
+                        value: _isActive,
+                        onChanged: userCtrl.isSaving
                             ? null
-                            : () => Navigator.of(context).pop(false),
-                        child: const Text('Cancelar'),
+                            : (bool val) => setState(() => _isActive = val),
                       ),
-                      const SizedBox(width: 10),
-                      PrimaryActionButton(
-                        label: _isEditing ? 'Guardar cambios' : 'Crear usuario',
-                        icon: Icons.check_rounded,
-                        fullWidth: false,
-                        isLoading: userCtrl.isSaving,
-                        onPressed: _save,
-                      ),
+                      const SizedBox(height: 10),
                     ],
                   ),
-                ],
+                ),
               ),
-            ),
+              Container(
+                padding: const EdgeInsets.fromLTRB(22, 12, 22, 14),
+                decoration: const BoxDecoration(
+                  color: AppTheme.canvas,
+                  border: Border(top: BorderSide(color: AppTheme.border)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: <Widget>[
+                    OutlinedButton(
+                      onPressed: userCtrl.isSaving
+                          ? null
+                          : () => Navigator.of(context).pop(false),
+                      child: const Text('Cancelar'),
+                    ),
+                    const SizedBox(width: 10),
+                    PrimaryActionButton(
+                      label: _isEditing ? 'Guardar cambios' : 'Crear usuario',
+                      icon: Icons.check_rounded,
+                      fullWidth: false,
+                      isLoading: userCtrl.isSaving,
+                      onPressed: _save,
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -1290,13 +1184,229 @@ class _FieldLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.only(bottom: 5),
       child: Text(
         text,
         style: const TextStyle(
-          fontSize: 13,
+          fontSize: 12.5,
           fontWeight: FontWeight.w600,
           color: AppTheme.textPrimary,
+        ),
+      ),
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle({required this.icon, required this.title});
+
+  final IconData icon;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        Icon(icon, size: 17, color: AppTheme.primaryGreen),
+        const SizedBox(width: 7),
+        Text(title, style: AppTheme.subtitleStyle()),
+        const SizedBox(width: 10),
+        const Expanded(child: Divider()),
+      ],
+    );
+  }
+}
+
+/// Apariencia (ícono, color y descripción) de cada rol del sistema.
+class _RoleStyle {
+  const _RoleStyle(this.icon, this.color, this.description);
+
+  final IconData icon;
+  final Color color;
+  final String description;
+
+  static _RoleStyle of(String role) {
+    switch (role) {
+      case AppConstants.roleAdmin:
+        return const _RoleStyle(
+          Icons.admin_panel_settings_outlined,
+          AppTheme.inkBlack,
+          'Gestión completa del sistema',
+        );
+      case AppConstants.roleOperario:
+        return const _RoleStyle(
+          Icons.engineering_outlined,
+          AppTheme.primaryGreen,
+          'Recepción de leche en planta',
+        );
+      default:
+        return const _RoleStyle(
+          Icons.agriculture_outlined,
+          AppTheme.indigoAccent,
+          'Consulta móvil de entregas y pagos',
+        );
+    }
+  }
+}
+
+class _RoleOptionTile extends StatefulWidget {
+  const _RoleOptionTile({
+    required this.role,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String role;
+  final bool selected;
+  final VoidCallback? onTap;
+
+  @override
+  State<_RoleOptionTile> createState() => _RoleOptionTileState();
+}
+
+class _RoleOptionTileState extends State<_RoleOptionTile> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final _RoleStyle style = _RoleStyle.of(widget.role);
+    final bool sel = widget.selected;
+    return MouseRegion(
+      cursor: widget.onTap == null
+          ? SystemMouseCursors.basic
+          : SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: Semantics(
+        button: true,
+        selected: sel,
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: sel
+                  ? style.color.withValues(alpha: 0.07)
+                  : (_hover ? AppTheme.canvasAlt : AppTheme.surface),
+              borderRadius: BorderRadius.circular(AppTheme.radiusCard + 2),
+              border: Border.all(
+                color: sel ? style.color : AppTheme.border,
+                width: sel ? 1.5 : 1,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Row(
+                  children: <Widget>[
+                    AppIconBadge(
+                      icon: style.icon,
+                      color: style.color,
+                      size: 30,
+                    ),
+                    const Spacer(),
+                    AnimatedOpacity(
+                      duration: const Duration(milliseconds: 160),
+                      opacity: sel ? 1 : 0,
+                      child: Icon(
+                        Icons.check_circle_rounded,
+                        size: 18,
+                        color: style.color,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  AppConstants.roleLabel(widget.role),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  style.description,
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    height: 1.3,
+                    color: AppTheme.textMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PasswordResetDialog extends StatelessWidget {
+  const _PasswordResetDialog({required this.user});
+
+  final UserModel user;
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      insetPadding: const EdgeInsets.all(20),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 430),
+        child: Padding(
+          padding: const EdgeInsets.all(22),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              AppDialogHeader(
+                icon: Icons.lock_reset_rounded,
+                color: AppTheme.warmGold,
+                title: 'Restablecer contraseña',
+                subtitle: 'Se enviará un enlace seguro al correo del usuario.',
+                onClose: () => Navigator.of(context).pop(false),
+              ),
+              const SizedBox(height: 16),
+              AppInfoPanel(
+                children: <Widget>[
+                  AppInfoRow(label: 'Usuario', value: user.nombreCompleto),
+                  AppInfoRow(label: 'Correo', value: user.correo),
+                  AppInfoRow(
+                    label: 'Rol',
+                    value: AppConstants.roleLabel(user.rol),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Text(
+                '¿Enviar correo de restablecimiento de contraseña a ${user.correo}?',
+                style: const TextStyle(
+                  fontSize: 13.5,
+                  height: 1.45,
+                  color: AppTheme.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: <Widget>[
+                  OutlinedButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: const Text('Cancelar'),
+                  ),
+                  const SizedBox(width: 10),
+                  ElevatedButton.icon(
+                    autofocus: true,
+                    onPressed: () => Navigator.of(context).pop(true),
+                    icon: const Icon(Icons.send_rounded, size: 16),
+                    label: const Text('Enviar enlace'),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

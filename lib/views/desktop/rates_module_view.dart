@@ -10,6 +10,7 @@ import '../../models/milk_rate_model.dart';
 import '../../models/user_model.dart';
 import '../shared/widgets/dairy_loader.dart';
 import '../shared/widgets/design_system_widgets.dart';
+import '../shared/widgets/ui_kit.dart';
 
 /// Módulo administrativo para configurar y consultar la tarifa histórica por litro (`RF-12`).
 class RatesModuleView extends StatefulWidget {
@@ -80,9 +81,15 @@ class _RatesModuleViewState extends State<RatesModuleView> {
             _buildHeader(ctrl, isAdmin: isAdmin, isNarrow: isNarrow),
             const SizedBox(height: 16),
             _buildKpiStrip(ctrl, isNarrow),
-            const SizedBox(height: 16),
-            _buildIntegrityNotice(),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
+            const AppInlineNotice(
+              icon: Icons.verified_outlined,
+              background: AppTheme.primaryGreenLight,
+              foreground: AppTheme.successText,
+              message:
+                  'Cada ajuste crea una nueva vigencia sin modificar los precios anteriores. Las liquidaciones ya cerradas conservan intacta la tarifa aplicada al momento de su emisión.',
+            ),
+            const SizedBox(height: 18),
             if (ctrl.isLoading && ctrl.rates.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 48),
@@ -96,8 +103,33 @@ class _RatesModuleViewState extends State<RatesModuleView> {
               )
             else if (ctrl.rates.isEmpty)
               _buildEmptyState(isAdmin: isAdmin)
-            else
+            else ...<Widget>[
+              Row(
+                children: <Widget>[
+                  const Icon(
+                    Icons.history_rounded,
+                    size: 18,
+                    color: AppTheme.textSecondary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Historial de vigencias',
+                    style: AppTheme.subtitleStyle(),
+                  ),
+                  const SizedBox(width: 10),
+                  AppCountPill(text: '${ctrl.rates.length}'),
+                  if (ctrl.fromCache) ...<Widget>[
+                    const SizedBox(width: 8),
+                    const SyncStatusBadge(
+                      isSynced: false,
+                      pendingLabel: 'Respaldo local',
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 10),
               _buildHistoryTable(ctrl),
+            ],
           ],
         ),
       ),
@@ -146,11 +178,7 @@ class _RatesModuleViewState extends State<RatesModuleView> {
     if (isNarrow) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          titleBlock,
-          const SizedBox(height: 12),
-          actions,
-        ],
+        children: <Widget>[titleBlock, const SizedBox(height: 12), actions],
       );
     }
 
@@ -166,45 +194,15 @@ class _RatesModuleViewState extends State<RatesModuleView> {
 
   Widget _buildKpiStrip(RateController ctrl, bool isNarrow) {
     final MilkRateModel? active = ctrl.activeRate;
-    final double? diff = ctrl.variationAmount;
-    final double? pct = ctrl.variationPercent;
 
-    final String variationLabel = diff == null
-        ? 'Sin historial previo'
-        : '${diff >= 0 ? '+' : ''}${AppFormatters.formatCurrency(diff)}'
-            '${pct != null ? ' (${pct >= 0 ? '+' : ''}${pct.toStringAsFixed(1)}%)' : ''}';
+    final Widget hero = _ActiveRateHero(
+      rate: active,
+      variation: ctrl.variationAmount,
+      variationPercent: ctrl.variationPercent,
+    );
 
-    final List<Widget> cards = <Widget>[
-      AppKpiCard(
-        title: 'Tarifa vigente actual',
-        value: active != null
-            ? AppFormatters.formatCurrency(active.precioPorLitro)
-            : 'Sin definir',
-        subtitle: active != null
-            ? 'Desde el ${AppFormatters.formatDate(active.fechaInicioVigencia)}'
-            : 'Registra la tarifa base inicial',
-        icon: Icons.payments_outlined,
-        accentColor: AppTheme.primaryGreen,
-      ),
-      AppKpiCard(
-        title: 'Variación respecto anterior',
-        value: diff == null
-            ? '—'
-            : '${diff >= 0 ? '+' : ''}${AppFormatters.formatCurrency(diff)}',
-        subtitle: variationLabel,
-        icon: Icons.trending_up_rounded,
-        accentColor: AppTheme.skyBlue,
-      ),
-      AppKpiCard(
-        title: 'Vigencias registradas',
-        value: '${ctrl.rates.length}',
-        subtitle: ctrl.fromCache
-            ? 'Mostrando respaldo local'
-            : 'Historial íntegro conservado',
-        icon: Icons.history_rounded,
-        accentColor: AppTheme.warmGold,
-      ),
-      AppKpiCard(
+    final List<Widget> side = <Widget>[
+      AppMetricTile(
         title: 'Referencia 1.000 L',
         value: active != null
             ? AppFormatters.formatCurrency(active.precioPorLitro * 1000)
@@ -213,58 +211,43 @@ class _RatesModuleViewState extends State<RatesModuleView> {
         icon: Icons.calculate_outlined,
         accentColor: AppTheme.indigoAccent,
       ),
+      AppMetricTile(
+        title: 'Vigencias registradas',
+        value: '${ctrl.rates.length}',
+        subtitle: ctrl.fromCache
+            ? 'Mostrando respaldo local'
+            : 'Historial íntegro conservado',
+        icon: Icons.history_rounded,
+        accentColor: AppTheme.warmGold,
+      ),
     ];
 
     if (isNarrow) {
       return Column(
-        children: cards
-            .map(
-              (Widget card) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: card,
-              ),
-            )
-            .toList(),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          hero,
+          const SizedBox(height: 10),
+          Row(
+            children: <Widget>[
+              Expanded(child: side[0]),
+              const SizedBox(width: 10),
+              Expanded(child: side[1]),
+            ],
+          ),
+        ],
       );
     }
 
-    return Row(
-      children: <Widget>[
-        for (int i = 0; i < cards.length; i++) ...<Widget>[
-          Expanded(child: cards[i]),
-          if (i < cards.length - 1) const SizedBox(width: 12),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildIntegrityNotice() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-      decoration: BoxDecoration(
-        color: AppTheme.primaryGreenLight,
-        borderRadius: BorderRadius.circular(AppTheme.radiusCard),
-        border: Border.all(
-          color: AppTheme.primaryGreen.withValues(alpha: 0.25),
-        ),
-      ),
-      child: const Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          Icon(
-            Icons.verified_outlined,
-            size: 18,
-            color: AppTheme.primaryGreen,
-          ),
-          SizedBox(width: 10),
+          Expanded(flex: 2, child: hero),
+          const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              'Cada ajuste crea una nueva vigencia sin modificar los precios anteriores. Las liquidaciones ya cerradas conservan intacta la tarifa aplicada al momento de su emisión.',
-              style: TextStyle(
-                fontSize: 13,
-                color: AppTheme.successText,
-                height: 1.4,
-              ),
+            child: Column(
+              children: <Widget>[side[0], const SizedBox(height: 12), side[1]],
             ),
           ),
         ],
@@ -282,10 +265,10 @@ class _RatesModuleViewState extends State<RatesModuleView> {
       ),
       child: Column(
         children: <Widget>[
-          const Icon(
-            Icons.payments_outlined,
-            size: 42,
-            color: AppTheme.textMuted,
+          const AppIconBadge(
+            icon: Icons.payments_outlined,
+            color: AppTheme.primaryGreen,
+            size: 52,
           ),
           const SizedBox(height: 12),
           Text(
@@ -314,23 +297,30 @@ class _RatesModuleViewState extends State<RatesModuleView> {
   }
 
   Widget _buildHistoryTable(RateController ctrl) {
+    // Tarifa inmediatamente anterior (por fecha de inicio) de cada vigencia.
+    final List<MilkRateModel> byDate = List<MilkRateModel>.from(ctrl.rates)
+      ..sort(
+        (MilkRateModel a, MilkRateModel b) =>
+            a.fechaInicioVigencia.compareTo(b.fechaInicioVigencia),
+      );
+    final Map<String, MilkRateModel> previousOf = <String, MilkRateModel>{
+      for (int i = 1; i < byDate.length; i++) byDate[i].tarifaId: byDate[i - 1],
+    };
+
     return CleanDataTable(
       columns: const <CleanTableColumn>[
         CleanTableColumn(label: 'Estado'),
         CleanTableColumn(label: 'Precio por litro', numeric: true),
-        CleanTableColumn(label: 'Vigencia desde'),
-        CleanTableColumn(label: 'Vigencia hasta'),
+        CleanTableColumn(label: 'Variación'),
+        CleanTableColumn(label: 'Vigencia'),
         CleanTableColumn(label: 'Referencia 500 L', numeric: true),
         CleanTableColumn(label: 'Observación / Motivo'),
       ],
       rows: ctrl.rates.map((MilkRateModel rate) {
         final bool isActive = rate.activa;
+        final MilkRateModel? prev = previousOf[rate.tarifaId];
         return <Widget>[
-          SyncStatusBadge(
-            isSynced: isActive,
-            syncedLabel: 'Vigente',
-            pendingLabel: 'Histórica',
-          ),
+          _RateStateBadge(active: isActive),
           Text(
             AppFormatters.formatCurrency(rate.precioPorLitro),
             style: AppTheme.monoStyle(
@@ -339,22 +329,50 @@ class _RatesModuleViewState extends State<RatesModuleView> {
               color: isActive ? AppTheme.primaryGreen : AppTheme.textPrimary,
             ),
           ),
-          Text(
-            AppFormatters.formatDate(rate.fechaInicioVigencia),
-            style: AppTheme.monoStyle(
-              fontSize: 12.5,
-              color: AppTheme.textPrimary,
-            ),
-          ),
-          Text(
-            rate.fechaFinVigencia != null
-                ? AppFormatters.formatDate(rate.fechaFinVigencia!)
-                : 'Actualidad',
-            style: TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w500,
-              color: isActive ? AppTheme.primaryGreen : AppTheme.textSecondary,
-            ),
+          prev == null
+              ? const Text(
+                  'Tarifa base',
+                  style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
+                )
+              : _VariationChip(
+                  amount: rate.precioPorLitro - prev.precioPorLitro,
+                  percent: prev.precioPorLitro > 0
+                      ? (rate.precioPorLitro - prev.precioPorLitro) /
+                            prev.precioPorLitro *
+                            100
+                      : null,
+                ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Text(
+                AppFormatters.formatDate(rate.fechaInicioVigencia),
+                style: AppTheme.monoStyle(fontSize: 12.5),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 6),
+                child: Icon(
+                  Icons.arrow_forward_rounded,
+                  size: 13,
+                  color: AppTheme.textMuted,
+                ),
+              ),
+              Text(
+                rate.fechaFinVigencia != null
+                    ? AppFormatters.formatDate(rate.fechaFinVigencia!)
+                    : 'Actualidad',
+                style: rate.fechaFinVigencia != null
+                    ? AppTheme.monoStyle(
+                        fontSize: 12.5,
+                        color: AppTheme.textSecondary,
+                      )
+                    : const TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.primaryGreen,
+                      ),
+              ),
+            ],
           ),
           Text(
             AppFormatters.formatCurrency(rate.precioPorLitro * 500),
@@ -366,7 +384,7 @@ class _RatesModuleViewState extends State<RatesModuleView> {
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 320),
             child: Text(
-              rate.observacion,
+              rate.observacion.isEmpty ? '—' : rate.observacion,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
@@ -381,11 +399,314 @@ class _RatesModuleViewState extends State<RatesModuleView> {
   }
 }
 
-class _CreateRateDialog extends StatefulWidget {
-  const _CreateRateDialog({
-    required this.actor,
-    this.currentPrice,
+/// Tarjeta destacada con la tarifa vigente y su variación.
+class _ActiveRateHero extends StatelessWidget {
+  const _ActiveRateHero({
+    required this.rate,
+    required this.variation,
+    required this.variationPercent,
   });
+
+  final MilkRateModel? rate;
+  final double? variation;
+  final double? variationPercent;
+
+  @override
+  Widget build(BuildContext context) {
+    final MilkRateModel? r = rate;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppTheme.radiusCard + 4),
+        gradient: const LinearGradient(
+          colors: <Color>[AppTheme.inkBlack, Color(0xFF14663A)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0x1F0C3B24),
+            blurRadius: 14,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: <Widget>[
+          Positioned(
+            right: -6,
+            bottom: -18,
+            child: Icon(
+              Icons.water_drop_rounded,
+              size: 120,
+              color: Colors.white.withValues(alpha: 0.06),
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.payments_outlined,
+                      size: 16,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Text(
+                      'Tarifa vigente actual',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFFCFE9D8),
+                      ),
+                    ),
+                  ),
+                  if (r != null) const _LivePill(),
+                ],
+              ),
+              const SizedBox(height: 14),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: <Widget>[
+                    Text(
+                      r != null
+                          ? AppFormatters.formatCurrency(r.precioPorLitro)
+                          : 'Sin definir',
+                      style: AppTheme.monoStyle(
+                        fontSize: 36,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                    if (r != null) ...<Widget>[
+                      const SizedBox(width: 6),
+                      Text(
+                        '/ litro',
+                        style: AppTheme.monoStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFFCFE9D8),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: <Widget>[
+                  _HeroChip(
+                    icon: Icons.event_available_outlined,
+                    label: r != null
+                        ? 'Desde el ${AppFormatters.formatDate(r.fechaInicioVigencia)}'
+                        : 'Registra la tarifa base inicial',
+                  ),
+                  if (variation != null)
+                    _HeroChip(
+                      icon: variation! > 0
+                          ? Icons.trending_up_rounded
+                          : variation! < 0
+                          ? Icons.trending_down_rounded
+                          : Icons.trending_flat_rounded,
+                      label:
+                          '${variation! >= 0 ? '+' : ''}${AppFormatters.formatCurrency(variation!)}'
+                          '${variationPercent != null ? ' (${variationPercent! >= 0 ? '+' : ''}${variationPercent!.toStringAsFixed(1)}%)' : ''}'
+                          ' vs. anterior',
+                    )
+                  else if (r != null)
+                    const _HeroChip(
+                      icon: Icons.flag_outlined,
+                      label: 'Sin historial previo',
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LivePill extends StatelessWidget {
+  const _LivePill();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+      decoration: BoxDecoration(
+        color: const Color(0xFF22C55E).withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+        border: Border.all(
+          color: const Color(0xFF4ADE80).withValues(alpha: 0.4),
+        ),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(Icons.circle, size: 7, color: Color(0xFF4ADE80)),
+          SizedBox(width: 5),
+          Text(
+            'En vigor',
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroChip extends StatelessWidget {
+  const _HeroChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(icon, size: 14, color: Colors.white),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RateStateBadge extends StatelessWidget {
+  const _RateStateBadge({required this.active});
+
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: active ? AppTheme.successBg : AppTheme.surfaceMuted,
+        borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+        border: Border.all(
+          color: active
+              ? AppTheme.success.withValues(alpha: 0.3)
+              : AppTheme.border,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(
+            active ? Icons.bolt_rounded : Icons.history_rounded,
+            size: 13,
+            color: active ? AppTheme.success : AppTheme.textMuted,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            active ? 'Vigente' : 'Histórica',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: active ? AppTheme.successText : AppTheme.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Indicador de subida / bajada de precio respecto a la vigencia anterior.
+class _VariationChip extends StatelessWidget {
+  const _VariationChip({required this.amount, this.percent});
+
+  final double amount;
+  final double? percent;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool up = amount > 0;
+    final bool flat = amount == 0;
+    final Color fg = flat
+        ? AppTheme.textSecondary
+        : (up ? AppTheme.successText : AppTheme.dangerText);
+    final Color bg = flat
+        ? AppTheme.surfaceMuted
+        : (up ? AppTheme.successBg : AppTheme.dangerBg);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(
+            flat
+                ? Icons.remove_rounded
+                : (up
+                      ? Icons.arrow_upward_rounded
+                      : Icons.arrow_downward_rounded),
+            size: 12,
+            color: fg,
+          ),
+          const SizedBox(width: 3),
+          Text(
+            '${up ? '+' : ''}${AppFormatters.formatCurrency(amount)}'
+            '${percent != null ? ' · ${percent!.abs().toStringAsFixed(1)}%' : ''}',
+            style: AppTheme.monoStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              color: fg,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CreateRateDialog extends StatefulWidget {
+  const _CreateRateDialog({required this.actor, this.currentPrice});
 
   final UserModel actor;
   final double? currentPrice;
@@ -398,6 +719,7 @@ class _CreateRateDialogState extends State<_CreateRateDialog> {
   final TextEditingController _priceCtrl = TextEditingController();
   final TextEditingController _obsCtrl = TextEditingController();
   DateTime _startDate = DateTime.now();
+  String? _priceError;
 
   @override
   void initState() {
@@ -430,12 +752,8 @@ class _CreateRateDialogState extends State<_CreateRateDialog> {
     final double? price = AppFormatters.parseCurrencyInput(_priceCtrl.text);
     if (price == null || price <= 0) {
       context.read<RateController>().clearFeedback();
-      setState(() {});
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Ingresa un precio por litro válido mayor a cero.'),
-          backgroundColor: AppTheme.danger,
-        ),
+      setState(
+        () => _priceError = 'Ingresa un precio por litro válido mayor a cero.',
       );
       return;
     }
@@ -450,117 +768,140 @@ class _CreateRateDialogState extends State<_CreateRateDialog> {
     );
 
     final bool ok = await context.read<RateController>().createRate(
-          actor: widget.actor,
-          precioPorLitro: price,
-          fechaInicioVigencia: startDay,
-          observacion: _obsCtrl.text,
-        );
+      actor: widget.actor,
+      precioPorLitro: price,
+      fechaInicioVigencia: startDay,
+      observacion: _obsCtrl.text,
+    );
     if (ok && mounted) {
       Navigator.of(context).pop(true);
     }
   }
 
+  Widget _label(String text) => Padding(
+    padding: const EdgeInsets.only(bottom: 6),
+    child: Text(
+      text,
+      style: const TextStyle(
+        fontSize: 12.5,
+        fontWeight: FontWeight.w600,
+        color: AppTheme.textPrimary,
+      ),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     final RateController ctrl = context.watch<RateController>();
     final String? error = ctrl.errorMessage;
+    final double? current = widget.currentPrice;
+    final double? typed = AppFormatters.parseCurrencyInput(_priceCtrl.text);
+    final double? diff = (current != null && typed != null && typed > 0)
+        ? typed - current
+        : null;
 
     return Dialog(
-      backgroundColor: AppTheme.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTheme.radiusCard),
-        side: const BorderSide(color: AppTheme.border),
-      ),
+      insetPadding: const EdgeInsets.all(20),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 480),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(22),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: Text(
-                      'Actualizar tarifa por litro',
-                      style: AppTheme.serifStyle(fontSize: 20),
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'Cerrar',
-                    onPressed: ctrl.isSaving
-                        ? null
-                        : () => Navigator.of(context).pop(false),
-                    icon: const Icon(Icons.close_rounded, size: 20),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                'Se cerrará la vigencia actual sin alterar liquidaciones ya emitidas.',
-                style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+              AppDialogHeader(
+                icon: Icons.price_change_outlined,
+                title: 'Actualizar tarifa por litro',
+                subtitle:
+                    'Se cerrará la vigencia actual sin alterar liquidaciones ya emitidas.',
+                onClose: ctrl.isSaving
+                    ? null
+                    : () => Navigator.of(context).pop(false),
               ),
               const SizedBox(height: 18),
-              const Text(
-                'Precio por litro (COP)',
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 6),
+              _label('Precio por litro (COP)'),
               TextField(
                 controller: _priceCtrl,
+                autofocus: true,
+                enabled: !ctrl.isSaving,
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
                 inputFormatters: <TextInputFormatter>[
                   FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
                 ],
-                decoration: const InputDecoration(
+                style: AppTheme.monoStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                ),
+                onChanged: (_) => setState(() => _priceError = null),
+                onSubmitted: (_) => _submit(),
+                decoration: InputDecoration(
                   hintText: 'Ej: 1850',
                   prefixText: r'$ ',
+                  prefixStyle: AppTheme.monoStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textMuted,
+                  ),
+                  suffixText: '/ litro',
+                  suffixStyle: const TextStyle(
+                    fontSize: 13,
+                    color: AppTheme.textMuted,
+                  ),
+                  errorText: _priceError,
                 ),
+              ),
+              const SizedBox(height: 10),
+              AppInfoPanel(
+                children: <Widget>[
+                  AppInfoRow(
+                    label: 'Tarifa actual',
+                    value: current != null
+                        ? AppFormatters.formatCurrency(current)
+                        : 'Sin tarifa previa',
+                    mono: true,
+                  ),
+                  AppInfoRow(
+                    label: 'Variación',
+                    value: diff == null
+                        ? '—'
+                        : '${diff >= 0 ? '+' : ''}${AppFormatters.formatCurrency(diff)}'
+                              '${current != null && current > 0 ? ' (${diff >= 0 ? '+' : ''}${(diff / current * 100).toStringAsFixed(1)}%)' : ''}',
+                    mono: true,
+                  ),
+                  AppInfoRow(
+                    label: 'Referencia 1.000 L',
+                    value: typed != null && typed > 0
+                        ? AppFormatters.formatCurrency(typed * 1000)
+                        : '—',
+                    mono: true,
+                    emphasize: true,
+                  ),
+                ],
               ),
               const SizedBox(height: 14),
-              const Text(
-                'Fecha de inicio de vigencia',
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 6),
-              OutlinedButton.icon(
-                onPressed: ctrl.isSaving ? null : _pickDate,
-                style: OutlinedButton.styleFrom(
-                  alignment: Alignment.centerLeft,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 12,
+              _label('Fecha de inicio de vigencia'),
+              InkWell(
+                onTap: ctrl.isSaving ? null : _pickDate,
+                borderRadius: BorderRadius.circular(AppTheme.radiusControl),
+                child: InputDecorator(
+                  decoration: const InputDecoration(
+                    prefixIcon: Icon(Icons.calendar_today_outlined, size: 17),
+                    suffixIcon: Icon(Icons.edit_calendar_outlined, size: 17),
+                  ),
+                  child: Text(
+                    AppFormatters.formatDate(_startDate, useLocal: false),
+                    style: AppTheme.monoStyle(fontSize: 14),
                   ),
                 ),
-                icon: const Icon(Icons.calendar_today_outlined, size: 16),
-                label: Text(
-                  AppFormatters.formatDate(_startDate, useLocal: false),
-                  style: AppTheme.monoStyle(fontSize: 13.5),
-                ),
               ),
               const SizedBox(height: 14),
-              const Text(
-                'Observación o motivo del ajuste',
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 6),
+              _label('Observación o motivo del ajuste'),
               TextField(
                 controller: _obsCtrl,
+                enabled: !ctrl.isSaving,
                 maxLines: 2,
                 decoration: const InputDecoration(
                   hintText: 'Ej: Ajuste quincenal aprobado por junta directiva',
@@ -568,23 +909,7 @@ class _CreateRateDialogState extends State<_CreateRateDialog> {
               ),
               if (error != null && error.isNotEmpty) ...<Widget>[
                 const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppTheme.dangerBg,
-                    borderRadius: BorderRadius.circular(AppTheme.radiusControl),
-                    border: Border.all(
-                      color: AppTheme.danger.withValues(alpha: 0.3),
-                    ),
-                  ),
-                  child: Text(
-                    error,
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      color: AppTheme.dangerText,
-                    ),
-                  ),
-                ),
+                AppInlineNotice.danger(message: error),
               ],
               const SizedBox(height: 20),
               Row(

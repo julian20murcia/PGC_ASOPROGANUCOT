@@ -9,9 +9,11 @@ import '../../controllers/producer_controller.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/privacy_notice.dart';
 import '../../models/producer_model.dart';
+import '../shared/widgets/app_select.dart';
 import '../shared/widgets/dairy_loader.dart';
 import '../shared/widgets/design_system_widgets.dart';
 import '../shared/widgets/privacy_notice_view.dart';
+import '../shared/widgets/ui_kit.dart';
 
 /// Módulo administrativo de Productores y Autorización de Datos Personales (Ley 1581 de 2012).
 class ProducersModuleView extends StatefulWidget {
@@ -146,10 +148,7 @@ class _ProducersModuleViewState extends State<ProducersModuleView> {
     final Widget titleBlock = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Text(
-          'Productores',
-          style: AppTheme.titleStyle(isMobile: isNarrow),
-        ),
+        Text('Productores', style: AppTheme.titleStyle(isMobile: isNarrow)),
         const SizedBox(height: 4),
         const Text(
           'Padrón de ganaderos asociados en Susa, fincas, acceso móvil y autorización de datos.',
@@ -199,7 +198,8 @@ class _ProducersModuleViewState extends State<ProducersModuleView> {
   }
 
   Widget _buildToolbar(ProducerController ctrl, bool isNarrow) {
-    final String countText = ctrl.filteredProducers.length == ctrl.allProducers.length
+    final String countText =
+        ctrl.filteredProducers.length == ctrl.allProducers.length
         ? '${ctrl.allProducers.length} ${ctrl.allProducers.length == 1 ? 'productor' : 'productores'}'
         : '${ctrl.filteredProducers.length} de ${ctrl.allProducers.length}';
 
@@ -210,8 +210,10 @@ class _ProducersModuleViewState extends State<ProducersModuleView> {
         onChanged: ctrl.setSearchQuery,
         decoration: InputDecoration(
           hintText: 'Buscar por código, nombre, cédula, finca o vereda…',
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 10,
+            vertical: 8,
+          ),
           prefixIcon: const Icon(Icons.search_rounded, size: 17),
           suffixIcon: ctrl.searchQuery.isNotEmpty
               ? IconButton(
@@ -226,60 +228,47 @@ class _ProducersModuleViewState extends State<ProducersModuleView> {
       ),
     );
 
-    final List<DropdownMenuItem<String>> veredaItems =
-        <DropdownMenuItem<String>>[
-      const DropdownMenuItem<String>(
-        value: 'ALL',
-        child: Text('Todas las veredas', overflow: TextOverflow.ellipsis),
-      ),
-      ...ctrl.availableVeredas.map(
-        (String vereda) => DropdownMenuItem<String>(
-          value: vereda,
-          child: Text(vereda, overflow: TextOverflow.ellipsis),
-        ),
-      ),
-    ];
-
     final Widget veredaDropdown = SizedBox(
       height: 36,
-      child: DropdownButtonFormField<String>(
-        initialValue: ctrl.veredaFilter,
-        isExpanded: true,
-        decoration: const InputDecoration(
-          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        ),
-        items: veredaItems,
-        onChanged: (String? value) {
-          if (value != null) ctrl.setVeredaFilter(value);
-        },
+      child: AppSelect<String>(
+        dense: true,
+        value: ctrl.veredaFilter,
+        prefixIcon: Icons.place_outlined,
+        searchHint: 'Buscar vereda…',
+        options: <AppSelectOption<String>>[
+          const AppSelectOption<String>(
+            value: 'ALL',
+            label: 'Todas las veredas',
+          ),
+          ...ctrl.availableVeredas.map(
+            (String vereda) =>
+                AppSelectOption<String>(value: vereda, label: vereda),
+          ),
+        ],
+        onChanged: ctrl.setVeredaFilter,
       ),
     );
 
     final Widget statusDropdown = SizedBox(
       height: 36,
-      child: DropdownButtonFormField<String>(
-        initialValue: ctrl.statusFilter,
-        isExpanded: true,
-        decoration: const InputDecoration(
-          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        ),
-        items: const <DropdownMenuItem<String>>[
-          DropdownMenuItem<String>(
-            value: 'ALL',
-            child: Text('Todos los estados', overflow: TextOverflow.ellipsis),
-          ),
-          DropdownMenuItem<String>(
+      child: AppSelect<String>(
+        dense: true,
+        value: ctrl.statusFilter,
+        prefixIcon: Icons.toggle_on_outlined,
+        options: const <AppSelectOption<String>>[
+          AppSelectOption<String>(value: 'ALL', label: 'Todos los estados'),
+          AppSelectOption<String>(
             value: 'ACTIVO',
-            child: Text('Activos', overflow: TextOverflow.ellipsis),
+            label: 'Activos',
+            icon: Icons.check_circle_outline_rounded,
           ),
-          DropdownMenuItem<String>(
+          AppSelectOption<String>(
             value: 'INACTIVO',
-            child: Text('Inactivos', overflow: TextOverflow.ellipsis),
+            label: 'Inactivos',
+            icon: Icons.pause_circle_outline_rounded,
           ),
         ],
-        onChanged: (String? value) {
-          if (value != null) ctrl.setStatusFilter(value);
-        },
+        onChanged: ctrl.setStatusFilter,
       ),
     );
 
@@ -307,20 +296,15 @@ class _ProducersModuleViewState extends State<ProducersModuleView> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: <Widget>[
-                Text(
-                  countText,
-                  style: AppTheme.monoStyle(
-                    fontSize: 12,
-                    color: AppTheme.textMuted,
-                  ),
-                ),
+                AppCountPill(text: countText),
                 if (ctrl.hasActiveFilters)
-                  TextButton(
+                  TextButton.icon(
                     onPressed: () {
                       _searchCtrl.clear();
                       ctrl.clearFilters();
                     },
-                    child: const Text('Limpiar filtros'),
+                    icon: const Icon(Icons.filter_alt_off_outlined, size: 16),
+                    label: const Text('Limpiar filtros'),
                   ),
               ],
             ),
@@ -340,22 +324,20 @@ class _ProducersModuleViewState extends State<ProducersModuleView> {
         children: <Widget>[
           Expanded(child: searchField),
           const SizedBox(width: 10),
-          SizedBox(width: 180, child: veredaDropdown),
+          SizedBox(width: 205, child: veredaDropdown),
           const SizedBox(width: 8),
-          SizedBox(width: 162, child: statusDropdown),
+          SizedBox(width: 192, child: statusDropdown),
           const SizedBox(width: 12),
-          Text(
-            countText,
-            style: AppTheme.monoStyle(fontSize: 12, color: AppTheme.textMuted),
-          ),
+          AppCountPill(text: countText),
           if (ctrl.hasActiveFilters) ...<Widget>[
-            const SizedBox(width: 6),
-            TextButton(
+            const SizedBox(width: 4),
+            IconButton(
+              tooltip: 'Limpiar filtros',
               onPressed: () {
                 _searchCtrl.clear();
                 ctrl.clearFilters();
               },
-              child: const Text('Limpiar'),
+              icon: const Icon(Icons.filter_alt_off_outlined, size: 18),
             ),
           ],
         ],
@@ -375,10 +357,10 @@ class _ProducersModuleViewState extends State<ProducersModuleView> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          const Icon(
-            Icons.agriculture_outlined,
-            size: 32,
-            color: AppTheme.inkBlack,
+          const AppIconBadge(
+            icon: Icons.agriculture_outlined,
+            color: AppTheme.primaryGreen,
+            size: 52,
           ),
           const SizedBox(height: 12),
           Text(
@@ -393,8 +375,10 @@ class _ProducersModuleViewState extends State<ProducersModuleView> {
             ctrl.hasActiveFilters
                 ? 'Prueba con otro código, cédula o limpia los filtros activos.'
                 : 'Registra el primer ganadero asociado en Susa con su autorización de datos.',
-            style:
-                const TextStyle(fontSize: 13.5, color: AppTheme.textSecondary),
+            style: const TextStyle(
+              fontSize: 13.5,
+              color: AppTheme.textSecondary,
+            ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 18),
@@ -462,8 +446,7 @@ class _ProducersModuleViewState extends State<ProducersModuleView> {
                 p.uidUsuario != null && p.uidUsuario!.isNotEmpty;
             return <Widget>[
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: AppTheme.surfaceMuted,
                   borderRadius: BorderRadius.circular(AppTheme.radiusControl),
@@ -478,32 +461,47 @@ class _ProducersModuleViewState extends State<ProducersModuleView> {
                   ),
                 ),
               ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
+              Row(
+                mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
-                  Text(
-                    p.nombreCompleto,
-                    style: const TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textPrimary,
-                    ),
-                  ),
-                  if (p.telefono.isNotEmpty)
-                    Text(
-                      p.telefono,
-                      style: AppTheme.monoStyle(
-                        fontSize: 11.5,
-                        color: AppTheme.textMuted,
+                  _ProducerAvatar(name: p.nombreCompleto, active: p.isActivo),
+                  const SizedBox(width: 10),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      Text(
+                        p.nombreCompleto,
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimary,
+                        ),
                       ),
-                    ),
+                      if (p.telefono.isNotEmpty)
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            const Icon(
+                              Icons.phone_outlined,
+                              size: 11,
+                              color: AppTheme.textMuted,
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              p.telefono,
+                              style: AppTheme.monoStyle(
+                                fontSize: 11.5,
+                                color: AppTheme.textMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
                 ],
               ),
-              Text(
-                p.cedula,
-                style: AppTheme.monoStyle(fontSize: 13),
-              ),
+              Text(p.cedula, style: AppTheme.monoStyle(fontSize: 13)),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -516,12 +514,23 @@ class _ProducersModuleViewState extends State<ProducersModuleView> {
                       color: AppTheme.textPrimary,
                     ),
                   ),
-                  Text(
-                    'Vereda ${p.vereda}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppTheme.textSecondary,
-                    ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      const Icon(
+                        Icons.place_outlined,
+                        size: 12,
+                        color: AppTheme.textMuted,
+                      ),
+                      const SizedBox(width: 3),
+                      Text(
+                        'Vereda ${p.vereda}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -534,26 +543,24 @@ class _ProducersModuleViewState extends State<ProducersModuleView> {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
-                  IconButton(
+                  AppRowActionButton(
                     tooltip: 'Editar productor',
-                    visualDensity: VisualDensity.compact,
+                    icon: Icons.edit_outlined,
+                    color: AppTheme.skyBlue,
                     onPressed: () => _openEditDialog(p),
-                    icon: const Icon(Icons.edit_outlined, size: 18),
                   ),
-                  IconButton(
-                    tooltip:
-                        p.isActivo ? 'Marcar inactivo' : 'Reactivar productor',
-                    visualDensity: VisualDensity.compact,
+                  const SizedBox(width: 6),
+                  AppRowActionButton(
+                    tooltip: p.isActivo
+                        ? 'Marcar inactivo'
+                        : 'Reactivar productor',
+                    icon: p.isActivo
+                        ? Icons.pause_circle_outline_rounded
+                        : Icons.play_circle_outline_rounded,
+                    color: p.isActivo
+                        ? AppTheme.warning
+                        : AppTheme.primaryGreen,
                     onPressed: () => _toggleStatus(p),
-                    icon: Icon(
-                      p.isActivo
-                          ? Icons.pause_circle_outline_rounded
-                          : Icons.play_circle_outline_rounded,
-                      size: 18,
-                      color: p.isActivo
-                          ? AppTheme.textSecondary
-                          : AppTheme.primaryGreen,
-                    ),
                   ),
                 ],
               ),
@@ -568,8 +575,9 @@ class _ProducersModuleViewState extends State<ProducersModuleView> {
 
   Widget _buildPaginationBar(ProducerController ctrl) {
     final int total = ctrl.filteredProducers.length;
-    final int start =
-        total == 0 ? 0 : ((ctrl.currentPage - 1) * ctrl.itemsPerPage) + 1;
+    final int start = total == 0
+        ? 0
+        : ((ctrl.currentPage - 1) * ctrl.itemsPerPage) + 1;
     final int end = (ctrl.currentPage * ctrl.itemsPerPage).clamp(0, total);
 
     return Wrap(
@@ -585,23 +593,23 @@ class _ProducersModuleViewState extends State<ProducersModuleView> {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            DropdownButton<int>(
-              value: ctrl.itemsPerPage,
-              underline: const SizedBox.shrink(),
-              items: const <int>[10, 20, 40]
-                  .map(
-                    (int size) => DropdownMenuItem<int>(
-                      value: size,
-                      child: Text(
-                        '$size por página',
-                        style: const TextStyle(fontSize: 13),
+            SizedBox(
+              width: 150,
+              height: 34,
+              child: AppSelect<int>(
+                dense: true,
+                value: ctrl.itemsPerPage,
+                menuMinWidth: 150,
+                options: const <int>[10, 20, 40]
+                    .map(
+                      (int size) => AppSelectOption<int>(
+                        value: size,
+                        label: '$size por página',
                       ),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (int? val) {
-                if (val != null) ctrl.setItemsPerPage(val);
-              },
+                    )
+                    .toList(),
+                onChanged: ctrl.setItemsPerPage,
+              ),
             ),
             const SizedBox(width: 8),
             IconButton(
@@ -610,10 +618,7 @@ class _ProducersModuleViewState extends State<ProducersModuleView> {
                   : null,
               icon: const Icon(Icons.chevron_left_rounded),
             ),
-            Text(
-              '${ctrl.currentPage} / ${ctrl.totalPages}',
-              style: AppTheme.monoStyle(fontSize: 13),
-            ),
+            AppCountPill(text: '${ctrl.currentPage} / ${ctrl.totalPages}'),
             IconButton(
               onPressed: ctrl.currentPage < ctrl.totalPages
                   ? () => ctrl.setPage(ctrl.currentPage + 1)
@@ -628,10 +633,7 @@ class _ProducersModuleViewState extends State<ProducersModuleView> {
 }
 
 class _ProducerSummaryStrip extends StatelessWidget {
-  const _ProducerSummaryStrip({
-    required this.ctrl,
-    required this.isNarrow,
-  });
+  const _ProducerSummaryStrip({required this.ctrl, required this.isNarrow});
 
   final ProducerController ctrl;
   final bool isNarrow;
@@ -639,28 +641,28 @@ class _ProducerSummaryStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final List<Widget> cards = <Widget>[
-      _MetricBox(
+      AppMetricTile(
         title: 'Total productores',
         value: '${ctrl.totalCount}',
         subtitle: 'Registrados en el padrón',
         icon: Icons.agriculture_outlined,
         accentColor: AppTheme.skyBlue,
       ),
-      _MetricBox(
+      AppMetricTile(
         title: 'Productores activos',
         value: '${ctrl.activeCount}',
         subtitle: 'Habilitados para entrega',
         icon: Icons.check_circle_outline_rounded,
         accentColor: AppTheme.primaryGreen,
       ),
-      _MetricBox(
+      AppMetricTile(
         title: 'Con acceso móvil',
         value: '${ctrl.linkedMobileCount}',
         subtitle: 'Consulta en teléfono',
         icon: Icons.smartphone_outlined,
         accentColor: AppTheme.warmGold,
       ),
-      _MetricBox(
+      AppMetricTile(
         title: 'Veredas registradas',
         value: '${ctrl.veredasCount}',
         subtitle: 'Zona lechera de Susa',
@@ -705,85 +707,52 @@ class _ProducerSummaryStrip extends StatelessWidget {
   }
 }
 
-class _MetricBox extends StatelessWidget {
-  const _MetricBox({
-    required this.title,
-    required this.value,
-    required this.subtitle,
-    required this.icon,
-    this.accentColor = AppTheme.inkBlack,
-  });
+class _ProducerAvatar extends StatelessWidget {
+  const _ProducerAvatar({required this.name, required this.active});
 
-  final String title;
-  final String value;
-  final String subtitle;
-  final IconData icon;
-  final Color accentColor;
+  final String name;
+  final bool active;
+
+  static const List<Color> _palette = <Color>[
+    AppTheme.primaryGreen,
+    AppTheme.skyBlue,
+    AppTheme.tealAccent,
+    AppTheme.indigoAccent,
+    AppTheme.warmGold,
+  ];
 
   @override
   Widget build(BuildContext context) {
+    final List<String> parts = name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((String p) => p.isNotEmpty)
+        .toList();
+    final String initials = parts.isEmpty
+        ? '?'
+        : parts.length == 1
+        ? parts.first[0].toUpperCase()
+        : '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    final Color color = active
+        ? _palette[name.codeUnits.fold<int>(0, (int a, int b) => a + b) %
+              _palette.length]
+        : AppTheme.textMuted;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      width: 32,
+      height: 32,
+      alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radiusCard),
-        border: Border.all(color: accentColor.withValues(alpha: 0.24)),
+        color: color.withValues(alpha: 0.14),
+        shape: BoxShape.circle,
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 6),
-              Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: accentColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(7),
-                  border: Border.all(
-                    color: accentColor.withValues(alpha: 0.24),
-                  ),
-                ),
-                child: Icon(icon, size: 16, color: accentColor),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: AppTheme.monoStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: accentColor == AppTheme.primaryGreen
-                  ? AppTheme.primaryGreen
-                  : AppTheme.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            subtitle,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 11.5,
-              color: AppTheme.textMuted,
-            ),
-          ),
-        ],
+      child: Text(
+        initials,
+        style: TextStyle(
+          fontSize: 11.5,
+          fontWeight: FontWeight.w700,
+          color: color,
+        ),
       ),
     );
   }
@@ -969,7 +938,8 @@ class _ProducerFormDialogState extends State<_ProducerFormDialog> {
   String _noticeError(Object? error) {
     if (error is FormatException) return error.message;
     if (error is FirebaseException &&
-        (error.code == 'permission-denied' || error.code == 'unauthenticated')) {
+        (error.code == 'permission-denied' ||
+            error.code == 'unauthenticated')) {
       return 'No tienes acceso al aviso institucional. Verifica la sesión y las reglas de Firestore.';
     }
     return 'No se pudo consultar el aviso institucional. Verifica la conexión y reintenta.';
@@ -1054,15 +1024,295 @@ class _ProducerFormDialogState extends State<_ProducerFormDialog> {
     }
   }
 
+  Widget _field({
+    required String label,
+    required TextEditingController controller,
+    required bool enabled,
+    IconData? icon,
+    String? hint,
+    bool mono = false,
+    TextInputType? keyboardType,
+    String? Function(String?)? validator,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        _FieldLabel(label),
+        TextFormField(
+          controller: controller,
+          enabled: enabled,
+          keyboardType: keyboardType,
+          style: mono ? AppTheme.monoStyle(fontSize: 14) : null,
+          decoration: InputDecoration(
+            hintText: hint,
+            prefixIcon: icon == null ? null : Icon(icon, size: 17),
+          ),
+          validator: validator,
+        ),
+      ],
+    );
+  }
+
+  Widget _pair(Widget a, Widget b) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Expanded(child: a),
+        const SizedBox(width: 12),
+        Expanded(child: b),
+      ],
+    );
+  }
+
+  Widget _buildPrivacySection(ProducerController ctrl) {
+    return FutureBuilder<PrivacyNotice>(
+      future: _noticeFuture,
+      builder: (context, snapshot) {
+        final notice = snapshot.data;
+        final loading = snapshot.connectionState != ConnectionState.done;
+        if (loading || notice == null) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              const Text(
+                'La asociación utiliza los datos para registrar entregas de leche, liquidar pagos y permitir la consulta del historial. El productor puede consultar, actualizar y rectificar sus datos.',
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.45,
+                  color: AppTheme.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (loading)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.canvasAlt,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+                    border: Border.all(color: AppTheme.border),
+                  ),
+                  child: const Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: <Widget>[
+                      Text(
+                        'Cargando el aviso institucional…',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.all(Radius.circular(4)),
+                        child: LinearProgressIndicator(minHeight: 4),
+                      ),
+                    ],
+                  ),
+                )
+              else ...<Widget>[
+                Container(
+                  padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
+                  decoration: BoxDecoration(
+                    color: AppTheme.dangerBg,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+                    border: Border.all(
+                      color: AppTheme.danger.withValues(alpha: 0.25),
+                    ),
+                  ),
+                  child: Row(
+                    children: <Widget>[
+                      const Icon(
+                        Icons.cloud_off_rounded,
+                        size: 18,
+                        color: AppTheme.dangerText,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          _noticeError(snapshot.error),
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            height: 1.4,
+                            color: AppTheme.dangerText,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      TextButton.icon(
+                        onPressed: _retryNotice,
+                        icon: const Icon(Icons.refresh_rounded, size: 16),
+                        label: const Text('Reintentar'),
+                      ),
+                    ],
+                  ),
+                ),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: _showPolicyPdf,
+                    icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
+                    label: const Text('Ver copia de la política (PDF)'),
+                  ),
+                ),
+              ],
+            ],
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            PrivacyNoticeView(notice: notice),
+            const SizedBox(height: 10),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              decoration: BoxDecoration(
+                color: _acceptedHabeasData
+                    ? AppTheme.primaryGreenLight
+                    : AppTheme.surface,
+                borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+                border: Border.all(
+                  color: _acceptedHabeasData
+                      ? AppTheme.primaryGreen.withValues(alpha: 0.4)
+                      : AppTheme.inputBorder,
+                ),
+              ),
+              child: Material(
+                type: MaterialType.transparency,
+                child: CheckboxListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                  controlAffinity: ListTileControlAffinity.leading,
+                  activeColor: AppTheme.primaryGreen,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+                  ),
+                  value: _acceptedHabeasData,
+                  onChanged: ctrl.isSaving
+                      ? null
+                      : (value) {
+                          setState(() => _acceptedHabeasData = value == true);
+                        },
+                  title: const Text(
+                    'Entregué el aviso y el productor autorizó previamente el tratamiento de sus datos.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            if (_acceptedHabeasData) ...<Widget>[
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _authorizationCtrl,
+                maxLength: 120,
+                decoration: const InputDecoration(
+                  labelText: 'Referencia del soporte firmado o electrónico',
+                  prefixIcon: Icon(Icons.description_outlined, size: 17),
+                ),
+                validator: (value) => (value ?? '').trim().isEmpty
+                    ? 'Ingresa la referencia del soporte consultable.'
+                    : null,
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildMobileAccessSection(ProducerController ctrl) {
+    if (_alreadyLinked) {
+      return const AppInlineNotice(
+        icon: Icons.verified_user_outlined,
+        background: AppTheme.primaryGreenLight,
+        foreground: AppTheme.successText,
+        message:
+            'Este productor ya tiene acceso móvil vinculado para consultar entregas y pagos.',
+      );
+    }
+    return AppToggleCard(
+      icon: Icons.smartphone_rounded,
+      color: AppTheme.warmGold,
+      title: 'Acceso móvil del productor',
+      subtitle:
+          'Crea o vincula su usuario para consultar entregas y comprobantes en el celular.',
+      value: _createMobileAccount,
+      onChanged: ctrl.isSaving
+          ? null
+          : (bool val) => setState(() => _createMobileAccount = val),
+      child: !_createMobileAccount
+          ? null
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                _field(
+                  label: 'Correo electrónico de acceso',
+                  controller: _mobileEmailCtrl,
+                  enabled: !ctrl.isSaving,
+                  icon: Icons.alternate_email_rounded,
+                  hint: 'productor@correo.com',
+                  keyboardType: TextInputType.emailAddress,
+                  validator: (String? v) {
+                    if (!_createMobileAccount) return null;
+                    if (v == null || !v.trim().contains('@')) {
+                      return 'Ingresa un correo válido.';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 10),
+                const _FieldLabel('Contraseña inicial'),
+                TextFormField(
+                  controller: _mobilePasswordCtrl,
+                  enabled: !ctrl.isSaving,
+                  obscureText: _obscurePassword,
+                  decoration: InputDecoration(
+                    hintText: 'Mínimo 6 caracteres',
+                    prefixIcon: const Icon(
+                      Icons.lock_outline_rounded,
+                      size: 17,
+                    ),
+                    suffixIcon: IconButton(
+                      tooltip: _obscurePassword
+                          ? 'Mostrar contraseña'
+                          : 'Ocultar contraseña',
+                      onPressed: () =>
+                          setState(() => _obscurePassword = !_obscurePassword),
+                      icon: Icon(
+                        _obscurePassword
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                        size: 18,
+                      ),
+                    ),
+                  ),
+                  validator: (String? v) {
+                    if (!_createMobileAccount) return null;
+                    if (v == null || v.length < 6) {
+                      return 'Mínimo 6 caracteres.';
+                    }
+                    return null;
+                  },
+                ),
+              ],
+            ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final ProducerController ctrl = context.watch<ProducerController>();
+    final bool enabled = !ctrl.isSaving;
+    final bool showForm = _isEditing || _acceptedHabeasData;
 
     return Dialog(
       insetPadding: const EdgeInsets.all(20),
+      clipBehavior: Clip.antiAlias,
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxWidth: 590,
+          maxWidth: 600,
           maxHeight: MediaQuery.of(context).size.height * 0.9,
         ),
         child: Form(
@@ -1071,491 +1321,253 @@ class _ProducerFormDialogState extends State<_ProducerFormDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 20, 24, 14),
-                child: Row(
-                  children: <Widget>[
-                    Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: AppTheme.inkBlack,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(
-                        _isEditing
-                            ? Icons.edit_outlined
-                            : Icons.agriculture_rounded,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(
-                            _isEditing
-                                ? 'Editar productor'
-                                : 'Nuevo productor',
-                            style: AppTheme.subtitleStyle(),
-                          ),
-                          Text(
-                            _isEditing
-                                ? 'Actualiza los datos del ganadero asociado y su estado.'
-                                : 'Registra al ganadero asociado en el padrón oficial de Susa.',
-                            style: const TextStyle(
-                              fontSize: 12.5,
-                              color: AppTheme.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: ctrl.isSaving
-                          ? null
-                          : () => Navigator.of(context).pop(false),
-                      icon: const Icon(Icons.close_rounded),
-                    ),
-                  ],
+              Container(
+                padding: const EdgeInsets.fromLTRB(22, 18, 14, 16),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: <Color>[
+                      AppTheme.primaryGreenLight,
+                      AppTheme.surface,
+                    ],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  ),
+                  border: Border(
+                    bottom: BorderSide(color: AppTheme.dividerLight),
+                  ),
+                ),
+                child: AppDialogHeader(
+                  icon: _isEditing
+                      ? Icons.edit_outlined
+                      : Icons.agriculture_rounded,
+                  title: _isEditing ? 'Editar productor' : 'Nuevo productor',
+                  subtitle: _isEditing
+                      ? 'Actualiza los datos del ganadero asociado y su estado.'
+                      : 'Registra al ganadero asociado en el padrón oficial de Susa.',
+                  onClose: ctrl.isSaving
+                      ? null
+                      : () => Navigator.of(context).pop(false),
                 ),
               ),
-              const Divider(height: 1),
               Flexible(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+                  padding: const EdgeInsets.fromLTRB(22, 18, 22, 8),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
-                  if (ctrl.errorMessage != null) ...<Widget>[
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppTheme.dangerBg,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: AppTheme.danger.withValues(alpha: 0.35),
-                        ),
-                      ),
-                      child: Text(
-                        ctrl.errorMessage!,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: AppTheme.dangerText,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                  ],
-                  if (!_isEditing) ...[
-                    Text('Aviso de privacidad', style: AppTheme.subtitleStyle()),
-                    FutureBuilder<PrivacyNotice>(
-                      future: _noticeFuture,
-                      builder: (context, snapshot) {
-                        final notice = snapshot.data;
-                        final loading = snapshot.connectionState != ConnectionState.done;
-                        if (loading || notice == null) {
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              const SizedBox(height: 8),
-                              const Text(
-                                'La asociación utiliza los datos para registrar entregas de leche, liquidar pagos y permitir la consulta del historial. El productor puede consultar, actualizar y rectificar sus datos.',
-                              ),
-                              const SizedBox(height: 8),
-                              if (loading) ...<Widget>[
-                                const Text('Cargando el aviso institucional…'),
-                                const LinearProgressIndicator(),
-                              ] else ...<Widget>[
-                                Text(_noticeError(snapshot.error)),
-                                TextButton.icon(
-                                  onPressed: _showPolicyPdf,
-                                  icon: const Icon(Icons.picture_as_pdf_outlined),
-                                  label: const Text('Ver copia de la política (PDF)'),
-                                ),
-                                TextButton(
-                                  onPressed: _retryNotice,
-                                  child: const Text('Reintentar'),
-                                ),
-                              ],
-                            ],
-                          );
-                        }
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            PrivacyNoticeView(notice: notice),
-                            CheckboxListTile(
-                              contentPadding: EdgeInsets.zero,
-                              value: _acceptedHabeasData,
-                              onChanged: ctrl.isSaving ? null : (value) {
-                                setState(() => _acceptedHabeasData = value == true);
-                              },
-                              title: const Text('Entregué el aviso y el productor autorizó previamente el tratamiento de sus datos.'),
-                            ),
-                            if (_acceptedHabeasData)
-                              TextFormField(
-                                controller: _authorizationCtrl,
-                                maxLength: 120,
-                                decoration: const InputDecoration(
-                                  labelText: 'Referencia del soporte firmado o electrónico',
-                                ),
-                                validator: (value) => (value ?? '').trim().isEmpty
-                                    ? 'Ingresa la referencia del soporte consultable.'
-                                    : null,
-                              ),
-                          ],
-                        );
-                      },
-                    ),
-                  ],
-                  if (_isEditing) ...[
-                    Text(widget.existingProducer!.soporteAutorizacion == null
-                        ? 'Autorización histórica. Verifica el soporte en el archivo de la asociación.'
-                        : 'Soporte de autorización: ${widget.existingProducer!.soporteAutorizacion}'),
-                    const SizedBox(height: 12),
-                  ],
-                  if (_isEditing || _acceptedHabeasData) ...[
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            const _FieldLabel('Código de asociado'),
-                            TextFormField(
-                              controller: _codeCtrl,
-                              enabled: !ctrl.isSaving,
-                              style: AppTheme.monoStyle(fontSize: 14),
-                              decoration: const InputDecoration(
-                                hintText: 'ASO-001',
-                              ),
-                              validator: (String? v) =>
-                                  (v == null || v.trim().isEmpty)
-                                      ? 'Código requerido.'
-                                      : null,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            const _FieldLabel('Cédula / Documento'),
-                            TextFormField(
-                              controller: _cedulaCtrl,
-                              enabled: !ctrl.isSaving,
-                              keyboardType: TextInputType.number,
-                              style: AppTheme.monoStyle(fontSize: 14),
-                              decoration: const InputDecoration(
-                                hintText: '1073500123',
-                              ),
-                              validator: (String? v) =>
-                                  (v == null || v.trim().length < 5)
-                                      ? 'Documento inválido.'
-                                      : null,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            const _FieldLabel('Nombres'),
-                            TextFormField(
-                              controller: _nombresCtrl,
-                              enabled: !ctrl.isSaving,
-                              decoration: const InputDecoration(
-                                hintText: 'Ej. José Luis',
-                              ),
-                              validator: (String? v) =>
-                                  (v == null || v.trim().isEmpty)
-                                      ? 'Ingresa los nombres.'
-                                      : null,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            const _FieldLabel('Apellidos'),
-                            TextFormField(
-                              controller: _apellidosCtrl,
-                              enabled: !ctrl.isSaving,
-                              decoration: const InputDecoration(
-                                hintText: 'Ej. Rodríguez López',
-                              ),
-                              validator: (String? v) =>
-                                  (v == null || v.trim().isEmpty)
-                                      ? 'Ingresa los apellidos.'
-                                      : null,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            const _FieldLabel('Teléfono de contacto'),
-                            TextFormField(
-                              controller: _telefonoCtrl,
-                              enabled: !ctrl.isSaving,
-                              keyboardType: TextInputType.phone,
-                              style: AppTheme.monoStyle(fontSize: 14),
-                              decoration: const InputDecoration(
-                                hintText: '3101234567',
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            const _FieldLabel('Vereda'),
-                            TextFormField(
-                              controller: _veredaCtrl,
-                              enabled: !ctrl.isSaving,
-                              decoration: const InputDecoration(
-                                hintText: 'Ej. La Glorieta',
-                              ),
-                              validator: (String? v) =>
-                                  (v == null || v.trim().isEmpty)
-                                      ? 'Ingresa la vereda.'
-                                      : null,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  const _FieldLabel('Nombre de la finca'),
-                  TextFormField(
-                    controller: _fincaCtrl,
-                    enabled: !ctrl.isSaving,
-                    decoration: const InputDecoration(
-                      hintText: 'Ej. Finca El Porvenir',
-                    ),
-                    validator: (String? v) =>
-                        (v == null || v.trim().isEmpty)
-                            ? 'Ingresa el nombre de la finca.'
-                            : null,
-                  ),
-                  const SizedBox(height: 16),
-                  // Estado operativo
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.canvasAlt,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppTheme.border),
-                    ),
-                    child: Row(
-                      children: <Widget>[
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              Text(
-                                'Productor activo',
-                                style: TextStyle(
-                                  fontSize: 13.5,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              Text(
-                                'Permite recibir entregas de leche en planta.',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: AppTheme.textSecondary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Switch(
-                          value: _isActive,
-                          activeTrackColor: AppTheme.primaryGreen,
-                          onChanged: ctrl.isSaving
-                              ? null
-                              : (bool val) => setState(() => _isActive = val),
-                        ),
+                      if (ctrl.errorMessage != null) ...<Widget>[
+                        AppInlineNotice.danger(message: ctrl.errorMessage!),
+                        const SizedBox(height: 14),
                       ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  // Acceso a aplicación móvil del productor (RF-07)
-                  if (_alreadyLinked)
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryGreenLight,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: AppTheme.primaryGreen.withValues(alpha: 0.25),
+                      if (!_isEditing) ...<Widget>[
+                        _FormSection(
+                          step: 1,
+                          icon: Icons.privacy_tip_outlined,
+                          title: 'Aviso de privacidad',
+                          subtitle: 'Ley 1581 de 2012',
+                          done: _acceptedHabeasData,
                         ),
-                      ),
-                      child: const Row(
-                        children: <Widget>[
-                          Icon(
-                            Icons.verified_user_outlined,
-                            size: 18,
-                            color: AppTheme.primaryGreen,
-                          ),
-                          SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              'Este productor ya tiene acceso móvil vinculado para consultar entregas y pagos.',
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w600,
-                                color: AppTheme.successText,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  else
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppTheme.surfaceMuted,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppTheme.border),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Row(
-                            children: <Widget>[
-                              const Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                        const SizedBox(height: 10),
+                        _buildPrivacySection(ctrl),
+                        const SizedBox(height: 20),
+                      ] else ...<Widget>[
+                        AppInlineNotice(
+                          icon: Icons.privacy_tip_outlined,
+                          background: AppTheme.skyBlueLight,
+                          foreground: const Color(0xFF075985),
+                          message:
+                              widget.existingProducer!.soporteAutorizacion ==
+                                  null
+                              ? 'Autorización histórica. Verifica el soporte en el archivo de la asociación.'
+                              : 'Soporte de autorización: ${widget.existingProducer!.soporteAutorizacion}',
+                        ),
+                        const SizedBox(height: 18),
+                      ],
+                      AnimatedSize(
+                        duration: const Duration(milliseconds: 220),
+                        curve: Curves.easeOutCubic,
+                        alignment: Alignment.topCenter,
+                        child: !showForm
+                            ? Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(14),
+                                margin: const EdgeInsets.only(bottom: 12),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.canvasAlt,
+                                  borderRadius: BorderRadius.circular(
+                                    AppTheme.radiusCard,
+                                  ),
+                                  border: Border.all(color: AppTheme.border),
+                                ),
+                                child: const Row(
                                   children: <Widget>[
-                                    Text(
-                                      'Acceso móvil del productor',
-                                      style: TextStyle(
-                                        fontSize: 13.5,
-                                        fontWeight: FontWeight.w600,
-                                      ),
+                                    Icon(
+                                      Icons.lock_outline_rounded,
+                                      size: 18,
+                                      color: AppTheme.textMuted,
                                     ),
-                                    Text(
-                                      'Crea o vincula su usuario para consultar entregas y comprobantes en el celular.',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: AppTheme.textSecondary,
+                                    SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        'Confirma la autorización de datos para habilitar el formulario del productor.',
+                                        style: TextStyle(
+                                          fontSize: 12.5,
+                                          color: AppTheme.textMuted,
+                                        ),
                                       ),
                                     ),
                                   ],
                                 ),
-                              ),
-                              Switch(
-                                value: _createMobileAccount,
-                                activeTrackColor: AppTheme.inkBlack,
-                                onChanged: ctrl.isSaving
-                                    ? null
-                                    : (bool val) => setState(
-                                          () => _createMobileAccount = val,
-                                        ),
-                              ),
-                            ],
-                          ),
-                          if (_createMobileAccount) ...<Widget>[
-                            const SizedBox(height: 10),
-                            const _FieldLabel('Correo electrónico de acceso'),
-                            TextFormField(
-                              controller: _mobileEmailCtrl,
-                              enabled: !ctrl.isSaving,
-                              keyboardType: TextInputType.emailAddress,
-                              decoration: const InputDecoration(
-                                hintText: 'productor@correo.com',
-                              ),
-                              validator: (String? v) {
-                                if (!_createMobileAccount) return null;
-                                if (v == null || !v.trim().contains('@')) {
-                                  return 'Ingresa un correo válido.';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 10),
-                            const _FieldLabel('Contraseña inicial'),
-                            TextFormField(
-                              controller: _mobilePasswordCtrl,
-                              enabled: !ctrl.isSaving,
-                              obscureText: _obscurePassword,
-                              decoration: InputDecoration(
-                                hintText: 'Mínimo 6 caracteres',
-                                suffixIcon: IconButton(
-                                  onPressed: () => setState(
-                                    () =>
-                                        _obscurePassword = !_obscurePassword,
+                              )
+                            : Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: <Widget>[
+                                  _FormSection(
+                                    step: _isEditing ? 1 : 2,
+                                    icon: Icons.badge_outlined,
+                                    title: 'Datos del productor',
+                                    subtitle: 'Identificación y finca',
                                   ),
-                                  icon: Icon(
-                                    _obscurePassword
-                                        ? Icons.visibility_outlined
-                                        : Icons.visibility_off_outlined,
-                                    size: 18,
+                                  const SizedBox(height: 12),
+                                  _pair(
+                                    _field(
+                                      label: 'Código de asociado',
+                                      controller: _codeCtrl,
+                                      enabled: enabled,
+                                      icon: Icons.tag_rounded,
+                                      hint: 'ASO-001',
+                                      mono: true,
+                                      validator: (String? v) =>
+                                          (v == null || v.trim().isEmpty)
+                                          ? 'Código requerido.'
+                                          : null,
+                                    ),
+                                    _field(
+                                      label: 'Cédula / Documento',
+                                      controller: _cedulaCtrl,
+                                      enabled: enabled,
+                                      icon: Icons.credit_card_rounded,
+                                      hint: '1073500123',
+                                      mono: true,
+                                      keyboardType: TextInputType.number,
+                                      validator: (String? v) =>
+                                          (v == null || v.trim().length < 5)
+                                          ? 'Documento inválido.'
+                                          : null,
+                                    ),
                                   ),
-                                ),
+                                  const SizedBox(height: 14),
+                                  _pair(
+                                    _field(
+                                      label: 'Nombres',
+                                      controller: _nombresCtrl,
+                                      enabled: enabled,
+                                      hint: 'Ej. José Luis',
+                                      validator: (String? v) =>
+                                          (v == null || v.trim().isEmpty)
+                                          ? 'Ingresa los nombres.'
+                                          : null,
+                                    ),
+                                    _field(
+                                      label: 'Apellidos',
+                                      controller: _apellidosCtrl,
+                                      enabled: enabled,
+                                      hint: 'Ej. Rodríguez López',
+                                      validator: (String? v) =>
+                                          (v == null || v.trim().isEmpty)
+                                          ? 'Ingresa los apellidos.'
+                                          : null,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  _pair(
+                                    _field(
+                                      label: 'Teléfono de contacto',
+                                      controller: _telefonoCtrl,
+                                      enabled: enabled,
+                                      icon: Icons.phone_outlined,
+                                      hint: '3101234567',
+                                      mono: true,
+                                      keyboardType: TextInputType.phone,
+                                    ),
+                                    _field(
+                                      label: 'Vereda',
+                                      controller: _veredaCtrl,
+                                      enabled: enabled,
+                                      icon: Icons.place_outlined,
+                                      hint: 'Ej. La Glorieta',
+                                      validator: (String? v) =>
+                                          (v == null || v.trim().isEmpty)
+                                          ? 'Ingresa la vereda.'
+                                          : null,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  _field(
+                                    label: 'Nombre de la finca',
+                                    controller: _fincaCtrl,
+                                    enabled: enabled,
+                                    icon: Icons.cottage_outlined,
+                                    hint: 'Ej. Finca El Porvenir',
+                                    validator: (String? v) =>
+                                        (v == null || v.trim().isEmpty)
+                                        ? 'Ingresa el nombre de la finca.'
+                                        : null,
+                                  ),
+                                  const SizedBox(height: 20),
+                                  _FormSection(
+                                    step: _isEditing ? 2 : 3,
+                                    icon: Icons.tune_rounded,
+                                    title: 'Estado y acceso',
+                                    subtitle: 'Planta y portal móvil',
+                                  ),
+                                  const SizedBox(height: 12),
+                                  AppToggleCard(
+                                    icon: _isActive
+                                        ? Icons.check_circle_outline_rounded
+                                        : Icons.pause_circle_outline_rounded,
+                                    color: _isActive
+                                        ? AppTheme.primaryGreen
+                                        : AppTheme.textMuted,
+                                    title: 'Productor activo',
+                                    subtitle:
+                                        'Permite recibir entregas de leche en planta.',
+                                    value: _isActive,
+                                    onChanged: ctrl.isSaving
+                                        ? null
+                                        : (bool val) =>
+                                              setState(() => _isActive = val),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  _buildMobileAccessSection(ctrl),
+                                  const SizedBox(height: 14),
+                                ],
                               ),
-                              validator: (String? v) {
-                                if (!_createMobileAccount) return null;
-                                if (v == null || v.length < 6) {
-                                  return 'Mínimo 6 caracteres.';
-                                }
-                                return null;
-                              },
-                            ),
-                          ],
-                        ],
                       ),
-                    ),
-                  const SizedBox(height: 14),
-                  ],
                     ],
                   ),
                 ),
               ),
               Container(
-                padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
+                padding: const EdgeInsets.fromLTRB(22, 12, 22, 14),
                 decoration: const BoxDecoration(
+                  color: AppTheme.canvas,
                   border: Border(top: BorderSide(color: AppTheme.border)),
                 ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
                   children: <Widget>[
+                    Expanded(
+                      child: Text(
+                        showForm
+                            ? 'Los cambios quedan registrados en auditoría.'
+                            : 'Paso pendiente: autorización de datos.',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.textMuted,
+                        ),
+                      ),
+                    ),
                     OutlinedButton(
                       onPressed: ctrl.isSaving
                           ? null
@@ -1567,9 +1579,11 @@ class _ProducerFormDialogState extends State<_ProducerFormDialog> {
                       label: _isEditing
                           ? 'Guardar cambios'
                           : 'Guardar productor',
+                      icon: Icons.check_rounded,
                       fullWidth: false,
                       isLoading: ctrl.isSaving,
-                      onPressed: _acceptedHabeasData &&
+                      onPressed:
+                          _acceptedHabeasData &&
                               (_isEditing || _notice != null) &&
                               !ctrl.isSaving
                           ? _submit
@@ -1603,6 +1617,68 @@ class _FieldLabel extends StatelessWidget {
           color: AppTheme.textPrimary,
         ),
       ),
+    );
+  }
+}
+
+/// Encabezado numerado de cada sección del formulario.
+class _FormSection extends StatelessWidget {
+  const _FormSection({
+    required this.step,
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    this.done = false,
+  });
+
+  final int step;
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final bool done;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: <Widget>[
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: 24,
+          height: 24,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: done ? AppTheme.primaryGreen : AppTheme.inkBlack,
+            shape: BoxShape.circle,
+          ),
+          child: done
+              ? const Icon(Icons.check_rounded, size: 15, color: Colors.white)
+              : Text(
+                  '$step',
+                  style: AppTheme.monoStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+        ),
+        const SizedBox(width: 10),
+        Icon(icon, size: 17, color: AppTheme.textSecondary),
+        const SizedBox(width: 6),
+        Text(title, style: AppTheme.subtitleStyle()),
+        if (subtitle != null) ...<Widget>[
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              subtitle!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
+            ),
+          ),
+        ],
+        const SizedBox(width: 10),
+        const Expanded(child: Divider()),
+      ],
     );
   }
 }
