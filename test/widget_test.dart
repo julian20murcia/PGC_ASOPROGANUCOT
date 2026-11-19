@@ -436,5 +436,14 @@ void main() {
     expect(find.text('Recepción láctea y consulta de productores'), findsOneWidget);
     expect(find.text('Iniciar sesión'), findsOneWidget);
     expect(find.text('Ingresar al sistema'), findsOneWidget);
+
+    final registration = find.text('Crear cuenta de productor');
+    await tester.ensureVisible(registration);
+    await tester.tap(registration);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump();
+
+    expect(find.textContaining('El registro requiere el aviso institucional vigente'), findsOneWidget);
+    expect(find.text('Enviar código por SMS'), findsNothing);
   });
 }

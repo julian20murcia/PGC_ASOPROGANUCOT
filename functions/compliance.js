@@ -115,7 +115,7 @@ exports.registerProducerAccount = onCall(async ({ auth, data }) => {
       throw precondition('El alta está en curso. Espera un momento e intenta de nuevo.');
     }
     const existing = await transaction.get(db.collection('usuarios').where('documento', '==', document).limit(1));
-    if (!existing.empty) throw precondition('Este documento ya tiene una cuenta. Usa la opción de iniciar sesión.');
+    if (!existing.empty) throw invalid();
 
     // El padrón histórico admite varias representaciones del número de teléfono.
     const roster = await transaction.get(db.collection('productores').select('cedula', 'telefono'));

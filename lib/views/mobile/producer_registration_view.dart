@@ -41,6 +41,7 @@ class _ProducerRegistrationViewState extends State<ProducerRegistrationView> {
   User? _verifiedUser;
   String? _verificationId;
   String? _error;
+  bool _policyOpened = false;
   bool _accepted = false;
   bool _busy = false;
   bool _verifying = false;
@@ -115,8 +116,9 @@ class _ProducerRegistrationViewState extends State<ProducerRegistrationView> {
   }
 
   Future<void> _sendCode() async {
-    if (!_accepted || _busy || !(_form.currentState?.validate() ?? false))
+    if (!_accepted || _busy || !(_form.currentState?.validate() ?? false)) {
       return;
+    }
     final attempt = ++_attempt;
     setState(() {
       _busy = true;
@@ -156,8 +158,12 @@ class _ProducerRegistrationViewState extends State<ProducerRegistrationView> {
   }
 
   Future<void> _verify(PhoneAuthCredential credential, int attempt) async {
-    if (!mounted || attempt != _attempt || _verifying || _verifiedUser != null)
+    if (!mounted ||
+        attempt != _attempt ||
+        _verifying ||
+        _verifiedUser != null) {
       return;
+    }
     _verifying = true;
     setState(() {
       _busy = true;
@@ -188,8 +194,9 @@ class _ProducerRegistrationViewState extends State<ProducerRegistrationView> {
   }
 
   Future<void> _activate(PrivacyNotice notice) async {
-    if (!_accepted || _busy || !(_form.currentState?.validate() ?? false))
+    if (!_accepted || _busy || !(_form.currentState?.validate() ?? false)) {
       return;
+    }
     setState(() {
       _busy = true;
       _error = null;
@@ -293,14 +300,21 @@ class _ProducerRegistrationViewState extends State<ProducerRegistrationView> {
         children: [
           Text('Aviso de privacidad', style: AppTheme.subtitleStyle()),
           const SizedBox(height: 12),
-          PrivacyNoticeView(notice: notice),
+          PrivacyNoticeView(
+            notice: notice,
+            onPolicyOpened: () => setState(() => _policyOpened = true),
+          ),
+          if (!_policyOpened)
+            const Text(
+              'Abre la política para poder confirmar tu autorización.',
+            ),
           const Text(
             'Firebase recibe el número para verificarlo por SMS y prevenir abusos.',
           ),
           CheckboxListTile(
             contentPadding: EdgeInsets.zero,
             value: _accepted,
-            onChanged: _busy || codeSent || verified
+            onChanged: !_policyOpened || _busy || codeSent || verified
                 ? null
                 : (value) {
                     setState(() => _accepted = value ?? false);

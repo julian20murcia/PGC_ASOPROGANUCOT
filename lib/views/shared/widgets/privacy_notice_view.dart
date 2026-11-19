@@ -6,9 +6,14 @@ import '../../../core/theme/app_theme.dart';
 import '../../../models/privacy_notice.dart';
 
 class PrivacyNoticeView extends StatelessWidget {
-  const PrivacyNoticeView({super.key, required this.notice});
+  const PrivacyNoticeView({
+    super.key,
+    required this.notice,
+    this.onPolicyOpened,
+  });
 
   final PrivacyNotice notice;
+  final VoidCallback? onPolicyOpened;
 
   Future<void> _openPolicy(BuildContext context) async {
     try {
@@ -16,6 +21,7 @@ class PrivacyNoticeView extends StatelessWidget {
         notice.policyUri,
         mode: LaunchMode.externalApplication,
       )) {
+        if (context.mounted) onPolicyOpened?.call();
         return;
       }
     } on PlatformException {
@@ -37,6 +43,7 @@ class PrivacyNoticeView extends StatelessWidget {
         ],
       ),
     );
+    if (context.mounted) onPolicyOpened?.call();
   }
 
   @override

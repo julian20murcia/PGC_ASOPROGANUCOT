@@ -45,7 +45,7 @@ El **Administrador Central** cuenta con los 7 módulos del panel izquierdo más 
 ### 3.1 Productores y Habeas Data (Ley 1581 de 2012)
 1. Ingresa a **Productores** y presiona **Nuevo productor**.
 2. Entrega al productor el aviso de privacidad vigente y obtén su autorización previa. Confirma ambas acciones en el formulario e ingresa la referencia del soporte firmado o electrónico que conserva la asociación. Luego completa los datos del productor.
-3. Opcionalmente marca **Crear / vincular acceso móvil** para generar en ese mismo paso el usuario con rol `PRODUCTOR`.
+3. Registra el celular personal del productor. Desde la app móvil podrá activar su cuenta con su documento y el mismo celular. La vinculación manual sigue disponible para cuentas anteriores o casos de soporte.
 4. Puedes editar datos o cambiar el estado entre `ACTIVO` e `INACTIVO` sin perder el historial de entregas.
 
 ### 3.2 Corrección o Anulación Auditada de Entregas
@@ -66,6 +66,8 @@ El **Administrador Central** cuenta con los 7 módulos del panel izquierdo más 
 ---
 
 ## 4. Portal Móvil del Productor / Ganadero (Android / iOS)
+
+Si ya estás en el padrón, toca **Crear cuenta de productor** en el inicio de sesión. Abre la política y confirma la autorización. Ingresa el documento y celular registrados en la asociación, confirma el código que recibas por SMS y escribe dos veces tu nueva contraseña. Luego ingresa con tu número de documento y contraseña.
 
 > El portal móvil es **estrictamente de solo lectura** para entregas y pagos, diseñado con letras claras (`>= 15px`) para lectura cómoda al aire libre en finca.
 

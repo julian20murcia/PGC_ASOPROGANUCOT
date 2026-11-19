@@ -183,7 +183,7 @@ class _LoginViewState extends State<LoginView>
     _identifierCtrl.text = document;
     _passwordCtrl.clear();
     setState(() {
-      _localNotice = 'Cuenta creada. Ingresa con tu documento y contraseña.';
+      _localNotice = 'Ingresa con tu documento y la contraseña de tu cuenta.';
     });
   }
 
