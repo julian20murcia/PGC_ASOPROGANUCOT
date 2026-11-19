@@ -1,4 +1,4 @@
-const { createHash } = require('node:crypto');
+const { createHash, randomUUID } = require('node:crypto');
 const { defineString } = require('firebase-functions/params');
 const { HttpsError, onCall } = require('firebase-functions/v2/https');
 const { getAuth } = require('firebase-admin/auth');
@@ -18,7 +18,7 @@ exports.signInByDocument = onCall(async ({ data }) => {
     .where('documento', '==', document).limit(2).get();
   if (users.size !== 1 || users.docs[0].get('activo') !== true) throw invalid();
   const profile = users.docs[0];
-  const email = profile.get('correo');
+  const email = profile.get('correoAccesoInterno') || profile.get('correo');
   if (typeof email !== 'string' || !email.includes('@')) throw invalid();
 
   const endpoint = process.env.FIREBASE_AUTH_EMULATOR_HOST
@@ -56,6 +56,131 @@ function writeVersion(db, transaction, ref, id, before, after, uid, action, reas
 const isId = (value) => typeof value === 'string' && /^[\w-]{1,128}$/.test(value);
 const isDate = (value) => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
 const precondition = (message) => new HttpsError('failed-precondition', message);
+
+const noticeFields = ['version', 'responsable', 'direccion', 'correo', 'telefono',
+  'politicaUrl', 'finalidades', 'derechos'];
+const portalConsent = 'Leí el aviso y la política de tratamiento. Autorizo el uso de mis datos para verificar mi teléfono, activar mi cuenta y consultar mi historial en el portal.';
+
+function colombianMobile(value) {
+  if (typeof value !== 'string') return null;
+  const match = /^(?:\+?57|0057)?(3\d{9})$/.exec(value.replace(/[\s().-]/g, ''));
+  return match ? `+57${match[1]}` : null;
+}
+
+function validPublishedNotice(current, accepted) {
+  if (!current || !accepted || typeof accepted !== 'object' ||
+      Object.keys(current).length !== noticeFields.length ||
+      !noticeFields.every((key) => typeof current[key] === 'string' && current[key].trim() &&
+        current[key] === accepted[key])) return false;
+  try {
+    const url = new URL(current.politicaUrl);
+    return url.protocol === 'https:' && Boolean(url.hostname);
+  } catch (_) {
+    return false;
+  }
+}
+
+exports.registerProducerAccount = onCall(async ({ auth, data }) => {
+  const phone = colombianMobile(auth?.token.phone_number);
+  const signedAt = auth?.token.auth_time;
+  if (!auth || auth.token.firebase?.sign_in_provider !== 'phone' || !phone ||
+      !Number.isFinite(signedAt) || Date.now() / 1000 - signedAt > 15 * 60) {
+    throw new HttpsError('unauthenticated', 'Verifica de nuevo el teléfono por SMS.');
+  }
+  const document = data?.documento;
+  const password = data?.password;
+  if (typeof document !== 'string' || !/^\d{5,24}$/.test(document) ||
+      typeof password !== 'string' || password.length < 8 || password.length > 128 ||
+      data.aceptado !== true || data.declaracion !== portalConsent) {
+    throw new HttpsError('invalid-argument', 'Revisa el documento, la contraseña y la autorización.');
+  }
+
+  const db = getFirestore();
+  const uid = auth.uid;
+  const user = db.collection('usuarios').doc(uid);
+  const enrollment = db.collection('altas_portal').doc(uid);
+  const notice = db.doc('configuracion/privacidad');
+  const operation = randomUUID();
+  const invalid = () => precondition('El documento y el teléfono deben coincidir con un productor activo en el padrón. Consulta a la asociación.');
+
+  const producerRef = await db.runTransaction(async (transaction) => {
+    const pending = (await transaction.get(enrollment)).data();
+    const profile = await transaction.get(user);
+    if (profile.exists) {
+      if (profile.get('activo') === true && pending?.estado === 'COMPLETA' &&
+          profile.get('documento') === document && pending.telefono === phone) return null;
+      throw precondition('Esta cuenta ya existe. Ingresa con tus credenciales o consulta a la asociación.');
+    }
+    if (pending?.bloqueoHasta > Date.now()) {
+      throw precondition('El alta está en curso. Espera un momento e intenta de nuevo.');
+    }
+    const existing = await transaction.get(db.collection('usuarios').where('documento', '==', document).limit(1));
+    if (!existing.empty) throw precondition('Este documento ya tiene una cuenta. Usa la opción de iniciar sesión.');
+
+    // El padrón histórico admite varias representaciones del número de teléfono.
+    const roster = await transaction.get(db.collection('productores').select('cedula', 'telefono'));
+    const matches = roster.docs.filter((doc) => colombianMobile(doc.get('telefono')) === phone);
+    if (matches.length !== 1 || matches[0].get('cedula') !== document) throw invalid();
+    const producer = await transaction.get(matches[0].ref);
+    if (producer.get('estado') !== 'ACTIVO' || producer.get('aceptoHabeasData') !== true ||
+        producer.get('uidUsuario') || (pending && pending.productorId !== producer.id)) throw invalid();
+    const policy = (await transaction.get(notice)).data();
+    if (!validPublishedNotice(policy, data.aviso)) {
+      throw precondition('El aviso cambió o está pendiente de publicación. Vuelve a abrir el registro.');
+    }
+    transaction.set(enrollment, {
+      productorId: producer.id, telefono: phone, estado: 'PENDIENTE',
+      operacion: operation, bloqueoHasta: Date.now() + 120000,
+    });
+    return producer.ref;
+  });
+  if (producerRef === null) return { activa: true };
+
+  const internalEmail = `portal-${createHash('sha256').update(uid).digest('hex').slice(0, 36)}@asoproganucot.invalid`;
+  try {
+    const firebaseUser = await getAuth().getUser(uid);
+    if (firebaseUser.disabled || firebaseUser.phoneNumber !== phone ||
+        (firebaseUser.email && firebaseUser.email !== internalEmail)) {
+      throw precondition('No se pudo activar esta cuenta. Consulta a la asociación.');
+    }
+    await getAuth().updateUser(uid, { email: internalEmail, password });
+
+    await db.runTransaction(async (transaction) => {
+      const pending = (await transaction.get(enrollment)).data();
+      const before = (await transaction.get(producerRef)).data();
+      const profile = await transaction.get(user);
+      const policy = (await transaction.get(notice)).data();
+      const existing = await transaction.get(db.collection('usuarios').where('documento', '==', document).limit(1));
+      if (pending?.operacion !== operation || profile.exists || !existing.empty || !before ||
+          before.cedula !== document || colombianMobile(before.telefono) !== phone ||
+          before.estado !== 'ACTIVO' || before.aceptoHabeasData !== true || before.uidUsuario ||
+          !validPublishedNotice(policy, data.aviso)) throw invalid();
+
+      const now = FieldValue.serverTimestamp();
+      transaction.create(user, {
+        uid, documento: document, telefono: phone, correo: '', correoAccesoInterno: internalEmail,
+        nombreCompleto: `${before.nombres || ''} ${before.apellidos || ''}`.trim(),
+        rol: 'PRODUCTOR', activo: true, fcmTokens: [], fechaCreacion: now,
+      });
+      transaction.create(db.collection('autorizaciones_portal').doc(uid), {
+        productorId: producerRef.id, titularUid: uid, fecha: now, aviso: policy,
+        canal: 'PORTAL_MOVIL_SMS', declaracion: portalConsent,
+      });
+      writeVersion(db, transaction, producerRef, `alta_portal_${uid}`, before,
+        { ...before, uidUsuario: uid, autorizacionPortalId: uid }, uid, 'VINCULAR_PORTAL',
+        `Aceptación del aviso de privacidad ${policy.version}`);
+      transaction.set(enrollment, { productorId: producerRef.id, telefono: phone, estado: 'COMPLETA' });
+    });
+    return { activa: true };
+  } catch (error) {
+    await db.runTransaction(async (transaction) => {
+      if ((await transaction.get(enrollment)).get('operacion') === operation) {
+        transaction.update(enrollment, { bloqueoHasta: 0 });
+      }
+    });
+    throw error;
+  }
+});
 
 async function closeForProducer(db, uid, { settlement, receptionIds, notification }) {
   const { liquidacionId, productorId, periodoInicio, periodoFin, numeroComprobante } = settlement || {};

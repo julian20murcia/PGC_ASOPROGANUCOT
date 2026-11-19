@@ -98,7 +98,13 @@ service cloud.firestore {
     }
 
     match /configuracion/privacidad {
-      allow get: if isActiveUser();
+      allow get: if isActiveUser() || (resource != null &&
+        resource.data.keys().hasOnly(['version', 'responsable', 'direccion',
+          'correo', 'telefono', 'politicaUrl', 'finalidades', 'derechos']));
+    }
+
+    match /autorizaciones_portal/{uid} {
+      allow get: if isAdmin() || (isProducer() && request.auth.uid == uid);
     }
 
     match /productores/{productorId} {
