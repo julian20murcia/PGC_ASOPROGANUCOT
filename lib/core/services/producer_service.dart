@@ -305,6 +305,25 @@ class ProducerService {
     }
   }
 
+  static String _pad2(int value) => value < 10 ? '0$value' : '$value';
+
+  /// Genera una constancia digital automática y auditable conforme a `firestore.rules` y Ley 1581 de 2012.
+  static String buildAutomaticAuthorizationReference({
+    required String codigoAsociado,
+    required DateTime timestampUtc,
+  }) {
+    final DateTime local = timestampUtc.toLocal();
+    final String stamp =
+        '${local.year}${_pad2(local.month)}${_pad2(local.day)}-${_pad2(local.hour)}${_pad2(local.minute)}';
+    final String cleanCode = codigoAsociado
+        .trim()
+        .toUpperCase()
+        .replaceAll(RegExp(r'\s+'), '-');
+    final String safeCode =
+        cleanCode.length > 80 ? cleanCode.substring(0, 80) : cleanCode;
+    return 'AUT-PLANTA-$safeCode-$stamp';
+  }
+
   Future<ProducerModel> createProducer({
     required String codigoAsociado,
     required String cedula,
@@ -348,11 +367,25 @@ class ProducerService {
       );
     }
 
-    final String? reference = authorizationReference?.trim();
-    if (_remoteDataSource is FirestoreProducerDataSource &&
-        (privacyNotice == null || reference == null || reference.isEmpty || reference.length > 120)) {
-      throw ProducerServiceException('Confirma el aviso vigente y registra la referencia del soporte de autorización.');
+    if (_remoteDataSource is FirestoreProducerDataSource && privacyNotice == null) {
+      throw ProducerServiceException(
+        'No se pudo cargar el aviso de privacidad vigente. Reintenta antes de guardar.',
+      );
     }
+
+    final DateTime now = DateTime.now().toUtc();
+    final String rawRef = (authorizationReference ?? '').trim();
+    if (rawRef.length > 120) {
+      throw ProducerServiceException(
+        'La referencia de autorización supera el límite de 120 caracteres.',
+      );
+    }
+    final String resolvedReference = rawRef.isNotEmpty
+        ? rawRef
+        : buildAutomaticAuthorizationReference(
+            codigoAsociado: cleanCode,
+            timestampUtc: now,
+          );
 
     await validateUniqueCedulaAndCode(
       cedula: cleanCedula,
@@ -379,7 +412,6 @@ class ProducerService {
       );
     }
 
-    final DateTime now = DateTime.now().toUtc();
     ProducerModel model = ProducerModel(
       productorId: _uuid.v4(),
       uidUsuario: linkedUid,
@@ -395,7 +427,7 @@ class ProducerService {
       fechaAutorizacionDatos: now,
       autorizadoPorUid: actorUid,
       avisoPrivacidad: privacyNotice?.data,
-      soporteAutorizacion: reference,
+      soporteAutorizacion: resolvedReference,
       fechaCreacion: now,
       isSynced: false,
     );

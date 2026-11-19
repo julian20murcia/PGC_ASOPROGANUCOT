@@ -10,7 +10,88 @@ import '../models/user_model.dart';
 
 enum ReceptionDateFilterMode { today, quincena, all }
 
-/// Controlador MVC para captura rápida de leche en planta, alertas de duplicados y corrección auditada.
+enum ReceptionViewMode { matrix, list }
+
+/// Fila agrupada por productor para la planilla estilo EvolMilk por días de la quincena.
+class ReceptionMatrixRow {
+  const ReceptionMatrixRow({
+    required this.producer,
+    required this.receptionsByDate,
+    required this.allReceptionsByDate,
+  });
+
+  final ProducerModel producer;
+  final Map<String, List<MilkReceptionModel>> receptionsByDate;
+  final Map<String, List<MilkReceptionModel>> allReceptionsByDate;
+
+  double litersForDate(String date) {
+    final List<MilkReceptionModel>? items = receptionsByDate[date];
+    if (items == null || items.isEmpty) return 0.0;
+    return items.fold<double>(
+      0.0,
+      (double acc, MilkReceptionModel r) => acc + r.litros,
+    );
+  }
+
+  double morningLitersForDate(String date) {
+    final List<MilkReceptionModel>? items = receptionsByDate[date];
+    if (items == null || items.isEmpty) return 0.0;
+    return items
+        .where((MilkReceptionModel r) => r.jornada == AppConstants.shiftMorning)
+        .fold<double>(0.0, (double acc, MilkReceptionModel r) => acc + r.litros);
+  }
+
+  double afternoonLitersForDate(String date) {
+    final List<MilkReceptionModel>? items = receptionsByDate[date];
+    if (items == null || items.isEmpty) return 0.0;
+    return items
+        .where(
+          (MilkReceptionModel r) => r.jornada == AppConstants.shiftAfternoon,
+        )
+        .fold<double>(0.0, (double acc, MilkReceptionModel r) => acc + r.litros);
+  }
+
+  double get totalLiters {
+    double sum = 0.0;
+    for (final List<MilkReceptionModel> dayItems in receptionsByDate.values) {
+      for (final MilkReceptionModel r in dayItems) {
+        sum += r.litros;
+      }
+    }
+    return sum;
+  }
+
+  int get deliveryCount {
+    int count = 0;
+    for (final List<MilkReceptionModel> dayItems in receptionsByDate.values) {
+      count += dayItems.length;
+    }
+    return count;
+  }
+
+  bool hasPendingSyncForDate(String date) {
+    final List<MilkReceptionModel>? items = receptionsByDate[date];
+    if (items == null) return false;
+    return items.any((MilkReceptionModel r) => !r.isSynced);
+  }
+
+  bool hasLiquidatedForDate(String date) {
+    final List<MilkReceptionModel>? items = receptionsByDate[date];
+    if (items == null) return false;
+    return items.any((MilkReceptionModel r) => r.isLiquidada);
+  }
+
+  bool hasEditedForDate(String date) {
+    final List<MilkReceptionModel>? items = receptionsByDate[date];
+    if (items == null) return false;
+    return items.any((MilkReceptionModel r) => r.updatedAt != null);
+  }
+
+  List<MilkReceptionModel> entriesForDate(String date) =>
+      allReceptionsByDate[date] ?? const <MilkReceptionModel>[];
+}
+
+/// Controlador MVC para captura rápida de leche en planta, planilla por días y corrección auditada.
 class ReceptionController extends ChangeNotifier {
   ReceptionController({
     HiveService? hiveService,
@@ -20,7 +101,12 @@ class ReceptionController extends ChangeNotifier {
         _receptionService = receptionService ??
             ReceptionService(hiveService: hiveService ?? HiveService()),
         _producerService = producerService ??
-            ProducerService(hiveService: hiveService ?? HiveService());
+            ProducerService(hiveService: hiveService ?? HiveService()) {
+    final DateTime now = DateTime.now().toLocal();
+    _matrixYear = now.year;
+    _matrixMonth = now.month;
+    _matrixFirstHalf = now.day <= 15;
+  }
 
   final HiveService _hiveService;
   final ReceptionService _receptionService;
@@ -28,6 +114,7 @@ class ReceptionController extends ChangeNotifier {
 
   List<MilkReceptionModel> _receptions = <MilkReceptionModel>[];
   List<ProducerModel> _activeProducers = <ProducerModel>[];
+  Map<String, ProducerModel> _producersById = <String, ProducerModel>{};
   ProducerModel? _selectedProducer;
   String _selectedShift =
       ReceptionService.defaultShiftForTime(DateTime.now());
@@ -40,6 +127,13 @@ class ReceptionController extends ChangeNotifier {
   int _pendingSyncCount = 0;
   String? _errorMessage;
   String? _feedbackMessage;
+
+  ReceptionViewMode _viewMode = ReceptionViewMode.matrix;
+  late int _matrixYear;
+  late int _matrixMonth;
+  late bool _matrixFirstHalf;
+  int _matrixPage = 1;
+  int _matrixRowsPerPage = 25;
 
   ReceptionDateFilterMode _dateFilterMode = ReceptionDateFilterMode.today;
   String _shiftFilter = 'ALL'; // ALL | MANANA | TARDE
@@ -62,6 +156,13 @@ class ReceptionController extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   String? get feedbackMessage => _feedbackMessage;
 
+  ReceptionViewMode get viewMode => _viewMode;
+  int get matrixYear => _matrixYear;
+  int get matrixMonth => _matrixMonth;
+  bool get matrixFirstHalf => _matrixFirstHalf;
+  int get matrixPage => _matrixPage;
+  int get matrixRowsPerPage => _matrixRowsPerPage;
+
   ReceptionDateFilterMode get dateFilterMode => _dateFilterMode;
   String get shiftFilter => _shiftFilter;
   String get statusFilter => _statusFilter;
@@ -70,6 +171,189 @@ class ReceptionController extends ChangeNotifier {
   int get itemsPerPage => _itemsPerPage;
 
   String get _todayDateStr => ReceptionService.formatDate(DateTime.now());
+
+  static String formatDate(DateTime dt) => ReceptionService.formatDate(dt);
+  static String shortMonthName(int month) =>
+      ReceptionService.shortMonthName(month);
+
+  ({
+    String start,
+    String end,
+    String label,
+    String rangeLabel,
+    List<DateTime> days,
+  }) get _matrixQuincena => ReceptionService.quincenaRangeFor(
+        _matrixYear,
+        _matrixMonth,
+        _matrixFirstHalf,
+      );
+
+  List<DateTime> get matrixDays => _matrixQuincena.days;
+  String get matrixQuincenaLabel => _matrixQuincena.label;
+  String get matrixRangeLabel => _matrixQuincena.rangeLabel;
+
+  bool get isCurrentMatrixQuincena {
+    final DateTime now = DateTime.now().toLocal();
+    return _matrixYear == now.year &&
+        _matrixMonth == now.month &&
+        _matrixFirstHalf == (now.day <= 15);
+  }
+
+  bool get canGoNextMatrixQuincena {
+    final DateTime now = DateTime.now().toLocal();
+    final bool nowFirstHalf = now.day <= 15;
+    if (_matrixYear < now.year) return true;
+    if (_matrixYear > now.year) return false;
+    if (_matrixMonth < now.month) return true;
+    if (_matrixMonth > now.month) return false;
+    return _matrixFirstHalf && !nowFirstHalf;
+  }
+
+  List<ReceptionMatrixRow> get matrixRows {
+    final range = _matrixQuincena;
+    final Map<String, Map<String, List<MilkReceptionModel>>> activeByProducer =
+        <String, Map<String, List<MilkReceptionModel>>>{};
+    final Map<String, Map<String, List<MilkReceptionModel>>> allByProducer =
+        <String, Map<String, List<MilkReceptionModel>>>{};
+    final Map<String, MilkReceptionModel> sampleByProducer =
+        <String, MilkReceptionModel>{};
+
+    for (final MilkReceptionModel r in _receptions) {
+      if (r.fechaEntrega.compareTo(range.start) < 0 ||
+          r.fechaEntrega.compareTo(range.end) > 0) {
+        continue;
+      }
+
+      allByProducer
+          .putIfAbsent(
+            r.productorId,
+            () => <String, List<MilkReceptionModel>>{},
+          )
+          .putIfAbsent(r.fechaEntrega, () => <MilkReceptionModel>[])
+          .add(r);
+
+      if (r.anulado) continue;
+
+      sampleByProducer.putIfAbsent(r.productorId, () => r);
+      if (_shiftFilter != 'ALL' && r.jornada != _shiftFilter) {
+        continue;
+      }
+
+      activeByProducer
+          .putIfAbsent(
+            r.productorId,
+            () => <String, List<MilkReceptionModel>>{},
+          )
+          .putIfAbsent(r.fechaEntrega, () => <MilkReceptionModel>[])
+          .add(r);
+    }
+
+    final Map<String, ProducerModel> pool = <String, ProducerModel>{};
+    for (final ProducerModel p in _activeProducers) {
+      pool[p.productorId] = p;
+    }
+
+    // Incluir también productores inactivos que tuvieron entregas activas en esa quincena.
+    for (final MapEntry<String, MilkReceptionModel> entry
+        in sampleByProducer.entries) {
+      if (pool.containsKey(entry.key)) continue;
+      final ProducerModel? known = _producersById[entry.key];
+      if (known != null) {
+        pool[entry.key] = known;
+      } else {
+        final MilkReceptionModel snap = entry.value;
+        final List<String> parts = snap.nombreProductorSnap
+            .trim()
+            .split(RegExp(r'\s+'))
+            .where((String s) => s.isNotEmpty)
+            .toList();
+        final String nombres = parts.isEmpty ? snap.codigoAsociadoSnap : parts.first;
+        final String apellidos =
+            parts.length > 1 ? parts.sublist(1).join(' ') : '';
+        pool[entry.key] = ProducerModel(
+          productorId: entry.key,
+          codigoAsociado: snap.codigoAsociadoSnap,
+          cedula: '',
+          nombres: nombres,
+          apellidos: apellidos,
+          telefono: '',
+          nombreFinca: 'Finca asociada',
+          vereda: 'Susa',
+          estado: 'INACTIVO',
+          aceptoHabeasData: true,
+          fechaCreacion: snap.createdAt,
+        );
+      }
+    }
+
+    final String q = _searchQuery.trim().toLowerCase();
+    final List<ProducerModel> producers = pool.values.where((ProducerModel p) {
+      if (q.isEmpty) return true;
+      return p.codigoAsociado.toLowerCase().contains(q) ||
+          p.nombreCompleto.toLowerCase().contains(q) ||
+          p.cedula.toLowerCase().contains(q) ||
+          p.nombreFinca.toLowerCase().contains(q) ||
+          p.vereda.toLowerCase().contains(q);
+    }).toList()
+      ..sort(
+        (ProducerModel a, ProducerModel b) => a.codigoAsociado
+            .toLowerCase()
+            .compareTo(b.codigoAsociado.toLowerCase()),
+      );
+
+    return producers.map((ProducerModel p) {
+      final Map<String, List<MilkReceptionModel>> filteredMap =
+          activeByProducer[p.productorId] ??
+              const <String, List<MilkReceptionModel>>{};
+      final Map<String, List<MilkReceptionModel>> fullMap =
+          allByProducer[p.productorId] ??
+              const <String, List<MilkReceptionModel>>{};
+      return ReceptionMatrixRow(
+        producer: p,
+        receptionsByDate: filteredMap,
+        allReceptionsByDate: fullMap,
+      );
+    }).toList();
+  }
+
+  int get matrixTotalPages {
+    final int total = matrixRows.length;
+    return total == 0 ? 1 : (total / _matrixRowsPerPage).ceil();
+  }
+
+  List<ReceptionMatrixRow> get paginatedMatrixRows {
+    final List<ReceptionMatrixRow> list = matrixRows;
+    final int safePage = _matrixPage.clamp(1, matrixTotalPages);
+    final int start = (safePage - 1) * _matrixRowsPerPage;
+    if (start >= list.length) {
+      return const <ReceptionMatrixRow>[];
+    }
+    final int end = (start + _matrixRowsPerPage).clamp(0, list.length);
+    return list.sublist(start, end);
+  }
+
+  Map<String, double> get matrixDayTotals {
+    final Map<String, double> totals = <String, double>{
+      for (final DateTime day in matrixDays)
+        ReceptionService.formatDate(day): 0.0,
+    };
+    for (final ReceptionMatrixRow row in matrixRows) {
+      for (final String dateKey in totals.keys) {
+        totals[dateKey] = (totals[dateKey] ?? 0.0) + row.litersForDate(dateKey);
+      }
+    }
+    return totals;
+  }
+
+  double get matrixGrandTotal => matrixRows.fold<double>(
+        0.0,
+        (double acc, ReceptionMatrixRow row) => acc + row.totalLiters,
+      );
+
+  int get matrixTotalDeliveries => matrixRows.fold<int>(
+        0,
+        (int acc, ReceptionMatrixRow row) => acc + row.deliveryCount,
+      );
 
   double get todayTotalLiters => _receptions
       .where(
@@ -212,6 +496,9 @@ class ReceptionController extends ChangeNotifier {
 
     try {
       final prodResult = await _producerService.listProducers();
+      _producersById = <String, ProducerModel>{
+        for (final ProducerModel p in prodResult.producers) p.productorId: p,
+      };
       _activeProducers = prodResult.producers
           .where((ProducerModel p) => p.isActivo)
           .toList()
@@ -415,6 +702,117 @@ class ReceptionController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Registra una entrega desde una celda específica de la planilla sin alterar la captura superior.
+  Future<({bool saved, MilkReceptionModel? duplicateFound})>
+      registerDeliveryForProducer({
+    required ProducerModel producer,
+    required double litros,
+    required String jornada,
+    required String operarioUid,
+    required String fechaEntrega,
+    DateTime? timestamp,
+    bool allowDuplicate = false,
+  }) async {
+    _isSaving = true;
+    _errorMessage = null;
+    _feedbackMessage = null;
+    notifyListeners();
+
+    try {
+      final MilkReceptionModel saved =
+          await _receptionService.registerReception(
+        producer: producer,
+        litros: litros,
+        jornada: jornada,
+        operarioUid: operarioUid,
+        timestamp: timestamp,
+        fechaEntregaOverride: fechaEntrega,
+        allowDuplicate: allowDuplicate,
+        isOnline: _isOnline,
+      );
+      _receptions = <MilkReceptionModel>[saved, ..._receptions];
+      _pendingSyncCount = (await _hiveService.getPendingReceptions()).length;
+      _feedbackMessage =
+          'Entrega registrada ($fechaEntrega): ${saved.litros.toStringAsFixed(1)} L para ${saved.nombreProductorSnap}.';
+      _isSaving = false;
+      notifyListeners();
+      return (saved: true, duplicateFound: null);
+    } on DuplicateReceptionException catch (dup) {
+      _isSaving = false;
+      notifyListeners();
+      return (saved: false, duplicateFound: dup.existingReception);
+    } on ReceptionServiceException catch (e) {
+      _errorMessage = e.message;
+      _isSaving = false;
+      notifyListeners();
+      return (saved: false, duplicateFound: null);
+    } catch (e) {
+      _errorMessage = 'No fue posible registrar la entrega: $e';
+      _isSaving = false;
+      notifyListeners();
+      return (saved: false, duplicateFound: null);
+    }
+  }
+
+  void setViewMode(ReceptionViewMode mode) {
+    if (_viewMode == mode) return;
+    _viewMode = mode;
+    notifyListeners();
+  }
+
+  void previousMatrixQuincena() {
+    if (_matrixFirstHalf) {
+      if (_matrixMonth == 1) {
+        _matrixMonth = 12;
+        _matrixYear--;
+      } else {
+        _matrixMonth--;
+      }
+      _matrixFirstHalf = false;
+    } else {
+      _matrixFirstHalf = true;
+    }
+    _matrixPage = 1;
+    notifyListeners();
+  }
+
+  void nextMatrixQuincena() {
+    if (!canGoNextMatrixQuincena) return;
+    if (!_matrixFirstHalf) {
+      if (_matrixMonth == 12) {
+        _matrixMonth = 1;
+        _matrixYear++;
+      } else {
+        _matrixMonth++;
+      }
+      _matrixFirstHalf = true;
+    } else {
+      _matrixFirstHalf = false;
+    }
+    _matrixPage = 1;
+    notifyListeners();
+  }
+
+  void goToCurrentMatrixQuincena() {
+    final DateTime now = DateTime.now().toLocal();
+    _matrixYear = now.year;
+    _matrixMonth = now.month;
+    _matrixFirstHalf = now.day <= 15;
+    _matrixPage = 1;
+    notifyListeners();
+  }
+
+  void setMatrixPage(int page) {
+    _matrixPage = page.clamp(1, matrixTotalPages);
+    notifyListeners();
+  }
+
+  void setMatrixRowsPerPage(int rows) {
+    _matrixRowsPerPage = rows;
+    _matrixPage = 1;
+    notifyListeners();
+  }
+
   void setDateFilterMode(ReceptionDateFilterMode mode) {
     _dateFilterMode = mode;
     _currentPage = 1;
@@ -424,18 +822,21 @@ class ReceptionController extends ChangeNotifier {
   void setShiftFilter(String shift) {
     _shiftFilter = shift;
     _currentPage = 1;
+    _matrixPage = 1;
     notifyListeners();
   }
 
   void setStatusFilter(String status) {
     _statusFilter = status;
     _currentPage = 1;
+    _matrixPage = 1;
     notifyListeners();
   }
 
   void setSearchQuery(String query) {
     _searchQuery = query;
     _currentPage = 1;
+    _matrixPage = 1;
     notifyListeners();
   }
 

@@ -310,5 +310,102 @@ void main() {
       expect(ctrl.todayDeliveriesCount, 2);
       expect(ctrl.quincenaTotalLiters, 42.5);
     });
+
+    test('Agrupa planilla por productor y días, filtra por jornada, navega quincenas y registra por fecha', () async {
+      final HiveService memoryHive = HiveService(enablePersistence: false);
+      final _InMemoryRemoteReceptionDataSource remoteRec =
+          _InMemoryRemoteReceptionDataSource();
+      final ProducerModel secondProducer = activeProducer.copyWith(
+        productorId: 'prod-2',
+        codigoAsociado: 'ASO-002',
+        cedula: '1073500999',
+        nombres: 'Pedro',
+        apellidos: 'Alarcón',
+      );
+      final ProducerService producerService = ProducerService(
+        hiveService: memoryHive,
+        remoteDataSource: _InMemoryProducerDataSource(<ProducerModel>[
+          activeProducer,
+          secondProducer,
+        ]),
+      );
+      final ReceptionService receptionService = ReceptionService(
+        hiveService: memoryHive,
+        remoteDataSource: remoteRec,
+      );
+      final ReceptionController ctrl = ReceptionController(
+        hiveService: memoryHive,
+        receptionService: receptionService,
+        producerService: producerService,
+      );
+
+      await ctrl.loadReceptions(isOnlineOverride: true);
+      expect(ctrl.viewMode, ReceptionViewMode.matrix);
+      expect(ctrl.isCurrentMatrixQuincena, isTrue);
+      expect(ctrl.canGoNextMatrixQuincena, isFalse);
+
+      final DateTime firstDayInQuincena = ctrl.matrixDays.first;
+      final String firstDayStr = ReceptionService.formatDate(firstDayInQuincena);
+      final DateTime auditTimestamp = DateTime.utc(2026, 11, 18, 14, 20);
+
+      final res1 = await ctrl.registerDeliveryForProducer(
+        producer: activeProducer,
+        litros: 20.0,
+        jornada: AppConstants.shiftMorning,
+        operarioUid: operarioActor.uid,
+        fechaEntrega: firstDayStr,
+        timestamp: auditTimestamp,
+      );
+      final res2 = await ctrl.registerDeliveryForProducer(
+        producer: activeProducer,
+        litros: 15.0,
+        jornada: AppConstants.shiftAfternoon,
+        operarioUid: operarioActor.uid,
+        fechaEntrega: firstDayStr,
+        timestamp: auditTimestamp,
+      );
+      final res3 = await ctrl.registerDeliveryForProducer(
+        producer: secondProducer,
+        litros: 10.5,
+        jornada: AppConstants.shiftMorning,
+        operarioUid: operarioActor.uid,
+        fechaEntrega: firstDayStr,
+        timestamp: auditTimestamp,
+      );
+      expect(res1.saved && res2.saved && res3.saved, isTrue);
+
+      // El createdAt conserva la marca temporal real (Ley 527) mientras fechaEntrega apunta a la celda elegida
+      expect(ctrl.allReceptions.first.fechaEntrega, firstDayStr);
+      expect(ctrl.allReceptions.first.createdAt, auditTimestamp);
+
+      // Agrupación de planilla completa (M + T)
+      expect(ctrl.matrixRows.length, 2);
+      expect(ctrl.matrixRows[0].producer.codigoAsociado, 'ASO-001');
+      expect(ctrl.matrixRows[0].morningLitersForDate(firstDayStr), 20.0);
+      expect(ctrl.matrixRows[0].afternoonLitersForDate(firstDayStr), 15.0);
+      expect(ctrl.matrixRows[0].litersForDate(firstDayStr), 35.0);
+      expect(ctrl.matrixRows[0].totalLiters, 35.0);
+      expect(ctrl.matrixRows[1].totalLiters, 10.5);
+      expect(ctrl.matrixDayTotals[firstDayStr], 45.5);
+      expect(ctrl.matrixGrandTotal, 45.5);
+      expect(ctrl.matrixTotalDeliveries, 3);
+
+      // Filtro por jornada TARDE
+      ctrl.setShiftFilter(AppConstants.shiftAfternoon);
+      expect(ctrl.matrixRows[0].litersForDate(firstDayStr), 15.0);
+      expect(ctrl.matrixRows[1].litersForDate(firstDayStr), 0.0);
+      expect(ctrl.matrixGrandTotal, 15.0);
+
+      ctrl.setShiftFilter('ALL');
+      final String currentLabel = ctrl.matrixQuincenaLabel;
+      ctrl.previousMatrixQuincena();
+      expect(ctrl.matrixQuincenaLabel, isNot(currentLabel));
+      expect(ctrl.isCurrentMatrixQuincena, isFalse);
+      expect(ctrl.canGoNextMatrixQuincena, isTrue);
+
+      ctrl.nextMatrixQuincena();
+      expect(ctrl.matrixQuincenaLabel, currentLabel);
+      expect(ctrl.isCurrentMatrixQuincena, isTrue);
+    });
   });
 }

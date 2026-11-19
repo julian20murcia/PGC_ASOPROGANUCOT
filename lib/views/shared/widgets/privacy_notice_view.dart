@@ -15,7 +15,11 @@ class PrivacyNoticeView extends StatelessWidget {
   final PrivacyNotice notice;
   final VoidCallback? onPolicyOpened;
 
-  Future<void> _openPolicy(BuildContext context) async {
+  static Future<void> openPolicy(
+    BuildContext context,
+    PrivacyNotice notice, {
+    VoidCallback? onPolicyOpened,
+  }) async {
     try {
       if (await launchUrl(
         notice.policyUri,
@@ -45,6 +49,9 @@ class PrivacyNoticeView extends StatelessWidget {
     );
     if (context.mounted) onPolicyOpened?.call();
   }
+
+  Future<void> _openPolicy(BuildContext context) =>
+      openPolicy(context, notice, onPolicyOpened: onPolicyOpened);
 
   @override
   Widget build(BuildContext context) {

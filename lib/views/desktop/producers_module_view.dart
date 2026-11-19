@@ -870,7 +870,6 @@ class _ProducerFormDialogState extends State<_ProducerFormDialog> {
   late final TextEditingController _mobileEmailCtrl;
   late final TextEditingController _mobilePasswordCtrl;
 
-  final TextEditingController _authorizationCtrl = TextEditingController();
   late Future<PrivacyNotice> _noticeFuture;
   PrivacyNotice? _notice;
 
@@ -916,7 +915,6 @@ class _ProducerFormDialogState extends State<_ProducerFormDialog> {
     _veredaCtrl.dispose();
     _mobileEmailCtrl.dispose();
     _mobilePasswordCtrl.dispose();
-    _authorizationCtrl.dispose();
     super.dispose();
   }
 
@@ -1012,7 +1010,6 @@ class _ProducerFormDialogState extends State<_ProducerFormDialog> {
         aceptoHabeasData: _acceptedHabeasData,
         actorUid: widget.actorUid,
         privacyNotice: _notice,
-        authorizationReference: _authorizationCtrl.text,
         createMobileAccount: _createMobileAccount,
         mobileEmail: _mobileEmailCtrl.text,
         mobilePassword: _mobilePasswordCtrl.text,
@@ -1042,8 +1039,13 @@ class _ProducerFormDialogState extends State<_ProducerFormDialog> {
           controller: controller,
           enabled: enabled,
           keyboardType: keyboardType,
-          style: mono ? AppTheme.monoStyle(fontSize: 14) : null,
+          style: mono ? AppTheme.monoStyle(fontSize: 13.5) : null,
           decoration: InputDecoration(
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 11,
+            ),
             hintText: hint,
             prefixIcon: icon == null ? null : Icon(icon, size: 17),
           ),
@@ -1053,13 +1055,13 @@ class _ProducerFormDialogState extends State<_ProducerFormDialog> {
     );
   }
 
-  Widget _pair(Widget a, Widget b) {
+  Widget _pair(Widget a, Widget b, {int flexA = 1, int flexB = 1}) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Expanded(child: a),
+        Expanded(flex: flexA, child: a),
         const SizedBox(width: 12),
-        Expanded(child: b),
+        Expanded(flex: flexB, child: b),
       ],
     );
   }
@@ -1068,8 +1070,8 @@ class _ProducerFormDialogState extends State<_ProducerFormDialog> {
     return FutureBuilder<PrivacyNotice>(
       future: _noticeFuture,
       builder: (context, snapshot) {
-        final notice = snapshot.data;
-        final loading = snapshot.connectionState != ConnectionState.done;
+        final PrivacyNotice? notice = snapshot.data;
+        final bool loading = snapshot.connectionState != ConnectionState.done;
         if (loading || notice == null) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1077,15 +1079,15 @@ class _ProducerFormDialogState extends State<_ProducerFormDialog> {
               const Text(
                 'La asociación utiliza los datos para registrar entregas de leche, liquidar pagos y permitir la consulta del historial. El productor puede consultar, actualizar y rectificar sus datos.',
                 style: TextStyle(
-                  fontSize: 13,
-                  height: 1.45,
+                  fontSize: 12.5,
+                  height: 1.4,
                   color: AppTheme.textSecondary,
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               if (loading)
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(11),
                   decoration: BoxDecoration(
                     color: AppTheme.canvasAlt,
                     borderRadius: BorderRadius.circular(AppTheme.radiusCard),
@@ -1097,7 +1099,7 @@ class _ProducerFormDialogState extends State<_ProducerFormDialog> {
                       Text(
                         'Cargando el aviso institucional…',
                         style: TextStyle(
-                          fontSize: 12.5,
+                          fontSize: 12,
                           color: AppTheme.textSecondary,
                         ),
                       ),
@@ -1111,7 +1113,7 @@ class _ProducerFormDialogState extends State<_ProducerFormDialog> {
                 )
               else ...<Widget>[
                 Container(
-                  padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
+                  padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
                   decoration: BoxDecoration(
                     color: AppTheme.dangerBg,
                     borderRadius: BorderRadius.circular(AppTheme.radiusCard),
@@ -1120,48 +1122,155 @@ class _ProducerFormDialogState extends State<_ProducerFormDialog> {
                     ),
                   ),
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      const Icon(
-                        Icons.cloud_off_rounded,
-                        size: 18,
-                        color: AppTheme.dangerText,
+                      const Padding(
+                        padding: EdgeInsets.only(top: 1),
+                        child: Icon(
+                          Icons.cloud_off_rounded,
+                          size: 17,
+                          color: AppTheme.dangerText,
+                        ),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           _noticeError(snapshot.error),
                           style: const TextStyle(
-                            fontSize: 12.5,
-                            height: 1.4,
+                            fontSize: 12,
+                            height: 1.35,
                             color: AppTheme.dangerText,
                           ),
                         ),
                       ),
-                      const SizedBox(width: 6),
-                      TextButton.icon(
-                        onPressed: _retryNotice,
-                        icon: const Icon(Icons.refresh_rounded, size: 16),
-                        label: const Text('Reintentar'),
-                      ),
                     ],
                   ),
                 ),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton.icon(
-                    onPressed: _showPolicyPdf,
-                    icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
-                    label: const Text('Ver copia de la política (PDF)'),
-                  ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: <Widget>[
+                    TextButton.icon(
+                      onPressed: _retryNotice,
+                      icon: const Icon(Icons.refresh_rounded, size: 16),
+                      label: const Text('Reintentar'),
+                    ),
+                    TextButton.icon(
+                      onPressed: _showPolicyPdf,
+                      icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
+                      label: const Text('Ver copia de la política (PDF)'),
+                    ),
+                  ],
                 ),
               ],
             ],
           );
         }
+
+        final Map<String, String> data = notice.data;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            PrivacyNoticeView(notice: notice),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppTheme.canvasAlt,
+                borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+                border: Border.all(color: AppTheme.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: <Widget>[
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2.5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryGreenLight,
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.radiusPill,
+                          ),
+                        ),
+                        child: Text(
+                          'Versión ${data['version']}',
+                          style: AppTheme.monoStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.successText,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        data['responsable'] ?? '',
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  _PrivacyDetailLine(
+                    label: 'Contacto',
+                    text:
+                        '${data['direccion']} · ${data['telefono']} · ${data['correo']}',
+                  ),
+                  const SizedBox(height: 5),
+                  _PrivacyDetailLine(
+                    label: 'Finalidad',
+                    text: data['finalidades'] ?? '',
+                  ),
+                  const SizedBox(height: 5),
+                  _PrivacyDetailLine(
+                    label: 'Derechos',
+                    text: data['derechos'] ?? '',
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 2,
+                    children: <Widget>[
+                      TextButton.icon(
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        onPressed: () =>
+                            PrivacyNoticeView.openPolicy(context, notice),
+                        icon: const Icon(Icons.open_in_new, size: 15),
+                        label: const Text('Ver política de tratamiento'),
+                      ),
+                      TextButton.icon(
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        onPressed: _showPolicyPdf,
+                        icon: const Icon(
+                          Icons.picture_as_pdf_outlined,
+                          size: 15,
+                        ),
+                        label: const Text('Ver copia de la política (PDF)'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(height: 10),
             AnimatedContainer(
               duration: const Duration(milliseconds: 180),
@@ -1172,53 +1281,236 @@ class _ProducerFormDialogState extends State<_ProducerFormDialog> {
                 borderRadius: BorderRadius.circular(AppTheme.radiusCard),
                 border: Border.all(
                   color: _acceptedHabeasData
-                      ? AppTheme.primaryGreen.withValues(alpha: 0.4)
+                      ? AppTheme.primaryGreen.withValues(alpha: 0.45)
                       : AppTheme.inputBorder,
                 ),
               ),
-              child: Material(
-                type: MaterialType.transparency,
-                child: CheckboxListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                  controlAffinity: ListTileControlAffinity.leading,
-                  activeColor: AppTheme.primaryGreen,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppTheme.radiusCard),
-                  ),
-                  value: _acceptedHabeasData,
-                  onChanged: ctrl.isSaving
-                      ? null
-                      : (value) {
-                          setState(() => _acceptedHabeasData = value == true);
-                        },
-                  title: const Text(
-                    'Entregué el aviso y el productor autorizó previamente el tratamiento de sus datos.',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textPrimary,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  Material(
+                    type: MaterialType.transparency,
+                    child: CheckboxListTile(
+                      dense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      controlAffinity: ListTileControlAffinity.leading,
+                      activeColor: AppTheme.primaryGreen,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.radiusCard,
+                        ),
+                      ),
+                      value: _acceptedHabeasData,
+                      onChanged: ctrl.isSaving
+                          ? null
+                          : (bool? value) {
+                              setState(
+                                () => _acceptedHabeasData = value == true,
+                              );
+                            },
+                      title: const Text(
+                        'Entregué el aviso y el productor autorizó previamente el tratamiento de sus datos.',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          height: 1.35,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                  if (_acceptedHabeasData)
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(12, 0, 12, 9),
+                      child: Row(
+                        children: <Widget>[
+                          Icon(
+                            Icons.verified_outlined,
+                            size: 14,
+                            color: AppTheme.primaryGreen,
+                          ),
+                          SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              'Constancia digital automática al guardar (Ley 1581 de 2012).',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w500,
+                                color: AppTheme.successText,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
               ),
             ),
-            if (_acceptedHabeasData) ...<Widget>[
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _authorizationCtrl,
-                maxLength: 120,
-                decoration: const InputDecoration(
-                  labelText: 'Referencia del soporte firmado o electrónico',
-                  prefixIcon: Icon(Icons.description_outlined, size: 17),
-                ),
-                validator: (value) => (value ?? '').trim().isEmpty
-                    ? 'Ingresa la referencia del soporte consultable.'
-                    : null,
-              ),
-            ],
           ],
         );
       },
+    );
+  }
+
+  Widget _buildProducerDataColumn(bool enabled, ProducerController ctrl) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        const _FormSection(
+          step: 1,
+          icon: Icons.badge_outlined,
+          title: 'Datos del productor',
+          subtitle: 'Identificación y finca',
+        ),
+        const SizedBox(height: 10),
+        _pair(
+          _field(
+            label: 'Código de asociado',
+            controller: _codeCtrl,
+            enabled: enabled,
+            icon: Icons.tag_rounded,
+            hint: 'ASO-001',
+            mono: true,
+            validator: (String? v) =>
+                (v == null || v.trim().isEmpty) ? 'Código requerido.' : null,
+          ),
+          _field(
+            label: 'Cédula / Documento',
+            controller: _cedulaCtrl,
+            enabled: enabled,
+            icon: Icons.credit_card_rounded,
+            hint: '1073500123',
+            mono: true,
+            keyboardType: TextInputType.number,
+            validator: (String? v) =>
+                (v == null || v.trim().length < 5) ? 'Documento inválido.' : null,
+          ),
+          flexA: 2,
+          flexB: 3,
+        ),
+        const SizedBox(height: 10),
+        _pair(
+          _field(
+            label: 'Nombres',
+            controller: _nombresCtrl,
+            enabled: enabled,
+            hint: 'Ej. José Luis',
+            validator: (String? v) =>
+                (v == null || v.trim().isEmpty) ? 'Ingresa los nombres.' : null,
+          ),
+          _field(
+            label: 'Apellidos',
+            controller: _apellidosCtrl,
+            enabled: enabled,
+            hint: 'Ej. Rodríguez López',
+            validator: (String? v) => (v == null || v.trim().isEmpty)
+                ? 'Ingresa los apellidos.'
+                : null,
+          ),
+        ),
+        const SizedBox(height: 10),
+        _pair(
+          _field(
+            label: 'Teléfono de contacto',
+            controller: _telefonoCtrl,
+            enabled: enabled,
+            icon: Icons.phone_outlined,
+            hint: '3101234567',
+            mono: true,
+            keyboardType: TextInputType.phone,
+          ),
+          _field(
+            label: 'Vereda',
+            controller: _veredaCtrl,
+            enabled: enabled,
+            icon: Icons.place_outlined,
+            hint: 'Ej. La Glorieta',
+            validator: (String? v) =>
+                (v == null || v.trim().isEmpty) ? 'Ingresa la vereda.' : null,
+          ),
+        ),
+        const SizedBox(height: 10),
+        _field(
+          label: 'Nombre de la finca',
+          controller: _fincaCtrl,
+          enabled: enabled,
+          icon: Icons.cottage_outlined,
+          hint: 'Ej. Finca El Porvenir',
+          validator: (String? v) => (v == null || v.trim().isEmpty)
+              ? 'Ingresa el nombre de la finca.'
+              : null,
+        ),
+        const SizedBox(height: 12),
+        AppToggleCard(
+          icon: _isActive
+              ? Icons.check_circle_outline_rounded
+              : Icons.pause_circle_outline_rounded,
+          color: _isActive ? AppTheme.primaryGreen : AppTheme.textMuted,
+          title: 'Productor activo',
+          subtitle: 'Permite recibir entregas de leche en planta.',
+          value: _isActive,
+          onChanged: ctrl.isSaving
+              ? null
+              : (bool val) => setState(() => _isActive = val),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPrivacyAndAccessColumn(ProducerController ctrl) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        _FormSection(
+          step: 2,
+          icon: Icons.privacy_tip_outlined,
+          title: 'Aviso de privacidad',
+          subtitle: 'Ley 1581 de 2012',
+          done: _isEditing || _acceptedHabeasData,
+        ),
+        const SizedBox(height: 10),
+        if (!_isEditing)
+          _buildPrivacySection(ctrl)
+        else
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              AppInlineNotice(
+                icon: Icons.verified_user_outlined,
+                background: AppTheme.skyBlueLight,
+                foreground: const Color(0xFF075985),
+                message:
+                    widget.existingProducer!.soporteAutorizacion == null
+                    ? 'Autorización registrada en afiliación inicial del productor.'
+                    : 'Autorización registrada (${widget.existingProducer!.soporteAutorizacion}).',
+              ),
+              const SizedBox(height: 4),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: _showPolicyPdf,
+                  icon: const Icon(Icons.picture_as_pdf_outlined, size: 15),
+                  label: const Text('Ver copia de la política (PDF)'),
+                ),
+              ),
+            ],
+          ),
+        const SizedBox(height: 14),
+        _FormSection(
+          step: 3,
+          icon: Icons.smartphone_rounded,
+          title: 'Acceso móvil',
+          subtitle: 'Portal del ganadero',
+          done: _alreadyLinked,
+        ),
+        const SizedBox(height: 10),
+        _buildMobileAccessSection(ctrl),
+      ],
     );
   }
 
@@ -1269,6 +1561,11 @@ class _ProducerFormDialogState extends State<_ProducerFormDialog> {
                   enabled: !ctrl.isSaving,
                   obscureText: _obscurePassword,
                   decoration: InputDecoration(
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 11,
+                    ),
                     hintText: 'Mínimo 6 caracteres',
                     prefixIcon: const Icon(
                       Icons.lock_outline_rounded,
@@ -1305,15 +1602,16 @@ class _ProducerFormDialogState extends State<_ProducerFormDialog> {
   Widget build(BuildContext context) {
     final ProducerController ctrl = context.watch<ProducerController>();
     final bool enabled = !ctrl.isSaving;
-    final bool showForm = _isEditing || _acceptedHabeasData;
+    final bool wideLayout = MediaQuery.sizeOf(context).width >= 840;
+    final bool readyToSave = _isEditing || (_acceptedHabeasData && _notice != null);
 
     return Dialog(
       insetPadding: const EdgeInsets.all(20),
       clipBehavior: Clip.antiAlias,
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxWidth: 600,
-          maxHeight: MediaQuery.of(context).size.height * 0.9,
+          maxWidth: wideLayout ? 900 : 580,
+          maxHeight: MediaQuery.sizeOf(context).height * 0.9,
         ),
         child: Form(
           key: _formKey,
@@ -1322,7 +1620,7 @@ class _ProducerFormDialogState extends State<_ProducerFormDialog> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
               Container(
-                padding: const EdgeInsets.fromLTRB(22, 18, 14, 16),
+                padding: const EdgeInsets.fromLTRB(22, 16, 14, 14),
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
                     colors: <Color>[
@@ -1351,7 +1649,7 @@ class _ProducerFormDialogState extends State<_ProducerFormDialog> {
               ),
               Flexible(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(22, 18, 22, 8),
+                  padding: const EdgeInsets.fromLTRB(22, 16, 22, 16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     mainAxisSize: MainAxisSize.min,
@@ -1360,191 +1658,26 @@ class _ProducerFormDialogState extends State<_ProducerFormDialog> {
                         AppInlineNotice.danger(message: ctrl.errorMessage!),
                         const SizedBox(height: 14),
                       ],
-                      if (!_isEditing) ...<Widget>[
-                        _FormSection(
-                          step: 1,
-                          icon: Icons.privacy_tip_outlined,
-                          title: 'Aviso de privacidad',
-                          subtitle: 'Ley 1581 de 2012',
-                          done: _acceptedHabeasData,
-                        ),
-                        const SizedBox(height: 10),
-                        _buildPrivacySection(ctrl),
-                        const SizedBox(height: 20),
-                      ] else ...<Widget>[
-                        AppInlineNotice(
-                          icon: Icons.privacy_tip_outlined,
-                          background: AppTheme.skyBlueLight,
-                          foreground: const Color(0xFF075985),
-                          message:
-                              widget.existingProducer!.soporteAutorizacion ==
-                                  null
-                              ? 'Autorización histórica. Verifica el soporte en el archivo de la asociación.'
-                              : 'Soporte de autorización: ${widget.existingProducer!.soporteAutorizacion}',
-                        ),
+                      if (wideLayout)
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Expanded(
+                              flex: 6,
+                              child: _buildProducerDataColumn(enabled, ctrl),
+                            ),
+                            const SizedBox(width: 22),
+                            Expanded(
+                              flex: 5,
+                              child: _buildPrivacyAndAccessColumn(ctrl),
+                            ),
+                          ],
+                        )
+                      else ...<Widget>[
+                        _buildProducerDataColumn(enabled, ctrl),
                         const SizedBox(height: 18),
+                        _buildPrivacyAndAccessColumn(ctrl),
                       ],
-                      AnimatedSize(
-                        duration: const Duration(milliseconds: 220),
-                        curve: Curves.easeOutCubic,
-                        alignment: Alignment.topCenter,
-                        child: !showForm
-                            ? Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.all(14),
-                                margin: const EdgeInsets.only(bottom: 12),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.canvasAlt,
-                                  borderRadius: BorderRadius.circular(
-                                    AppTheme.radiusCard,
-                                  ),
-                                  border: Border.all(color: AppTheme.border),
-                                ),
-                                child: const Row(
-                                  children: <Widget>[
-                                    Icon(
-                                      Icons.lock_outline_rounded,
-                                      size: 18,
-                                      color: AppTheme.textMuted,
-                                    ),
-                                    SizedBox(width: 10),
-                                    Expanded(
-                                      child: Text(
-                                        'Confirma la autorización de datos para habilitar el formulario del productor.',
-                                        style: TextStyle(
-                                          fontSize: 12.5,
-                                          color: AppTheme.textMuted,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              )
-                            : Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: <Widget>[
-                                  _FormSection(
-                                    step: _isEditing ? 1 : 2,
-                                    icon: Icons.badge_outlined,
-                                    title: 'Datos del productor',
-                                    subtitle: 'Identificación y finca',
-                                  ),
-                                  const SizedBox(height: 12),
-                                  _pair(
-                                    _field(
-                                      label: 'Código de asociado',
-                                      controller: _codeCtrl,
-                                      enabled: enabled,
-                                      icon: Icons.tag_rounded,
-                                      hint: 'ASO-001',
-                                      mono: true,
-                                      validator: (String? v) =>
-                                          (v == null || v.trim().isEmpty)
-                                          ? 'Código requerido.'
-                                          : null,
-                                    ),
-                                    _field(
-                                      label: 'Cédula / Documento',
-                                      controller: _cedulaCtrl,
-                                      enabled: enabled,
-                                      icon: Icons.credit_card_rounded,
-                                      hint: '1073500123',
-                                      mono: true,
-                                      keyboardType: TextInputType.number,
-                                      validator: (String? v) =>
-                                          (v == null || v.trim().length < 5)
-                                          ? 'Documento inválido.'
-                                          : null,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 14),
-                                  _pair(
-                                    _field(
-                                      label: 'Nombres',
-                                      controller: _nombresCtrl,
-                                      enabled: enabled,
-                                      hint: 'Ej. José Luis',
-                                      validator: (String? v) =>
-                                          (v == null || v.trim().isEmpty)
-                                          ? 'Ingresa los nombres.'
-                                          : null,
-                                    ),
-                                    _field(
-                                      label: 'Apellidos',
-                                      controller: _apellidosCtrl,
-                                      enabled: enabled,
-                                      hint: 'Ej. Rodríguez López',
-                                      validator: (String? v) =>
-                                          (v == null || v.trim().isEmpty)
-                                          ? 'Ingresa los apellidos.'
-                                          : null,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 14),
-                                  _pair(
-                                    _field(
-                                      label: 'Teléfono de contacto',
-                                      controller: _telefonoCtrl,
-                                      enabled: enabled,
-                                      icon: Icons.phone_outlined,
-                                      hint: '3101234567',
-                                      mono: true,
-                                      keyboardType: TextInputType.phone,
-                                    ),
-                                    _field(
-                                      label: 'Vereda',
-                                      controller: _veredaCtrl,
-                                      enabled: enabled,
-                                      icon: Icons.place_outlined,
-                                      hint: 'Ej. La Glorieta',
-                                      validator: (String? v) =>
-                                          (v == null || v.trim().isEmpty)
-                                          ? 'Ingresa la vereda.'
-                                          : null,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 14),
-                                  _field(
-                                    label: 'Nombre de la finca',
-                                    controller: _fincaCtrl,
-                                    enabled: enabled,
-                                    icon: Icons.cottage_outlined,
-                                    hint: 'Ej. Finca El Porvenir',
-                                    validator: (String? v) =>
-                                        (v == null || v.trim().isEmpty)
-                                        ? 'Ingresa el nombre de la finca.'
-                                        : null,
-                                  ),
-                                  const SizedBox(height: 20),
-                                  _FormSection(
-                                    step: _isEditing ? 2 : 3,
-                                    icon: Icons.tune_rounded,
-                                    title: 'Estado y acceso',
-                                    subtitle: 'Planta y portal móvil',
-                                  ),
-                                  const SizedBox(height: 12),
-                                  AppToggleCard(
-                                    icon: _isActive
-                                        ? Icons.check_circle_outline_rounded
-                                        : Icons.pause_circle_outline_rounded,
-                                    color: _isActive
-                                        ? AppTheme.primaryGreen
-                                        : AppTheme.textMuted,
-                                    title: 'Productor activo',
-                                    subtitle:
-                                        'Permite recibir entregas de leche en planta.',
-                                    value: _isActive,
-                                    onChanged: ctrl.isSaving
-                                        ? null
-                                        : (bool val) =>
-                                              setState(() => _isActive = val),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  _buildMobileAccessSection(ctrl),
-                                  const SizedBox(height: 14),
-                                ],
-                              ),
-                      ),
                     ],
                   ),
                 ),
@@ -1559,9 +1692,9 @@ class _ProducerFormDialogState extends State<_ProducerFormDialog> {
                   children: <Widget>[
                     Expanded(
                       child: Text(
-                        showForm
-                            ? 'Los cambios quedan registrados en auditoría.'
-                            : 'Paso pendiente: autorización de datos.',
+                        readyToSave
+                            ? 'El registro y su autorización quedan guardados en auditoría.'
+                            : 'Confirma el aviso de privacidad para habilitar el guardado.',
                         style: const TextStyle(
                           fontSize: 12,
                           color: AppTheme.textMuted,
@@ -1595,6 +1728,37 @@ class _ProducerFormDialogState extends State<_ProducerFormDialog> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _PrivacyDetailLine extends StatelessWidget {
+  const _PrivacyDetailLine({required this.label, required this.text});
+
+  final String label;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text.rich(
+      TextSpan(
+        style: const TextStyle(
+          fontFamily: AppTheme.fontFamilyName,
+          fontSize: 12,
+          height: 1.4,
+          color: AppTheme.textSecondary,
+        ),
+        children: <InlineSpan>[
+          TextSpan(
+            text: '$label: ',
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              color: AppTheme.textPrimary,
+            ),
+          ),
+          TextSpan(text: text),
+        ],
       ),
     );
   }

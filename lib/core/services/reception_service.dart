@@ -147,21 +147,62 @@ class ReceptionService {
   static String formatTime(DateTime dt) =>
       '${_pad2(dt.hour)}:${_pad2(dt.minute)}:${_pad2(dt.second)}';
 
+  static const List<String> _shortMonths = <String>[
+    'Ene',
+    'Feb',
+    'Mar',
+    'Abr',
+    'May',
+    'Jun',
+    'Jul',
+    'Ago',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dic',
+  ];
+
+  static String shortMonthName(int month) =>
+      _shortMonths[(month - 1).clamp(0, 11)];
+
+  /// Rango y días de una quincena estándar (`1–15` o `16–fin de mes`) para la planilla estilo EvolMilk.
+  static ({
+    String start,
+    String end,
+    String label,
+    String rangeLabel,
+    List<DateTime> days,
+  }) quincenaRangeFor(int year, int month, bool isFirstHalf) {
+    final int lastDayOfMonth = DateTime(year, month + 1, 0).day;
+    final int startDay = isFirstHalf ? 1 : 16;
+    final int endDay = isFirstHalf ? 15 : lastDayOfMonth;
+    final DateTime startDate = DateTime(year, month, startDay);
+    final DateTime endDate = DateTime(year, month, endDay);
+    final String monthShort = shortMonthName(month);
+    final String label = isFirstHalf
+        ? '1ª quincena · ${_pad2(month)}/$year'
+        : '2ª quincena · ${_pad2(month)}/$year';
+    final String rangeLabel = '$startDay al $endDay de $monthShort $year';
+    final List<DateTime> days = List<DateTime>.generate(
+      endDay - startDay + 1,
+      (int idx) => DateTime(year, month, startDay + idx),
+    );
+    return (
+      start: formatDate(startDate),
+      end: formatDate(endDate),
+      label: label,
+      rangeLabel: rangeLabel,
+      days: days,
+    );
+  }
+
   /// Rango de corte quincenal estándar: días 1–15 y días 16–fin de mes.
   static ({String start, String end, String label}) currentQuincenaRange(
     DateTime ref,
   ) {
     final DateTime local = ref.toLocal();
-    final int lastDayOfMonth = DateTime(local.year, local.month + 1, 0).day;
-    final bool isFirstHalf = local.day <= 15;
-    final DateTime start =
-        DateTime(local.year, local.month, isFirstHalf ? 1 : 16);
-    final DateTime end =
-        DateTime(local.year, local.month, isFirstHalf ? 15 : lastDayOfMonth);
-    final String label = isFirstHalf
-        ? '1ª quincena · ${_pad2(local.month)}/${local.year}'
-        : '2ª quincena · ${_pad2(local.month)}/${local.year}';
-    return (start: formatDate(start), end: formatDate(end), label: label);
+    final info = quincenaRangeFor(local.year, local.month, local.day <= 15);
+    return (start: info.start, end: info.end, label: info.label);
   }
 
   Future<({List<MilkReceptionModel> receptions, bool fromCache})>
@@ -280,6 +321,7 @@ class ReceptionService {
     required String jornada,
     required String operarioUid,
     DateTime? timestamp,
+    String? fechaEntregaOverride,
     bool allowDuplicate = false,
     bool isOnline = true,
   }) async {
@@ -300,7 +342,9 @@ class ReceptionService {
     }
 
     final DateTime nowLocal = (timestamp ?? DateTime.now()).toLocal();
-    final String fechaEntrega = formatDate(nowLocal);
+    final String cleanOverride = (fechaEntregaOverride ?? '').trim();
+    final String fechaEntrega =
+        cleanOverride.isNotEmpty ? cleanOverride : formatDate(nowLocal);
     final String horaEntrega = formatTime(nowLocal);
     final String cleanShift = jornada.trim().toUpperCase() ==
             AppConstants.shiftAfternoon

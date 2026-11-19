@@ -346,7 +346,8 @@ void main() {
 
     await tester.tap(find.textContaining('Entregué el aviso y el productor'));
     await tester.pump();
-    expect(find.text('Referencia del soporte firmado o electrónico'), findsOneWidget);
+    expect(find.text('Referencia del soporte firmado o electrónico'), findsNothing);
+    expect(find.textContaining('Constancia digital automática'), findsOneWidget);
     expect(tester.widget<PrimaryActionButton>(saveProducer).onPressed, isNotNull);
 
     // Cerrar diálogo y navegar a Recepción de Leche
@@ -358,6 +359,8 @@ void main() {
     expect(find.text('Captura rápida en planta'), findsOneWidget);
     expect(find.text('Litros recibidos hoy'), findsOneWidget);
     expect(find.text('Registrar entrega'), findsOneWidget);
+    expect(find.text('Planilla por días'), findsOneWidget);
+    expect(find.text('Lista detallada'), findsOneWidget);
 
     // Navegar a Tarifas por Litro y Liquidaciones
     await tester.tap(find.text('Tarifas por Litro').first);

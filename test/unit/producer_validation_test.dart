@@ -115,12 +115,30 @@ void main() {
       expect(created.hasValidHabeasData, isTrue);
       expect(created.autorizadoPorUid, 'admin-uid-9');
       expect(created.fechaAutorizacionDatos, isNotNull);
+      expect(created.soporteAutorizacion, isNotNull);
+      expect(created.soporteAutorizacion, startsWith('AUT-PLANTA-ASO-001-'));
+      expect(created.soporteAutorizacion!.length, lessThanOrEqualTo(120));
       expect(created.uidUsuario, 'linked-mobile-uid-1');
       expect(created.isSynced, isTrue);
       expect(accountLinker.called, isTrue);
       expect(accountLinker.lastCedula, '1073500222');
       expect(remoteDs.auditLogs.length, 1);
       expect(remoteDs.auditLogs.first.accion, 'CREAR');
+
+      final ProducerModel withExplicitRef = await service.createProducer(
+        codigoAsociado: 'aso-002',
+        cedula: '1073500299',
+        nombres: 'Carlos',
+        apellidos: 'Rojas',
+        telefono: '3112223399',
+        nombreFinca: 'La Palma',
+        vereda: 'El Crucero',
+        estado: 'ACTIVO',
+        aceptoHabeasData: true,
+        actorUid: 'admin-uid-9',
+        authorizationReference: 'ACTA-2026-09',
+      );
+      expect(withExplicitRef.soporteAutorizacion, 'ACTA-2026-09');
     });
 
     test('Rechaza duplicados por cédula o código asociado (case-insensitive)', () async {
