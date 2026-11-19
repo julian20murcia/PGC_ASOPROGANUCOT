@@ -6,13 +6,14 @@ const { createHash } = require('node:crypto');
 const { initializeApp } = require('firebase-admin/app');
 const { getAuth } = require('firebase-admin/auth');
 const { getFirestore } = require('firebase-admin/firestore');
-const { closeMilkSettlements, registerProducerAccount } = require('../compliance');
+const { closeMilkSettlements, registerProducerAccount, signInByDocument } = require('../compliance');
 
 const host = process.env.FIRESTORE_EMULATOR_HOST;
 const project = process.env.GCLOUD_PROJECT || 'demo-asoproganucot';
 if (!/^(localhost|127\.0\.0\.1):\d+$/.test(host || '') || !project.startsWith('demo-')) {
   throw new Error('Ejecuta esta prueba con un emulador local y un proyecto demo.');
 }
+process.env.AUTH_WEB_API_KEY = 'demo';
 initializeApp({ projectId: project });
 const root = `http://${host}/v1/projects/${project}/databases/(default)/documents`;
 const prefix = `projects/${project}/databases/(default)/documents`;
@@ -208,9 +209,13 @@ test('activa al productor verificado, registra su autorización y conserva su co
   await expectStatus(read(`autorizaciones_portal/${uid}`), 403);
 
   assert.deepEqual(await registerProducerAccount.run({ auth, data: { ...data, password: 'OtraClave!123' } }), { activa: true });
+  await assert.rejects(signInByDocument.run({ data: { documento: document, password: 'OtraClave!123' } }),
+    { code: 'unauthenticated' });
+  const { email } = await signInByDocument.run({ data: { documento: document, password: data.password } });
+  assert.equal(email, current.correoAccesoInterno);
   const result = await fetch(`http://${authEmulator}/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=demo`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: current.correoAccesoInterno, password: data.password, returnSecureToken: true }),
+    body: JSON.stringify({ email, password: data.password, returnSecureToken: true }),
   });
   assert.equal(result.status, 200, await result.clone().text());
   assert.equal((await result.json()).localId, uid);

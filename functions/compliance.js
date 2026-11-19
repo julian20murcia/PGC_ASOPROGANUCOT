@@ -33,7 +33,7 @@ exports.signInByDocument = onCall(async ({ data }) => {
   if (!response.ok) throw invalid();
   const credentials = await response.json();
   if (credentials.localId !== profile.id) throw invalid();
-  return { token: await getAuth().createCustomToken(profile.id) };
+  return { email };
 });
 
 function writeVersion(db, transaction, ref, id, before, after, uid, action, reason) {

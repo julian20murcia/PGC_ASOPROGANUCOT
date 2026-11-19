@@ -60,15 +60,18 @@ class FirebaseUserService {
           email: cleanIdentifier.toLowerCase(), password: password,
         );
       } else {
-        final Map<String, dynamic> result;
+        final String email;
         try {
-          result = await callFirebaseFunction('signInByDocument', <String, dynamic>{
+          final result = await callFirebaseFunction('signInByDocument', <String, dynamic>{
             'documento': cleanIdentifier, 'password': password,
           });
+          email = result['email'] as String;
         } catch (_) {
           throw UserServiceException('No fue posible ingresar con ese documento y contraseña. Verifica tus datos o utiliza tu correo.');
         }
-        credential = await _auth.signInWithCustomToken(result['token'] as String);
+        credential = await _auth.signInWithEmailAndPassword(
+          email: email, password: password,
+        );
       }
       final String uid = credential.user?.uid ?? '';
       if (uid.isEmpty) {
