@@ -522,3 +522,117 @@ class AppRowActionButton extends StatelessWidget {
     );
   }
 }
+
+/// Pastilla con texto monoespaciado (contadores, paginación).
+class AppCountPill extends StatelessWidget {
+  const AppCountPill({super.key, required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Text(
+        text,
+        style: AppTheme.monoStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: AppTheme.textSecondary,
+        ),
+      ),
+    );
+  }
+}
+
+/// Tarjeta con interruptor, ícono y contenido opcional desplegable.
+class AppToggleCard extends StatelessWidget {
+  const AppToggleCard({
+    super.key,
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.onChanged,
+    this.child,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String subtitle;
+  final bool value;
+  final ValueChanged<bool>? onChanged;
+  final Widget? child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+      decoration: BoxDecoration(
+        color: value ? color.withValues(alpha: 0.06) : AppTheme.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radiusCard),
+        border: Border.all(
+          color: value ? color.withValues(alpha: 0.35) : AppTheme.border,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              AppIconBadge(icon: icon, color: color, size: 34),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 1),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Switch(
+                value: value,
+                activeTrackColor: AppTheme.primaryGreen,
+                onChanged: onChanged,
+              ),
+            ],
+          ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: child == null
+                ? const SizedBox(width: double.infinity)
+                : Padding(
+                    padding: const EdgeInsets.fromLTRB(2, 12, 6, 4),
+                    child: child,
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}

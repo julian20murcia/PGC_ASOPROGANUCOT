@@ -294,7 +294,7 @@ class _ProducersModuleViewState extends State<ProducersModuleView> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: <Widget>[
-                _CountPill(text: countText),
+                AppCountPill(text: countText),
                 if (ctrl.hasActiveFilters)
                   TextButton.icon(
                     onPressed: () {
@@ -326,7 +326,7 @@ class _ProducersModuleViewState extends State<ProducersModuleView> {
           const SizedBox(width: 8),
           SizedBox(width: 192, child: statusDropdown),
           const SizedBox(width: 12),
-          _CountPill(text: countText),
+          AppCountPill(text: countText),
           if (ctrl.hasActiveFilters) ...<Widget>[
             const SizedBox(width: 4),
             IconButton(
@@ -616,7 +616,7 @@ class _ProducersModuleViewState extends State<ProducersModuleView> {
                   : null,
               icon: const Icon(Icons.chevron_left_rounded),
             ),
-            _CountPill(text: '${ctrl.currentPage} / ${ctrl.totalPages}'),
+            AppCountPill(text: '${ctrl.currentPage} / ${ctrl.totalPages}'),
             IconButton(
               onPressed: ctrl.currentPage < ctrl.totalPages
                   ? () => ctrl.setPage(ctrl.currentPage + 1)
@@ -701,32 +701,6 @@ class _ProducerSummaryStrip extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(child: cards[3]),
       ],
-    );
-  }
-}
-
-class _CountPill extends StatelessWidget {
-  const _CountPill({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radiusPill),
-        border: Border.all(color: AppTheme.border),
-      ),
-      child: Text(
-        text,
-        style: AppTheme.monoStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: AppTheme.textSecondary,
-        ),
-      ),
     );
   }
 }
@@ -1218,7 +1192,7 @@ class _ProducerFormDialogState extends State<_ProducerFormDialog> {
             'Este productor ya tiene acceso móvil vinculado para consultar entregas y pagos.',
       );
     }
-    return _ToggleCard(
+    return AppToggleCard(
       icon: Icons.smartphone_rounded,
       color: AppTheme.warmGold,
       title: 'Acceso móvil del productor',
@@ -1509,7 +1483,7 @@ class _ProducerFormDialogState extends State<_ProducerFormDialog> {
                                     subtitle: 'Planta y portal móvil',
                                   ),
                                   const SizedBox(height: 12),
-                                  _ToggleCard(
+                                  AppToggleCard(
                                     icon: _isActive
                                         ? Icons.check_circle_outline_rounded
                                         : Icons.pause_circle_outline_rounded,
@@ -1665,92 +1639,6 @@ class _FormSection extends StatelessWidget {
         const SizedBox(width: 10),
         const Expanded(child: Divider()),
       ],
-    );
-  }
-}
-
-/// Tarjeta con interruptor, ícono y contenido opcional desplegable.
-class _ToggleCard extends StatelessWidget {
-  const _ToggleCard({
-    required this.icon,
-    required this.color,
-    required this.title,
-    required this.subtitle,
-    required this.value,
-    required this.onChanged,
-    this.child,
-  });
-
-  final IconData icon;
-  final Color color;
-  final String title;
-  final String subtitle;
-  final bool value;
-  final ValueChanged<bool>? onChanged;
-  final Widget? child;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
-      decoration: BoxDecoration(
-        color: value ? color.withValues(alpha: 0.06) : AppTheme.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radiusCard),
-        border: Border.all(
-          color: value ? color.withValues(alpha: 0.35) : AppTheme.border,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              AppIconBadge(icon: icon, color: color, size: 34),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 1),
-                    Text(
-                      subtitle,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppTheme.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Switch(
-                value: value,
-                activeTrackColor: AppTheme.primaryGreen,
-                onChanged: onChanged,
-              ),
-            ],
-          ),
-          AnimatedSize(
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeOutCubic,
-            alignment: Alignment.topCenter,
-            child: child == null
-                ? const SizedBox(width: double.infinity)
-                : Padding(
-                    padding: const EdgeInsets.fromLTRB(2, 12, 6, 4),
-                    child: child,
-                  ),
-          ),
-        ],
-      ),
     );
   }
 }
