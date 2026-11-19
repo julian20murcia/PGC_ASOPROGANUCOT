@@ -42,7 +42,7 @@ flutter:
     - assets/images/
     - assets/models/
     - assets/fonts/
-    - docs/privacidad/politica-y-aviso-vigente-asoproganucott.pdf
+    - docs/privacidad/politica-y-aviso-v1-1-asoproganucott.pdf
   fonts:
     - family: Inter
       fonts:

@@ -67,7 +67,7 @@ El **Administrador Central** cuenta con los 7 módulos del panel izquierdo más 
 
 ## 4. Portal Móvil del Productor / Ganadero (Android / iOS)
 
-Si ya estás en el padrón, abre el enlace que te entregó la asociación o pégalo en **Crear cuenta de productor**. Abre la política y confirma la autorización. Ingresa el documento y celular registrados en la asociación y escribe dos veces tu nueva contraseña. Luego ingresa con tu número de documento y contraseña.
+Si ya estás en el padrón, toca **Crear cuenta de productor** en el inicio de sesión. Abre la política y confirma la autorización. Ingresa el documento y celular registrados en la asociación, confirma el código que recibas por SMS y escribe dos veces tu nueva contraseña. Luego ingresa con tu número de documento y contraseña.
 
 > El portal móvil es **estrictamente de solo lectura** para entregas y pagos, diseñado con letras claras (`>= 15px`) para lectura cómoda al aire libre en finca.
 

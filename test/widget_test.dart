@@ -317,7 +317,7 @@ void main() {
     expect(tester.widget<PrimaryActionButton>(saveProducer).onPressed, isNull);
     expect(find.textContaining('registrar entregas de leche'), findsOneWidget);
     expect(find.textContaining('configuracion/privacidad'), findsOneWidget);
-    expect(find.text('Ver formato para aprobación (PDF)'), findsOneWidget);
+    expect(find.text('Ver copia de la política (PDF)'), findsOneWidget);
     expect(find.text('Referencia del soporte firmado o electrónico'), findsNothing);
 
     await tester.tap(find.text('Reintentar'));
