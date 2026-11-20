@@ -1,0 +1,60 @@
+name: Generar IPA para iOS (AltStore)
+
+# Compila la app para iOS SIN firma y la empaqueta como .ipa. El archivo se firma
+# después en el equipo del usuario con AltStore (Apple ID gratuito), que además
+# reescribe el Bundle ID. Las notificaciones push de iOS están desactivadas
+# (FcmService.iosPushEnabled = false) porque requieren clave APNs de pago.
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'ios-v*'
+
+jobs:
+  build_ipa:
+    name: Compilar .ipa sin firma
+    runs-on: macos-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Clonar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Flutter 3.44.1
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.44.1'
+          cache: true
+
+      - name: Instalar dependencias
+        run: flutter pub get --enforce-lockfile
+
+      - name: Compilar iOS (release, sin firma)
+        run: flutter build ios --release --no-codesign
+
+      - name: Empaquetar .ipa
+        run: |
+          set -euo pipefail
+          APP="build/ios/iphoneos/Runner.app"
+          test -d "$APP"
+          rm -rf Payload ASOPROGANUCOTT.ipa
+          mkdir Payload
+          cp -R "$APP" Payload/Runner.app
+          /usr/bin/zip -qry ASOPROGANUCOTT.ipa Payload
+          ls -lh ASOPROGANUCOTT.ipa
+
+      - name: Verificar contenido del .ipa
+        run: |
+          set -euo pipefail
+          unzip -l ASOPROGANUCOTT.ipa | grep -E "Runner.app/(Info.plist|Frameworks/App.framework|Assets.car)"
+          unzip -p ASOPROGANUCOTT.ipa Payload/Runner.app/Info.plist > Info.plist
+          plutil -p Info.plist | grep -E "CFBundleDisplayName|CFBundleIdentifier|MinimumOSVersion|CFBundleShortVersionString"
+
+      - name: Subir .ipa
+        uses: actions/upload-artifact@v4
+        with:
+          name: ASOPROGANUCOTT-ipa
+          path: ASOPROGANUCOTT.ipa
+          if-no-files-found: error
+          retention-days: 30

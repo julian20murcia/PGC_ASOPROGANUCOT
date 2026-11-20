@@ -26,8 +26,13 @@ class FcmService {
   Stream<AppNotificationModel> get foregroundNotifications =>
       _foregroundController.stream;
 
+  /// Push en iOS desactivado por ahora: requiere certificado APNs de una cuenta
+  /// de desarrollador de pago. La app iOS se firma con AltStore (cuenta gratuita).
+  /// Poner en true cuando exista la clave APNs cargada en Firebase.
+  static const bool iosPushEnabled = false;
+
   bool get isSupportedPlatform =>
-      !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+      !kIsWeb && (Platform.isAndroid || (Platform.isIOS && iosPushEnabled));
 
   Stream<String> get onTokenRefresh {
     if (!isSupportedPlatform) {
